@@ -1,0 +1,6 @@
+id: s0_bac_a_sable_100
+titre: "S0 — Bac à sable à 100 %"
+description: "Centrale en production à pleine puissance, aucune panne. Explorer."
+etat_initial: rp100
+duree_s: null
+pannes: []

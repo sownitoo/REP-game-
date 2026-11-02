@@ -1,0 +1,783 @@
+{
+ "version": 1,
+ "t_s": 0.0,
+ "objets": {
+  "CRF1": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "CRF2": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "CEX1": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "CEX2": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "CEX1_CLAPET": {},
+  "CEX2_CLAPET": {},
+  "CEX_RECIRC": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": 0.0,
+   "ordre_raison": "débit mini CEX",
+   "air_restant_s": 0.0
+  },
+  "PUITS_APPOINT": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "PUITS_REJET": {
+   "position": 0.0005090269488869088,
+   "auto": true,
+   "demande_auto": 0.0005090269488869088,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ABP": {},
+  "REP1": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "REP2": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "APP1": {
+   "en_marche": true,
+   "vitesse": 0.9426422900502363,
+   "auto": true,
+   "consigne_auto": 0.9426422900502363,
+   "consigne_manu": 1.1,
+   "defaut": ""
+  },
+  "APP2": {
+   "en_marche": true,
+   "vitesse": 0.9426422900502363,
+   "auto": true,
+   "consigne_auto": 0.9426422900502363,
+   "consigne_manu": 1.1,
+   "defaut": ""
+  },
+  "APP1_CLAPET": {},
+  "APP2_CLAPET": {},
+  "APD": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "APD_CLAPET": {},
+  "AHP": {},
+  "ARE1_ISOL": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE2_ISOL": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE3_ISOL": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE4_ISOL": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE1_GD": {
+   "position": 0.574916399665645,
+   "auto": true,
+   "demande_auto": 0.574916399665645,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE2_GD": {
+   "position": 0.574916399665645,
+   "auto": true,
+   "demande_auto": 0.574916399665645,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE3_GD": {
+   "position": 0.574916399665645,
+   "auto": true,
+   "demande_auto": 0.574916399665645,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE4_GD": {
+   "position": 0.574916399665645,
+   "auto": true,
+   "demande_auto": 0.574916399665645,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE1_PD": {
+   "position": 1.0,
+   "auto": true,
+   "demande_auto": 1.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE2_PD": {
+   "position": 1.0,
+   "auto": true,
+   "demande_auto": 1.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE3_PD": {
+   "position": 1.0,
+   "auto": true,
+   "demande_auto": 1.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE4_PD": {
+   "position": 1.0,
+   "auto": true,
+   "demande_auto": 1.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "ARE1_CLAPET": {},
+  "ARE2_CLAPET": {},
+  "ARE3_CLAPET": {},
+  "ARE4_CLAPET": {},
+  "VIV1": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 900.0
+  },
+  "VIV2": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 900.0
+  },
+  "VIV3": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 900.0
+  },
+  "VIV4": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 900.0
+  },
+  "VIV1_BP": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "VIV2_BP": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "VIV3_BP": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "VIV4_BP": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "VDA1": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 1800.0
+  },
+  "VDA2": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 1800.0
+  },
+  "VDA3": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 1800.0
+  },
+  "VDA4": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 1800.0
+  },
+  "GCTC_G1": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "GCTC_G2": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "GCTC_G3": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "GCTC_G4": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "GV1": {
+   "v_bulles_m3": 21.57279439365421,
+   "dpdt_bar_s": 2.4428501189004786e-11,
+   "q_kw": 850639.6786961086,
+   "qm_alim_kg_s": 467.4032637238035,
+   "h_alim_kj_kg": 961.2675384617606,
+   "qm_ligne_kg_s": 467.40326379565204,
+   "qm_decharge_kg_s": 0.0,
+   "qm_vaporise_kg_s": 467.4032638000342
+  },
+  "GV2": {
+   "v_bulles_m3": 21.57279439365421,
+   "dpdt_bar_s": 2.4428501189004786e-11,
+   "q_kw": 850639.6786961086,
+   "qm_alim_kg_s": 467.4032637238035,
+   "h_alim_kj_kg": 961.2675384617606,
+   "qm_ligne_kg_s": 467.40326379565204,
+   "qm_decharge_kg_s": 0.0,
+   "qm_vaporise_kg_s": 467.4032638000342
+  },
+  "GV3": {
+   "v_bulles_m3": 21.57279439365421,
+   "dpdt_bar_s": 2.4428501189004786e-11,
+   "q_kw": 850639.6786961086,
+   "qm_alim_kg_s": 467.4032637238035,
+   "h_alim_kj_kg": 961.2675384617606,
+   "qm_ligne_kg_s": 467.40326379565204,
+   "qm_decharge_kg_s": 0.0,
+   "qm_vaporise_kg_s": 467.4032638000342
+  },
+  "GV4": {
+   "v_bulles_m3": 21.57279439365421,
+   "dpdt_bar_s": 2.4428501189004786e-11,
+   "q_kw": 850639.6786961086,
+   "qm_alim_kg_s": 467.4032637238035,
+   "h_alim_kj_kg": 961.2675384617606,
+   "qm_ligne_kg_s": 467.40326379565204,
+   "qm_decharge_kg_s": 0.0,
+   "qm_vaporise_kg_s": 467.4032638000342
+  },
+  "GV1.volume": {
+   "m_kg": 44063.05248430508,
+   "u_kj": 58778896.266846344,
+   "p_bar": 62.99394404531139
+  },
+  "GV2.volume": {
+   "m_kg": 44063.05248430508,
+   "u_kj": 58778896.266846344,
+   "p_bar": 62.99394404531139
+  },
+  "GV3.volume": {
+   "m_kg": 44063.05248430508,
+   "u_kj": 58778896.266846344,
+   "p_bar": 62.99394404531139
+  },
+  "GV4.volume": {
+   "m_kg": 44063.05248430508,
+   "u_kj": 58778896.266846344,
+   "p_bar": 62.99394404531139
+  },
+  "GV1_NIV": {
+   "valeurs": [
+    50.00000006254542,
+    50.00000006254542,
+    50.00000006254542
+   ],
+   "pannes": [
+    false,
+    false,
+    false
+   ]
+  },
+  "GV2_NIV": {
+   "valeurs": [
+    50.00000006254542,
+    50.00000006254542,
+    50.00000006254542
+   ],
+   "pannes": [
+    false,
+    false,
+    false
+   ]
+  },
+  "GV3_NIV": {
+   "valeurs": [
+    50.00000006254542,
+    50.00000006254542,
+    50.00000006254542
+   ],
+   "pannes": [
+    false,
+    false,
+    false
+   ]
+  },
+  "GV4_NIV": {
+   "valeurs": [
+    50.00000006254542,
+    50.00000006254542,
+    50.00000006254542
+   ],
+   "pannes": [
+    false,
+    false,
+    false
+   ]
+  },
+  "SOUP1_1": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP1_2": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP1_3": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP1_4": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP1_5": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP2_1": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP2_2": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP2_3": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP2_4": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP2_5": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP3_1": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP3_2": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP3_3": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP3_4": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP3_5": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP4_1": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP4_2": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP4_3": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP4_4": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOUP4_5": {
+   "ouverte": false,
+   "sollicitations": 0
+  },
+  "SOURCE": {
+   "tmoy_c": 306.9489309295453,
+   "p_kw": 3402558.7149584023,
+   "auto": true,
+   "consigne_manu_mw": 3411.0,
+   "integrale_mw": 3.171821211957321,
+   "au": false,
+   "t_depuis_au_s": 0.0,
+   "p_avant_au_kw": 3411000.0,
+   "tref_c": 306.94893093066554
+  },
+  "TURBINE": {
+   "declenchee": false,
+   "cause": "",
+   "positions_arret": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "y_reglage": 0.8505437247968162,
+   "demande_reglage": 0.8505437247968162,
+   "vitesse_tr_min": 1500.0,
+   "couplee": true,
+   "consigne_mw": 1130.0,
+   "consigne_eff_mw": 1130.0,
+   "consigne_vitesse_tr_min": 1500.0,
+   "consigne_vitesse_eff_tr_min": 1500.0,
+   "qm_kg_s": 1869.6129617285671,
+   "dh_is_kj_kg": 881.6544889130096,
+   "p_meca_mw": 1147.2081218274484,
+   "p_elec_mw": 1130.0000000000366,
+   "_pi_charge": {
+    "integrale": 3.4273664110371234e-13,
+    "auto": true,
+    "sortie_manu": 3.265387819239069e-13,
+    "sortie": 3.265387819239069e-13
+   },
+   "_pi_vitesse": {
+    "integrale": 0.0,
+    "auto": true,
+    "sortie_manu": 0.0,
+    "sortie": 0.0
+   }
+  },
+  "CONDENSEUR": {
+   "t_c": 52.62245020231752,
+   "p_bar": 0.14551268757125121,
+   "q_entree_kw": 2255350.3538725628,
+   "q_mer_kw": 2255350.3532520304,
+   "_puits_m_kg": 148087.50046743246,
+   "_cst_m_kg": 1395558.08900004
+  },
+  "REG_GCTC": {
+   "consigne_bar": 76.0
+  },
+  "REG_VDA": {
+   "valeur": 79.0
+  },
+  "REG_PUITS": {
+   "valeur": 50.0
+  }
+ },
+ "vapeur": {
+  "p_collecteur_bar": 59.75749827136108,
+  "h_collecteur_kj_kg": 2781.1942368665673,
+  "qm_lignes_kg_s": [
+   467.40326379565204,
+   467.40326379565204,
+   467.40326379565204,
+   467.40326379565204
+  ],
+  "qm_vda_kg_s": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "qm_soupapes_kg_s": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "poste_eau": {
+  "poste": {
+   "t_abp_c": 181.85019739609058,
+   "t_ahp_c": 223.8025329312093,
+   "qm_purges_kg_s": 622.5811162556129,
+   "qm_reprise_kg_s": 622.5811162556129,
+   "qm_branches_kg_s": {
+    "L_CEX1": 623.5300095212978,
+    "L_CEX2": 623.5300095212978,
+    "L_RECIRC": 3.469300990121968e-06,
+    "L_REJET": 0.02807693369289595,
+    "L_APPOINT": 2.0750534629549116e-07,
+    "L_ABP": 1247.031938639601,
+    "L_APP1": 934.8274632119372,
+    "L_APP2": 934.8274632119372,
+    "L_APD": -0.04187152866065085,
+    "L_AHP": 1869.6130548952167,
+    "L_ARE1": 467.4032637238035,
+    "L_ARE2": 467.4032637238035,
+    "L_ARE3": 467.4032637238035,
+    "L_ARE4": 467.4032637238035
+   }
+  },
+  "reseau": {
+   "p_bar": {
+    "PUITS": 1.016506491253205,
+    "CONDENSEUR": 0.14551268757082736,
+    "CST": 2.2205661505257392,
+    "GV1": 62.993944045309036,
+    "GV2": 62.993944045309036,
+    "GV3": 62.993944045309036,
+    "GV4": 62.993944045309036,
+    "N_CEX": 34.83852258879051,
+    "N_ABP": 29.86283213055879,
+    "N_APP": 71.73436079120964,
+    "N_ARE": 68.74046920794834
+   }
+  }
+ },
+ "regulations": {
+  "PI_NIV_GV1": {
+   "integrale": 7.251648489110575e-08,
+   "auto": true,
+   "sortie_manu": -5.259607897349871e-08,
+   "sortie": -5.259607897349871e-08
+  },
+  "PI_NIV_GV2": {
+   "integrale": 7.251648489110575e-08,
+   "auto": true,
+   "sortie_manu": -5.259607897349871e-08,
+   "sortie": -5.259607897349871e-08
+  },
+  "PI_NIV_GV3": {
+   "integrale": 7.251648489110575e-08,
+   "auto": true,
+   "sortie_manu": -5.259607897349871e-08,
+   "sortie": -5.259607897349871e-08
+  },
+  "PI_NIV_GV4": {
+   "integrale": 7.251648489110575e-08,
+   "auto": true,
+   "sortie_manu": -5.259607897349871e-08,
+   "sortie": -5.259607897349871e-08
+  },
+  "PI_DEB_GV1": {
+   "integrale": 0.010404254924277863,
+   "auto": true,
+   "sortie_manu": 0.6297658964829811,
+   "sortie": 0.6297658964829811
+  },
+  "PI_DEB_GV2": {
+   "integrale": 0.010404254924277863,
+   "auto": true,
+   "sortie_manu": 0.6297658964829811,
+   "sortie": 0.6297658964829811
+  },
+  "PI_DEB_GV3": {
+   "integrale": 0.010404254924277863,
+   "auto": true,
+   "sortie_manu": 0.6297658964829811,
+   "sortie": 0.6297658964829811
+  },
+  "PI_DEB_GV4": {
+   "integrale": 0.010404254924277863,
+   "auto": true,
+   "sortie_manu": 0.6297658964829811,
+   "sortie": 0.6297658964829811
+  },
+  "PI_DP_APP": {
+   "integrale": 0.9426421692173128,
+   "auto": true,
+   "sortie_manu": 0.9426422900502363,
+   "sortie": 0.9426422900502363
+  },
+  "PI_PUITS": {
+   "integrale": 0.001761671310064234,
+   "auto": true,
+   "sortie_manu": -0.0005090269488869088,
+   "sortie": -0.0005090269488869088
+  }
+ },
+ "logique": {
+  "au": false,
+  "au_causes": [],
+  "au_t_s": 0.0,
+  "au_manuel": false,
+  "p4": false,
+  "p7": false,
+  "p14": false,
+  "p14_gv": [
+   false,
+   false,
+   false,
+   false
+  ],
+  "niveau_tres_bas_gv": [
+   false,
+   false,
+   false,
+   false
+  ],
+  "c9": true,
+  "causes_au": [],
+  "causes_turbine": [],
+  "isolement_are_au": false,
+  "isolement_are_complet": false,
+  "tempo_aspiration_app_s": [
+   0.0,
+   0.0
+  ],
+  "recirc_cex": false,
+  "app_declenchee": false,
+  "cex_declenchee": false
+ },
+ "journal": [
+  {
+   "t_s": 0.0,
+   "categorie": "info",
+   "texte": "État initial : RP 100 % stabilisé",
+   "priorite": 3
+  }
+ ],
+ "alarmes": {}
+}

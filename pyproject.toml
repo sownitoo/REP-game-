@@ -1,0 +1,9 @@
+[project]
+name = "mini-centrale-rep"
+version = "0.0.1"
+description = "Simulateur pédagogique schématique d'une centrale REP 4 boucles (générique)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["lent: tests d'intégration longs (plusieurs minutes simulées)"]
