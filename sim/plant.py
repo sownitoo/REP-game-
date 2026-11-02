@@ -60,7 +60,8 @@ class Centrale:
         self.inhiber_protections = False    # utilisé seulement pour stabiliser l'état initial
         self.journal = Journal(cfg.simulation.journal_max)
         self.alarmes = GestionAlarmes(cfg.alarmes, n.alarmes_hysteresis_pct)
-        self.historique = Historique(cfg.simulation.historique_duree_s, cfg.simulation.historique_pas_s)
+        self.historique = Historique(cfg.simulation.historique_duree_s, cfg.simulation.historique_pas_s,
+                                     cfg.simulation.dt_s)
         self.mesures: dict[str, float] = {}
 
         # --- composants génériques ---
@@ -282,6 +283,7 @@ class Centrale:
         m["condenseur.q_mer_mw"] = cd.etat.q_mer_kw / KW_PAR_MW
         m["puits.niveau_pct"] = cd.niveau_puits_pct()
         m["cst.volume_m3"] = cd.volume_cst_m3()
+        m["cst.niveau_pct"] = POURCENT * cd.volume_cst_m3() / self.cfg.cst.volume_m3
         m["alim.qm_kg_s"] = sum(pe.qm(f"L_ARE{b}") for b in self.boucles)
         m["alim.t_c"] = pe.etat.t_ahp_c
         m["abp.t_c"] = pe.etat.t_abp_c

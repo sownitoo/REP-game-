@@ -7,3 +7,4 @@ requires-python = ">=3.11"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["lent: tests d'intégration longs (plusieurs minutes simulées)"]
+filterwarnings = ["ignore:Using `httpx`"]

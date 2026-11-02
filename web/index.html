@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mini-Centrale REP</title>
+  <link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+  <!-- ======================= barre du haut ======================= -->
+  <header id="barre">
+    <div class="bloc titre">
+      <strong>Mini-Centrale REP</strong>
+      <span id="version" class="discret"></span>
+    </div>
+    <div class="bloc">
+      <span class="etiq">Temps</span>
+      <span id="temps" class="valeur gros">00:00:00</span>
+    </div>
+    <div class="bloc" id="accelerations">
+      <button data-pause="1" title="Pause">⏸</button>
+    </div>
+    <div class="bloc"><span class="etiq">Accél. tenue</span><span id="accel-reelle" class="valeur">×0</span></div>
+    <div class="bloc"><span class="etiq">État</span><span id="etat-standard" class="valeur"></span></div>
+    <div class="bloc mesures-barre" id="mesures-barre"></div>
+    <div class="bloc voyants" id="voyants"></div>
+    <div class="bloc actions">
+      <select id="choix-scenario" title="Scénario"></select>
+      <button id="btn-scenario" title="Charger le scénario">▶ Scénario</button>
+      <button id="btn-sauver" title="Télécharger l'état complet (JSON)">💾 Sauver</button>
+      <button id="btn-charger" title="Recharger un état sauvegardé">📂 Charger</button>
+      <input type="file" id="fichier" accept=".json" hidden>
+    </div>
+  </header>
+
+  <main>
+    <section id="zone-principale">
+      <nav id="onglets">
+        <button data-onglet="secondaire" class="actif">Secondaire (VVP · GRE · CEX · APP · ARE)</button>
+        <button data-onglet="logique">Logique (permissifs, AU, automatismes)</button>
+        <button data-onglet="courbes">Courbes</button>
+        <button data-onglet="journal">Journal</button>
+        <span class="discret onglets-futurs">Primaire · RCV · RRA · RIS · ASG · RRI/SEC · Électricité : versions suivantes</span>
+      </nav>
+      <div id="onglet-secondaire" class="onglet actif">
+        <svg id="synoptique" viewBox="0 0 1500 880" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div id="onglet-logique" class="onglet"><div id="logique"></div></div>
+      <div id="onglet-courbes" class="onglet">
+        <div id="courbes-outils">
+          <input id="filtre-variables" placeholder="Filtrer les variables…">
+          <select id="fenetre-courbes">
+            <option value="300">5 min</option>
+            <option value="1800" selected>30 min</option>
+            <option value="7200">2 h</option>
+          </select>
+          <span class="discret">1 à 6 variables (clic pour cocher)</span>
+        </div>
+        <div id="courbes-corps">
+          <div id="liste-variables"></div>
+          <div id="graphes"></div>
+        </div>
+      </div>
+      <div id="onglet-journal" class="onglet"><table id="journal"></table></div>
+    </section>
+
+    <aside id="panneau-droit">
+      <section id="panneau-equipement">
+        <h2 id="eq-titre">Équipement</h2>
+        <p class="discret" id="eq-aide">Cliquer sur un équipement du synoptique.</p>
+        <div id="eq-etat"></div>
+        <div id="eq-commandes"></div>
+        <div id="eq-message"></div>
+      </section>
+      <section id="panneau-alarmes">
+        <h2>Alarmes <button id="btn-acquitter-tout" title="Acquitter toutes les alarmes">Acquitter tout</button></h2>
+        <ul id="alarmes"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <script src="/web/svg.js"></script>
+  <script src="/web/synoptics/secondaire.js"></script>
+  <script src="/web/curves.js"></script>
+  <script src="/web/app.js"></script>
+</body>
+</html>
