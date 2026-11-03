@@ -34,7 +34,18 @@
 
 ### Résultats des tests d'acceptation (mesurés)
 
-RESULTATS_V2
+| # | Situation | Résultat |
+|---|---|---|
+| C1 | 1 h à 100 % | bore 1 000 ppm constant, VCT ~50 %, charge 12,5 m³/h (+ 4,5 par les joints = décharge 17), RRI ~20 °C, 0 alarme |
+| C2 | Borication 2 m³ puis dilution 4 m³ | bore +20 ppm et plus en 30 min, retour REA en auto ; la dilution fait redescendre le bore (retard dû à la VCT) |
+| C3 | Verrous V2 | aspiration RRA à 155 bar, fermeture accumulateurs sans P-11, blocage IS sans P-11, pompe RRA sans aspiration, LCV-459 avec orifice ouvert, pompe primaire sans RRI : refusés avec raison |
+| C4 | VCT vidée | appoint REA automatique, puis bascule sur la PTR (charge à 2 500 ppm), retour manuel |
+| C5 | Accumulateurs | injection sous 42 bar si non isolés, rien si isolés |
+| C6 | Aspiration RRA ouverte à 155 bar | refermée automatiquement, alarme |
+| C7 | Perte RRI | alarme immédiate, défaut des pompes primaires à 5 min, AU débit bas |
+| C8 | États | RP → AN/GV après AU, check-list AN/RRA affichée (accumulateurs, RRA… ✗) |
+| **S2** | RP → AN/GV → AN/RRA (fiche jouée pas à pas) | AN/RRA à **4,1 h**, arrêt à froid à **7,3 h** ; refroidissement ≤ **30 °C/h** (limite 56) ; bore 1 269 ppm pour 1 113 requis ; marge à la saturation ≥ 45 °C ; ni IS ni injection des accumulateurs ; RRA ~50 MW, RRI ~36 °C avec 2 voies |
+| — | Performance | ≈ 2 400 pas/s (S2 complet, 7 h simulées : 3 min de calcul) |
 
 ### Écarts par rapport à la spec / à la V1
 - **Groupe G ajouté** (spec : « groupes de régulation » lissés) : il donne un 2e levier manuel dans la vue cœur.
