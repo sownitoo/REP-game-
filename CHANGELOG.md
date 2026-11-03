@@ -31,6 +31,7 @@
   isolement ARE, ASG, phase A (décharge), aspiration PTR. L'injection elle-même arrive en V4.
 - **États standards** RP / AN/GV / AN/RRA / arrêt à froid + check-lists ; vitesse de refroidissement sur une heure glissante.
 - Scénario **S2** (RP → AN/GV → AN/RRA) avec sa fiche de conduite.
+- 96 tests (`pytest`, ≈ 5 min).
 
 ### Résultats des tests d'acceptation (mesurés)
 

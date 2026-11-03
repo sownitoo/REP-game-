@@ -66,7 +66,7 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 ## Tests
 
 ```bash
-python -m pytest              # tout (≈ 6 min, dont S2 de bout en bout)
+python -m pytest              # tout (≈ 5 min, dont S2 de bout en bout)
 python -m pytest -m "not lent"  # sans les longs transitoires
 ```
 
