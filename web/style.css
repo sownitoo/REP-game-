@@ -293,3 +293,17 @@ table.lecture td.froid, .froid { color: #a9cdf5; }
   .onglet-coeur.actif, .neutrons-corps { flex-direction: column; }
   #pilotage-coeur, .neutrons-panneau { width: 100%; border-left: 0; }
 }
+
+/* ---------------- électricité ---------------- */
+.barre-elec { stroke: #4b5560; stroke-width: 7; stroke-linecap: round; }
+.barre-elec.sous-tension { stroke: var(--vert); }
+.liaison-elec { fill: none; stroke: #4b5560; stroke-width: 2.5; stroke-dasharray: 6 4; }
+.liaison-elec.sous-tension { stroke: #7fdc9a; stroke-dasharray: none; }
+.disjoncteur { fill: #0d1217; stroke: #c8d2dc; stroke-width: 2; }
+.disjoncteur.ferme { fill: var(--vert); stroke: #bff0cf; }
+.zone-clic { fill: transparent; stroke: none; }
+.diesel .corps { fill: #2a3542; }
+.diesel.marche .corps { fill: var(--vert); stroke: #bff0cf; }
+.diesel.defaut .corps { fill: var(--rouge); }
+.alternateur-elec.couple { fill: var(--vert); }
+.batterie { fill: #1d2833; }

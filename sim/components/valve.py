@@ -69,7 +69,10 @@ class Vanne(Composant):
     # --- dynamique ---
     def avancer(self, dt: float, sources: Sources) -> None:
         cible = self.demande_effective()
-        if self.cfg.actionneur == "AOV":
+        if self.cfg.actionneur == "AOV" and self.alim and not sources.electricite_ok:
+            # électrovanne de pilotage hors tension : position de repli immédiate
+            cible = POSITIONS_REPLI.get(self.cfg.position_repli or "", self.etat.position)
+        elif self.cfg.actionneur == "AOV":
             if sources.air_ok:
                 self.etat.air_restant_s = self.reserve_air_s
             else:

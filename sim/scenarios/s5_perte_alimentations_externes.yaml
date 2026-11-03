@@ -1,0 +1,16 @@
+id: s5_perte_alimentations_externes
+titre: "S5 — Perte des alimentations électriques externes"
+description: >-
+  À 100 %, le réseau 400 kV est perdu. Les diesels doivent reprendre les tableaux secourus ; les pompes
+  primaires sont perdues : le refroidissement se fait en circulation naturelle, la vapeur part par les VDA.
+etat_initial: rp100
+duree_s: 7200
+pannes:
+  - {t_s: 30, type: perte_reseau}
+objectifs:
+  - "Constater : AU (sous-tension 2/2), turbine déclenchée, pompes primaires arrêtées."
+  - "Onglet Électricité : diesels démarrés et couplés en ~10 s, séquenceur (charge, RRI, SEC, ASG, air)."
+  - "Vérifier la circulation naturelle (débit ~5 % par boucle) et la marge à la saturation."
+  - "Les VDA évacuent la vapeur (condenseur perdu) ; l'ASG alimente les GV."
+  - "Rétablir la décharge RCV (LCV-459/460 puis un orifice), sinon le PZR se remplit."
+  - "Chaufferettes TOR (secours, sur LHB) : surveiller la charge du diesel B."

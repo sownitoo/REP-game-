@@ -49,5 +49,6 @@ def lister_scenarios() -> list[Scenario]:
 def centrale_scenario(id_scenario: str) -> Centrale:
     sc = lire_scenario(id_scenario)
     c = centrale_depuis_etat(sc.etat_initial)
+    c.pannes = [{**p, "t_s": c.t_s + p["t_s"]} for p in sc.pannes]
     c.journal.ajouter(c.t_s, "info", f"Scénario {sc.id} : {sc.titre}", PRIORITE_INFO)
     return c

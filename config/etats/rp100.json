@@ -1,5 +1,5 @@
 {
- "version": 3,
+ "version": 4,
  "t_s": 0.0,
  "objets": {
   "CRF1": {
@@ -598,8 +598,8 @@
    "auto": false,
    "demande_auto": 0.0,
    "demande_manu": 0.0,
-   "ordre": 0.0,
-   "ordre_raison": "niveau VCT",
+   "ordre": null,
+   "ordre_raison": "",
    "air_restant_s": 0.0
   },
   "RCV_ASP_VCT": {
@@ -751,6 +751,22 @@
    "consigne_manu": 1.0,
    "defaut": ""
   },
+  "SAR_C1": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "SAR_C2": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
   "ACC1_ISOL": {
    "position": 1.0,
    "auto": false,
@@ -830,7 +846,7 @@
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
-   "air_restant_s": 0.0
+   "air_restant_s": 7200.0
   },
   "ASG2": {
    "position": 0.0,
@@ -839,7 +855,7 @@
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
-   "air_restant_s": 0.0
+   "air_restant_s": 7200.0
   },
   "ASG3": {
    "position": 0.0,
@@ -848,7 +864,7 @@
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
-   "air_restant_s": 0.0
+   "air_restant_s": 7200.0
   },
   "ASG4": {
    "position": 0.0,
@@ -857,7 +873,7 @@
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
-   "air_restant_s": 0.0
+   "air_restant_s": 7200.0
   },
   "ASG1_CLAPET": {},
   "ASG2_CLAPET": {},
@@ -1385,6 +1401,88 @@
    ],
    "temps_echantillon_s": 0.0
   },
+  "ELEC": {
+   "general": {
+    "reseau_ok": true,
+    "source_normale": "TS",
+    "tensions_pct": {
+     "LGA": 100.0,
+     "LGB": 100.0,
+     "LBA": 100.0,
+     "LBB": 100.0
+    },
+    "batteries_pct": {
+     "LBA": 100.0,
+     "LBB": 100.0
+    },
+    "cc_perdu": {
+     "LBA": false,
+     "LBB": false
+    }
+   },
+   "diesels": {
+    "DIESEL_A": {
+     "etat": "arret",
+     "t_demarrage_s": 0.0,
+     "refus": false,
+     "reparation_t_s": null,
+     "charge_kw": 0.0,
+     "surcharge_s": 0.0,
+     "cause": ""
+    },
+    "DIESEL_B": {
+     "etat": "arret",
+     "t_demarrage_s": 0.0,
+     "refus": false,
+     "reparation_t_s": null,
+     "charge_kw": 0.0,
+     "surcharge_s": 0.0,
+     "cause": ""
+    }
+   },
+   "tableaux": {
+    "LHA": {
+     "tension_pct": 100.0,
+     "source": "LGA",
+     "arrivee_fermee": true,
+     "sous_tension_s": 0.0,
+     "deleste": false,
+     "sequenceur_t_s": null,
+     "sequenceur_accident": false,
+     "etape": 0
+    },
+    "LHB": {
+     "tension_pct": 100.0,
+     "source": "LGB",
+     "arrivee_fermee": true,
+     "sous_tension_s": 0.0,
+     "deleste": false,
+     "sequenceur_t_s": null,
+     "sequenceur_accident": false,
+     "etape": 0
+    }
+   }
+  },
+  "SAR": {
+   "p_bar": 7.0,
+   "fuite": 0.0
+  },
+  "JOINTS": {
+   "sans_refroidissement_s": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "fuite_m3h": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "volume_fuite_m3": 0.0,
+   "hors_domaine": false
+  },
   "REG_VDA": {
    "valeur": 79.0
   },
@@ -1656,5 +1754,6 @@
    "priorite": 3
   }
  ],
- "alarmes": {}
+ "alarmes": {},
+ "pannes": []
 }

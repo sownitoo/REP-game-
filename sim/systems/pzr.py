@@ -11,7 +11,7 @@ Modèle à 1 zone (équilibre liquide/vapeur), l'option 2 zones de la spec n'est
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from sim.components.base import Composant, Sources
 from sim.components.relief import Soupape
@@ -91,7 +91,7 @@ class Pressuriseur(Composant):
         self.table = table
         self.vol = Volume2Phase(cfg.volume_m3, table, flash)
         self.chauffe_prop = GroupeChaufferettes("PZR_CHAUF_P", cfg.chaufferettes.proportionnelles_kw, True, "LGA")
-        self.chauffe_tor = GroupeChaufferettes("PZR_CHAUF_T", cfg.chaufferettes.tor_kw, False, "LGB")
+        self.chauffe_tor = GroupeChaufferettes("PZR_CHAUF_T", cfg.chaufferettes.tor_kw, False, "LHB")   # groupe de secours (HYPOTHESE)
         self.aspersion: list[Vanne] = [composants[f"PZR_ASP{b}"] for b in boucles_aspersion]   # type: ignore[misc]
         self.porv: list[Vanne] = [composants["PZR_PORV1"], composants["PZR_PORV2"]]          # type: ignore[list-item]
         self.isol: list[Vanne] = [composants["PZR_ISOL1"], composants["PZR_ISOL2"]]          # type: ignore[list-item]
@@ -135,11 +135,12 @@ class Pressuriseur(Composant):
 
     # ------------------------------------------------------------------ dynamique
     def avancer(self, dt: float, qm_expansion_kg_s: float, h_branche_chaude_kj_kg: float,
-                qm_aspersion_kg_s: float, h_aspersion_kj_kg: float, sources: Sources) -> list[str]:
+                qm_aspersion_kg_s: float, h_aspersion_kj_kg: float,
+                sources: Callable[[Composant], Sources]) -> list[str]:
         """Bilans du pressuriseur ; renvoie les soupapes qui viennent de s'ouvrir."""
         e, s = self.etat, self.vol.sat
         for ch in (self.chauffe_prop, self.chauffe_tor):
-            ch.avancer(sources)
+            ch.avancer(sources(ch))
         e.q_chauffe_kw = self.chauffe_prop.etat.puissance_kw + self.chauffe_tor.etat.puissance_kw
         e.qm_aspersion_kg_s = qm_aspersion_kg_s
         e.qm_porv_kg_s = self.debit_porv_kg_s()

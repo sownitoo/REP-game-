@@ -1,5 +1,57 @@
 # Changelog
 
+## V3 — 2026-11-03 — Électricité, diesels, séquenceurs, batteries, air comprimé, joints des PP
+
+### Ajouté
+- **Électricité** (`sim/electrical/reseau.py`) : réseau 400 kV, alternateur, transformateurs de soutirage (TS) et
+  auxiliaires (TA) avec basculement rapide, tableaux 6,6 kV normaux LGA/LGB et secourus LHA/LHB.
+  Sur sous-tension (< 62 % pendant 1 s), le tableau est délesté, l'arrivée normale s'ouvre et le diesel démarre.
+  Une fois à vitesse (10 s), le diesel se couple et lance le séquenceur arrêt ou accident (avec IS).
+  Le diesel peut déclencher sur surcharge.
+- **Batteries 125 V** LBA / LBB : chargées depuis LHA / LHB, autonomie de 2 h (A) et 30 min (B). Sans 125 V, on perd
+  la turbopompe ASG (régulation sur la voie A), les électrovannes des VDA et des PORV.
+- **Pompes et vannes** : chaque pompe et chaque vanne motorisée suit son tableau d'alimentation (une pompe sans tension
+  déclenche, une vanne motorisée reste en place). Les vannes pneumatiques suivent l'air comprimé (repli après leur
+  réserve locale). Une électrovanne sans tension met la vanne en repli tout de suite.
+- **Air comprimé** (`sim/systems/air.py`) : collecteur + 2 compresseurs (LHA / LHB), rupture du collecteur, isolement de la fuite.
+- **Joints des pompes primaires** (`sim/systems/joints.py`) : sans injection aux joints ET sans RRI, fuite d'environ
+  5 m³/h par pompe après 13 min, puis 68 m³/h une heure plus tard. Garde-fou : si le PZR se vide ou se remplit, la
+  simulation se fige avec une alarme (hors du domaine du modèle).
+- **AU** sur sous-tension des 2 tableaux normaux (au-dessus de P-7) ; déclenchement turbine sur perte du réseau.
+- **Pannes de scénario** (`sim/scenarios/pannes.py`) : perte et retour du réseau, refus diesel (réparable), rupture d'air,
+  déclenchement d'une pompe. Commandes « formateur » : `RESEAU` → perte / retour du réseau.
+- **Interface** : onglet *Électricité · Air* (schéma unifilaire, trait vert = sous tension, disjoncteurs, diesels,
+  charges, séquenceur, batteries, air), voyants Réseau perdu / Diesels / Batteries / Air perdu / Simulation figée.
+- Scénarios **S5**, **S6**, **S12** avec leur fiche de conduite.
+
+### Résultats des tests d'acceptation (mesurés)
+
+| # | Situation | Résultat |
+|---|---|---|
+| D1 | Situation normale | 4 tableaux à 100 %, LG sur le soutirage, diesels à l'arrêt, batteries 100 %, air 7 bar, 0 alarme |
+| D2 | **S5** perte du réseau à 100 % | AU à +0,1 s (sous-tension 2/2) ; LHA/LHB repris par les diesels à **+11,2 s** ; séquenceur fini à +31 s (charge, RRI, SEC, ASG, air) ; à 1 h : circulation naturelle **5,0 %**, marge à la saturation **42,6 °C**, P PZR 155 bar (chaufferettes de secours), P GV 79 bar (VDA), diesel A chargé à 2 650 kW / 4 400 |
+| D3 | **S6** perte totale, diesel A réparé à 45 min | batterie B vide à 30 min, A à ~62 % à 45 min ; turbopompe ASG en service ; fuite aux joints > 10 m³/h ; DIESEL_A réarmé + démarré → couplé, charge relancée, plus de dégradation des joints, batterie A rechargée. Sans action : PZR vide vers 73 min → simulation figée |
+| D4 | **S12** rupture d'air | air < 5 bar à +69 s ; ARE, aspersion et décharge fermées, FCV-121 ouverte ; perte du vide → turbine → AU à +87 s ; VIV tenues 15 min ; fuite isolée + 2e compresseur : air revenu en 10 min |
+| D5 | Verrous électriques | couplage diesel (pas à vitesse, tableau sous tension), arrêt d'un diesel couplé, fermeture de l'arrivée sur LG mort, pompe primaire sans tension : refusés avec raison ; retour réseau + fermeture de l'arrivée : transfert, le diesel se découple |
+
+### Écarts par rapport à la spec
+- **Chaufferettes TOR du PZR sur le tableau secouru LHB** (spec : 6,6 kV normal). Sans elles, la pression PZR baisse de
+  ~6 bar/h en S5 et l'IS arrive au bout de 4 h ; c'est le « groupe de secours » des chaufferettes (HYPOTHESE).
+- **Vannes ASG avec 2 h de réserve d'azote** : sans cela, elles s'ouvrent en grand en black-out, noient les GV, et le
+  primaire se contracte jusqu'à vider le PZR.
+- **Séquenceur** : ASG à 15,5 s et air à 20 s ajoutés (HYPOTHESE). Avec IS, RRA et pompes IS attendront la V4.
+- Pas d'îlotage : la perte du réseau déclenche toujours la turbine.
+
+### Ce qui reste approximatif (V3)
+1. Tensions en tout-ou-rien (pas de chute de tension, de fréquence ni de courant de démarrage).
+2. Onduleurs et 220 V ondulé non représentés à part : « 125 V perdu » = contrôle-commande de la voie perdu.
+3. Air : un seul collecteur, consommation constante, sans sécheurs ni réservoirs.
+4. Joints : loi de fuite en marches d'escalier (13 min, +1 h), eau perdue dans l'enceinte sans effet (V4).
+5. Primaire diphasique et PZR plein hors domaine : la simulation se fige (V4 : brèches).
+6. Reste de la V2 : pas de xénon, vues cœur et neutrons illustratives, PZR 1 zone.
+
+204 valeurs marquées `# HYPOTHESE`, listées dans [`docs/HYPOTHESES.md`](docs/HYPOTHESES.md).
+
 ## V2 — 2026-11-03 — Interface zoomable, RCV + REA + RRA + RRI + SEC, états standards, vue cœur et neutrons
 
 ### Interface

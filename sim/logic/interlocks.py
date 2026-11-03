@@ -12,6 +12,7 @@ from sim.components.base import Composant, Condition
 from sim.components.pump import Pompe
 from sim.components.valve import Vanne
 from sim.core_model.coeur import Coeur
+from sim.electrical.reseau import Diesel, TableauSecouru
 from sim.logic.regulations import ConsigneReglable
 from sim.systems.gct import Contournement
 from sim.systems.pzr import GroupeChaufferettes
@@ -220,6 +221,37 @@ def conditions_rpr(c: Centrale, action: str) -> list[Condition]:
     return []
 
 
+def conditions_diesel(c: Centrale, d: Diesel, action: str) -> list[Condition]:
+    e = d.etat
+    tb = c.elec.tableaux[d.tableau]
+    if action == "demarrer":
+        return [Condition("Diesel à l'arrêt", e.etat in ("arret", "echec")),
+                Condition("Pas de panne en cours (réarmer après réparation)", not e.refus)]
+    if action == "arreter":
+        return [Condition("Diesel en marche", d.en_service), Condition("Diesel découplé", e.etat != "couple")]
+    if action == "coupler":
+        return [Condition("Diesel à vitesse et tension", e.etat == "pret"),
+                Condition(f"Tableau {tb.id} hors tension", not tb.sous_tension),
+                Condition("Arrivée normale ouverte", not tb.etat.arrivee_fermee)]
+    if action == "decoupler":
+        return [Condition("Diesel couplé", e.etat == "couple")]
+    if action == "rearmer":
+        repare = e.reparation_t_s is not None and c.t_s >= e.reparation_t_s
+        reste = "" if e.reparation_t_s is None else f" ({max(0.0, e.reparation_t_s - c.t_s) / 60:.0f} min)"
+        return [Condition("Diesel en panne ou en échec", e.refus or e.etat == "echec"),
+                Condition("Panne réparée" + reste, repare or not e.refus)]
+    return []
+
+
+def conditions_tableau(c: Centrale, tb: TableauSecouru, action: str) -> list[Condition]:
+    if action == "fermer_arrivee":
+        return [Condition("Arrivée ouverte", not tb.etat.arrivee_fermee),
+                Condition(f"Tableau normal {tb.normal} sous tension", c.elec.sous_tension(tb.normal))]
+    if action == "ouvrir_arrivee":
+        return [Condition("Arrivée fermée", tb.etat.arrivee_fermee)]
+    return []
+
+
 def conditions_rea(c: Centrale, action: str) -> list[Condition]:
     rea = c.rea.etat
     if action == "borication":
@@ -270,4 +302,13 @@ def conditions(c: Centrale, obj: Composant, action: str, valeur: float | None) -
         return [_plage(valeur, obj.mini, obj.maxi, obj.unite)]
     if obj is c.rea:
         return conditions_rea(c, action)
+    if isinstance(obj, Diesel):
+        return conditions_diesel(c, obj, action)
+    if isinstance(obj, TableauSecouru):
+        return conditions_tableau(c, obj, action)
+    if obj is c.elec:
+        return [Condition("Réseau disponible" if action == "perte_reseau" else "Réseau perdu",
+                          c.elec.etat.reseau_ok == (action == "perte_reseau"))]
+    if obj is c.air:
+        return [Condition("Fuite présente sur le collecteur", c.air.etat.fuite > 0.0)]
     return []

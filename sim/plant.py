@@ -27,11 +27,15 @@ from sim.core_model.coeur import PCM, Coeur
 from sim.logic import interlocks
 from sim.logic.protection import Logique
 from sim.logic.regulations import Regulations
+from sim.electrical.reseau import Diesel, Electricite, TableauSecouru
+from sim.scenarios import pannes
 from sim.systems.accumulateurs import Accumulateurs
+from sim.systems.air import AirComprime
 from sim.systems.asg import ASG
 from sim.systems.condenseur import Condenseur
 from sim.systems.gct import Contournement
 from sim.systems.gv import GenerateurVapeur
+from sim.systems.joints import DEBIT_INJECTION_MIN_M3H, JointsPP
 from sim.systems.poste_eau import PosteEau
 from sim.systems.pzr import Pressuriseur
 from sim.systems.rcp import COEUR, DESCENTE, PLENUM, CircuitPrimaire, bc, bf, gvp
@@ -43,7 +47,7 @@ from sim.systems.vvp import Vapeur
 from sim.thermo.tables import obtenir_table
 from sim.units import KG_PAR_T, KW_PAR_MW, POURCENT, S_PAR_H, interp_table
 
-VERSION_SAUVEGARDE = 3
+VERSION_SAUVEGARDE = 4
 ENERGIE_FISSION_J = 3.2e-11       # ~200 MeV récupérés par fission
 W_PAR_KW = 1.0e3
 PERIODE_INFINIE_S = 1.0e9         # réacteur critique : période infinie (affichée « ∞ »)
@@ -94,7 +98,8 @@ class Reponse:
 
 
 class Centrale:
-    """Centrale V2 : primaire 4 boucles + PZR + cœur, RCV/REA, RRA, RRI/SEC, accumulateurs, secondaire, ASG."""
+    """Centrale V3 : primaire 4 boucles + PZR + cœur, RCV/REA, RRA, RRI/SEC, accumulateurs, secondaire, ASG,
+    électricité (réseau, tableaux, diesels, séquenceurs, batteries), air comprimé, joints des pompes primaires."""
 
     def __init__(self, cfg: CentraleCfg | None = None) -> None:
         self.cfg = cfg = cfg or charger_config()
@@ -153,6 +158,10 @@ class Centrale:
         self.accus = Accumulateurs(cfg.accumulateurs, self.composants, self.boucles,
                                    self.table.rho_liq_kg_m3(cfg.accumulateurs.t_c))
         self.suivi = Suivi(nom.tmoy_c)
+        self.elec = Electricite(cfg.electricite, self.pompes)
+        self.air = AirComprime(cfg.air_comprime, [self.pompes["SAR_C1"], self.pompes["SAR_C2"]])
+        self.joints = JointsPP(cfg.joints_pp, len(self.boucles))
+        self.pannes: list[dict[str, Any]] = []
         self.logique = Logique(self)
         self.regulations = Regulations(cfg.regulations, self)
 
@@ -164,6 +173,7 @@ class Centrale:
             self.gct.id: self.gct, r.reg_vda.id: r.reg_vda, r.reg_puits.id: r.reg_puits,
             r.reg_p_pzr.id: r.reg_p_pzr, self.pzr.chauffe_prop.id: self.pzr.chauffe_prop,
             self.pzr.chauffe_tor.id: self.pzr.chauffe_tor, self.rea.id: self.rea,
+            self.elec.id: self.elec, self.air.id: self.air, **self.elec.diesels, **self.elec.tableaux,
         }
         self.initialiser_100pct()
 
@@ -172,8 +182,10 @@ class Centrale:
         return self.gvs[self.boucles.index(b)]
 
     def sources(self, composant: Composant) -> Sources:
-        """Électricité et air disponibles pour ce composant (V1 : toujours disponibles, cf. V3)."""
-        return Sources()
+        """Électricité (tableau d'alimentation) et air comprimé disponibles pour ce composant."""
+        alim, air = composant.alim, composant.air
+        return Sources(electricite_ok=self.elec.sous_tension(alim) if alim else True,
+                       air_ok=self.air.disponible if air else True)
 
     def qm_charge_kg_s(self) -> float:
         """Charge RCV + part des joints qui entre au primaire."""
@@ -237,7 +249,7 @@ class Centrale:
         for rep in ouvertes:
             v = self.vannes[rep]
             v.etat.position = v.etat.demande_manu = 1.0
-        for p in (self.rcv.pompes[0], self.rri.pompes[0], self.rri.pompes_sec[0]):
+        for p in (self.rcv.pompes[0], self.rri.pompes[0], self.rri.pompes_sec[0], self.air.compresseurs[0]):
             p.demarrer()
             p.etat.vitesse = 1.0
         rc = cfg.rcv
@@ -309,6 +321,12 @@ class Centrale:
     # ================================================================== pas de temps
     def pas(self) -> None:
         dt = self.dt_s
+        if self.joints.etat.hors_domaine:
+            return          # PZR vide : le primaire sort du domaine du modèle, la simulation est figée
+        # 1-2. pannes programmées, électricité, air comprimé
+        pannes.avancer(self)
+        self.elec.avancer(dt, self, self.logique.etat.is_actif)
+        self.air.avancer(dt)
         # 3. logique
         self.logique.evaluer(dt)
         # 4. régulations puis actionneurs
@@ -383,8 +401,16 @@ class Centrale:
         vitesses = [pr.pompes[self.boucles.index(b)].etat.vitesse for b in boucles_asp]
         qm_asp = self.pzr.debit_aspersion_kg_s(vitesses, tab.rho_primaire_kg_m3(t_asp))
         q_rra_net = self.rra.q_total_kw - self.rra.chaleur_pompes_kw()
-        pr.avancer(dt, self.coeur.puissance_thermique_kw, self.gvs, apports, self.qm_decharge_kg_s(), qm_asp,
-                   self.pzr.vol.sat.hf_kj_kg, q_rra_net)
+        # joints des pompes primaires : fuite si ni injection aux joints ni RRI
+        injection_joints = self.rcv.nb_pompes() > 0 and e_rcv.q_joints_m3h > DEBIT_INJECTION_MIN_M3H
+        deja_hors_domaine = self.joints.etat.hors_domaine
+        self.joints.avancer(dt, injection_joints, rri_ok, p_prim, self.pzr.niveau_pct)
+        if self.joints.etat.hors_domaine and not deja_hors_domaine:
+            self.journal.ajouter(self.t_s, "automatisme", "PZR vide ou plein : hors du domaine du simulateur, "
+                                 "simulation figée (recharger un état ou un scénario)", PRIORITE_HAUTE)
+        qm_joints_fuite = self.joints.fuite_totale_m3h * tab.rho_primaire_kg_m3(pr.t(DESCENTE)) / S_PAR_H
+        pr.avancer(dt, self.coeur.puissance_thermique_kw, self.gvs, apports, self.qm_decharge_kg_s() + qm_joints_fuite,
+                   qm_asp, self.pzr.vol.sat.hf_kj_kg, q_rra_net)
         # RRI / SEC : échangeurs RRA, décharge RCV, pompes primaires, autres utilisateurs
         ri = cfg.rri
         nb_pp = sum(p.etat.en_marche for p in pr.pompes)
@@ -394,7 +420,7 @@ class Centrale:
         self.suivi.avancer(dt, pr.tmoy_c)
         h_bc_exp = tab.h_primaire_kj_kg(self.primaire.t(bc(pc.boucle_expansion)))
         for s in self.pzr.avancer(dt, self.primaire.etat.qm_expansion_kg_s, h_bc_exp, qm_asp,
-                                  tab.h_primaire_kj_kg(t_asp), self.sources(self.pzr)):
+                                  tab.h_primaire_kj_kg(t_asp), self.sources):
             self.journal.ajouter(self.t_s, "automatisme", f"Ouverture soupape {s}", PRIORITE_HAUTE)
         # GV : eau alimentaire ARE + ASG
         h_are, h_asg = pe.h_alim_kj_kg, self.asg.h_eau_kj_kg
@@ -529,6 +555,28 @@ class Centrale:
             m[f"ACC{b}.volume_m3"] = self.accus.etat.v_eau_m3[i]
             m[f"ACC{b}.niveau_pct"] = POURCENT * self.accus.etat.v_eau_m3[i] / self.cfg.accumulateurs.volume_m3
         m["accu.qm_kg_s"] = self.accus.qm_total_kg_s
+        # électricité, air, joints
+        el = self.elec
+        m["elec.reseau_ok"] = float(el.etat.reseau_ok)
+        for k in self.cfg.electricite.tableaux_normaux + self.cfg.electricite.tableaux_secourus:
+            m[f"elec.{k}.tension_pct"] = el.tension_pct(k)
+        for d in el.diesels.values():
+            m[f"elec.{d.id}.en_service"] = float(d.en_service)
+            m[f"elec.{d.id}.charge_kw"] = d.etat.charge_kw
+        for lb in self.cfg.electricite.batteries:
+            m[f"elec.{lb}.charge_pct"] = el.etat.batteries_pct[lb]
+            m[f"elec.{lb}.decharge"] = float(el.batterie_en_decharge(lb))
+        m["air.p_bar"] = self.air.etat.p_bar
+        m["air.p_pct"] = POURCENT * self.air.etat.p_bar / self.cfg.air_comprime.p_nom_bar
+        m["elec.reseau_pct"] = POURCENT * float(el.etat.reseau_ok)
+        m["elec.ta_pct"] = POURCENT * float(el.etat.source_normale == "TA" or el.etat.reseau_ok)
+        m["elec.ts_pct"] = POURCENT * float(el.etat.source_normale == "TS")
+        m["elec.alternateur_pct"] = POURCENT * float(self.turbine.etat.couplee)
+        for d in el.diesels.values():
+            m[f"elec.{d.id}.tension_pct"] = POURCENT * float(d.etat.etat in ("pret", "couple"))
+        m["joints.fuite_m3h"] = self.joints.fuite_totale_m3h
+        m["joints.volume_m3"] = self.joints.etat.volume_fuite_m3
+        m["joints.hors_domaine"] = float(self.joints.etat.hors_domaine)
         m_ot, m_op = self.logique.marges_dt_pct()
         m["otdt.marge_pct"] = m_ot
         m["opdt.marge_pct"] = m_op
@@ -636,8 +684,24 @@ class Centrale:
                 obj.etat.demande_manu = obj.etat.position
             elif action == "position" and valeur is not None:
                 obj.demander(valeur / POURCENT)
+        elif isinstance(obj, Diesel):
+            self._executer_diesel(obj, action)
+        elif isinstance(obj, TableauSecouru):
+            obj.etat.arrivee_fermee = action == "fermer_arrivee"
         else:
             obj.executer(action, valeur)  # type: ignore[attr-defined]
+
+    def _executer_diesel(self, d: Diesel, action: str) -> None:
+        if action == "demarrer":
+            d.demarrer()
+        elif action == "arreter":
+            d.arreter("arrêt manuel")
+        elif action == "coupler":
+            self.elec.coupler(self, self.elec.tableaux[d.tableau])
+        elif action == "decoupler":
+            d.etat.etat = "pret"
+        elif action == "rearmer":
+            d.etat.refus, d.etat.etat, d.etat.cause = False, "arret", ""
 
     def liste_commandes(self, cible: str) -> list[dict[str, Any]]:
         """Pour le panneau équipement : chaque action avec ses conditions ✓/✗ (sans valeur)."""
@@ -665,7 +729,7 @@ class Centrale:
             pz.chauffe_prop.id: pz.chauffe_prop, pz.chauffe_tor.id: pz.chauffe_tor, "ASG": self.asg,
             "TURBINE": self.turbine, "CONDENSEUR": self.condenseur, "REG_GCTC": self.gct,
             "RCV": self.rcv, "REA": self.rea, "RRA": self.rra, "RRI": self.rri, "ACCUS": self.accus,
-            "SUIVI": self.suivi,
+            "SUIVI": self.suivi, "ELEC": self.elec, "SAR": self.air, "JOINTS": self.joints,
             r.reg_vda.id: r.reg_vda, r.reg_puits.id: r.reg_puits, r.reg_p_pzr.id: r.reg_p_pzr,
         })
         return objets
@@ -688,6 +752,7 @@ class Centrale:
             "logique": self.logique.exporter_etat(),
             "journal": self.journal.exporter(),
             "alarmes": self.alarmes.exporter(),
+            "pannes": [dict(p) for p in self.pannes],
         }
 
     def importer(self, d: dict[str, Any]) -> None:
@@ -707,6 +772,7 @@ class Centrale:
         self.logique.etat = type(self.logique.etat)(**d["logique"])
         self.journal.importer(d["journal"])
         self.alarmes.importer(d["alarmes"])
+        self.pannes = [dict(p) for p in d.get("pannes", [])]
         for vol in [gv.vol for gv in self.gvs] + [self.pzr.vol]:
             vol.mettre_a_jour()
         p_h = self.vapeur.etat.p_collecteur_bar

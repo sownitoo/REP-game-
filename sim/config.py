@@ -311,6 +311,54 @@ class SecCfg:
 
 
 @dataclass
+class DieselCfg:
+    puissance_kw: float
+    temps_demarrage_s: float
+    surcharge_pct: float
+    surcharge_delai_s: float
+
+
+@dataclass
+class EtapeSequenceurCfg:
+    t_s: float
+    pompes: dict[str, str]          # tableau secouru → pompe démarrée à cette étape
+
+
+@dataclass
+class ElectriciteCfg:
+    tableaux_normaux: list[str]
+    tableaux_secourus: list[str]
+    batteries: list[str]
+    sous_tension_pct: float
+    sous_tension_delai_s: float
+    diesel: DieselCfg
+    sequenceur_arret: list[EtapeSequenceurCfg]
+    sequenceur_accident: list[EtapeSequenceurCfg]
+    charges_fixes_kw: float
+    batterie_autonomie_s: dict[str, float]
+    batterie_recharge_s: float
+    commande_cc: dict[str, list[str]]
+
+
+@dataclass
+class AirComprimeCfg:
+    p_nom_bar: float
+    p_min_bar: float
+    chute_bar_min: float
+    capacite_compresseur: float
+    fuite_rupture: float
+
+
+@dataclass
+class JointsPpCfg:
+    delai_degradation_s: float
+    fuite_initiale_m3h: float
+    delai_rupture_s: float
+    fuite_max_m3h: float
+    p_ref_bar: float
+
+
+@dataclass
 class AccumulateursCfg:
     volume_m3: float
     volume_eau_m3: float
@@ -535,6 +583,7 @@ class PompeCfg:
     vitesse_min: float | None = None
     vitesse_max: float | None = None
     hauteur_rotor_bloque_m: float | None = None   # antidévireur : résistance au débit inverse (au débit nominal)
+    puissance_kw: float | None = None             # charge électrique (bilan des diesels)
 
 
 @dataclass
@@ -837,6 +886,9 @@ class CentraleCfg:
     rri: RriCfg
     sec: SecCfg
     accumulateurs: AccumulateursCfg
+    electricite: ElectriciteCfg
+    air_comprime: AirComprimeCfg
+    joints_pp: JointsPpCfg
     asg: AsgCfg
     generateurs_vapeur: GVCfg
     vapeur: VapeurCfg

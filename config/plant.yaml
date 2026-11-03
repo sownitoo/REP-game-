@@ -10,7 +10,7 @@
 # =============================================================================
 
 meta:
-  version: V2
+  version: V3
   nom: "Mini-Centrale REP 4 boucles (générique)"
 
 simulation:
@@ -176,6 +176,52 @@ rri:
   delai_pompes_primaires_s: 300.0   # HYPOTHESE : sans RRI, défaut des pompes primaires (spec : arrêt en ~2 min)
 sec:
   debit_pompe_m3h: 3000.0           # HYPOTHESE
+
+# --- Électricité (§4.12) : réseau, 6,6 kV normaux (LG), secourus (LH), diesels, 125 V cc (LB) -------
+electricite:
+  tableaux_normaux: [LGA, LGB]
+  tableaux_secourus: [LHA, LHB]         # LHA ← LGA / diesel A ; LHB ← LGB / diesel B
+  batteries: [LBA, LBB]                 # 125 V cc chargés depuis LHA / LHB
+  sous_tension_pct: 62.0                # spec : démarrage diesel si < 62 % pendant 1 s
+  sous_tension_delai_s: 1.0             # spec
+  diesel:
+    puissance_kw: 4400.0                # spec
+    temps_demarrage_s: 10.0             # spec : démarrage + prise de charge ≤ 10 s
+    surcharge_pct: 110.0                # HYPOTHESE
+    surcharge_delai_s: 20.0             # HYPOTHESE déclenchement sur surcharge
+  sequenceur_arret:                     # spec (s après le couplage du diesel) ; HYPOTHESE pour ASG et air
+    - {t_s: 2.0, pompes: {LHA: RCV_PC1, LHB: RCV_PC2}}
+    - {t_s: 6.5, pompes: {LHA: RRI_P1, LHB: RRI_P2}}
+    - {t_s: 11.0, pompes: {LHA: SEC_P1, LHB: SEC_P2}}
+    - {t_s: 15.5, pompes: {LHA: ASG_MP1, LHB: ASG_MP2}}
+    - {t_s: 20.0, pompes: {LHA: SAR_C1, LHB: SAR_C2}}
+  sequenceur_accident:                  # spec (avec IS) ; l'injection de sécurité elle-même arrive en V4
+    - {t_s: 2.0, pompes: {LHA: RCV_PC1, LHB: RCV_PC2}}
+    - {t_s: 15.5, pompes: {LHA: ASG_MP1, LHB: ASG_MP2}}
+    - {t_s: 20.0, pompes: {LHA: RRI_P1, LHB: RRI_P2}}
+    - {t_s: 24.5, pompes: {LHA: SEC_P1, LHB: SEC_P2}}
+    - {t_s: 29.0, pompes: {LHA: SAR_C1, LHB: SAR_C2}}
+  charges_fixes_kw: 400.0               # HYPOTHESE 380 V secouru, chargeurs, ventilation, par tableau
+  batterie_autonomie_s: {LBA: 7200.0, LBB: 1800.0}   # spec : voie A 2 h, voie B 30 min
+  batterie_recharge_s: 28800.0          # HYPOTHESE recharge complète en 8 h
+  # contrôle-commande sur batterie : sans 125 V, ces équipements sont perdus
+  commande_cc: {LBA: [ASG_TP], LBB: []}  # HYPOTHESE régulation de la turbopompe ASG sur la voie A
+
+# --- Air comprimé (§4.13) -------------------------------------------------------------
+air_comprime:
+  p_nom_bar: 7.0                        # HYPOTHESE
+  p_min_bar: 5.0                        # HYPOTHESE : en dessous, les vannes pneumatiques perdent leur air
+  chute_bar_min: 0.5                    # HYPOTHESE baisse de pression sans compresseur (consommation normale)
+  capacite_compresseur: 1.5             # HYPOTHESE débit d'un compresseur / consommation normale
+  fuite_rupture: 4.0                    # HYPOTHESE rupture du collecteur : 4 × la consommation normale
+
+# --- Joints des pompes primaires (§4.1) ----------------------------------------------------
+joints_pp:
+  delai_degradation_s: 780.0            # HYPOTHESE (≈ 13 min sans injection ni barrière thermique)
+  fuite_initiale_m3h: 4.8               # HYPOTHESE (≈ 21 gpm par pompe, à 155 bar)
+  delai_rupture_s: 3600.0               # HYPOTHESE : une heure plus tard, joints détruits
+  fuite_max_m3h: 68.0                   # spec (par pompe, en black-out)
+  p_ref_bar: 155.0
 
 # --- Accumulateurs (RIS, partie passive) ---------------------------------------------
 accumulateurs:
@@ -350,6 +396,7 @@ gabarits:
     q_nom_m3h: 100                  # HYPOTHESE
     h_nom_m: 850                    # HYPOTHESE (injecte dans un GV à ~80 bar)
     h0_m: 1050                      # HYPOTHESE
+    puissance_kw: 500.0             # HYPOTHESE
     temps_demarrage_s: 5.0
     temps_ralentissement_s: 5.0
   pompe_reprise:
@@ -365,6 +412,7 @@ gabarits:
     type: Pump
     systeme: RCV
     q_nom_m3h: 34.0                 # spec
+    puissance_kw: 600.0             # HYPOTHESE (charge électrique sur le tableau secouru)
     temps_demarrage_s: 5.0          # HYPOTHESE
     temps_ralentissement_s: 5.0
   vanne_rcv_isol:
@@ -379,6 +427,7 @@ gabarits:
     type: Pump
     systeme: RRA
     q_nom_m3h: 700                  # HYPOTHESE (~3 000 gpm)
+    puissance_kw: 400.0             # HYPOTHESE
     h_nom_m: 90                     # HYPOTHESE
     h0_m: 110                       # HYPOTHESE
     temps_demarrage_s: 5.0
@@ -402,14 +451,23 @@ gabarits:
     type: Pump
     systeme: RRI
     q_nom_m3h: 2500                 # HYPOTHESE
+    puissance_kw: 500.0             # HYPOTHESE
     temps_demarrage_s: 5.0
     temps_ralentissement_s: 10.0
   pompe_sec:
     type: Pump
     systeme: SEC
     q_nom_m3h: 3000                 # HYPOTHESE
+    puissance_kw: 400.0             # HYPOTHESE
     temps_demarrage_s: 10.0
     temps_ralentissement_s: 10.0
+  compresseur_air:
+    type: Pump
+    systeme: SAR
+    q_nom_m3h: 1.0                  # sans objet (débit relatif dans air_comprime)
+    puissance_kw: 250.0             # HYPOTHESE
+    temps_demarrage_s: 5.0
+    temps_ralentissement_s: 5.0
   vanne_are_gd:
     type: ControlValve
     systeme: ARE
@@ -467,7 +525,7 @@ gabarits:
     kv_max: 30                      # HYPOTHESE (≈ 100 m³/h sous 11 bar)
     temps_course_s: 10.0
     position_repli: ouverte         # HYPOTHESE (sécurité : alimenter les GV)
-    reserve_air_min: 0.0
+    reserve_air_min: 120.0          # HYPOTHESE bouteilles d'azote de secours (pilotage pendant un black-out)
   vanne_gctc:
     type: ControlValve
     systeme: GCT
@@ -510,7 +568,10 @@ composants:
   ARE{b}_CLAPET: {gabarit: clapet, systeme: ARE, kv_max: 6000}
   VIV{b}: {gabarit: vanne_viv}
   VIV{b}_BP: {gabarit: vanne_viv_bypass}
-  VDA{b}: {gabarit: vanne_vda}
+  VDA1: {gabarit: vanne_vda, alim: LBA}   # électrovannes de pilotage sur le 125 V (HYPOTHESE)
+  VDA2: {gabarit: vanne_vda, alim: LBA}
+  VDA3: {gabarit: vanne_vda, alim: LBB}
+  VDA4: {gabarit: vanne_vda, alim: LBB}
   GCTC_G1: {gabarit: vanne_gctc}
   GCTC_G2: {gabarit: vanne_gctc}
   GCTC_G3: {gabarit: vanne_gctc}
@@ -527,9 +588,9 @@ composants:
              position_repli: fermee, reserve_air_min: 0.0}
   PZR_ASP3: {type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, temps_course_s: 5.0,
              position_repli: fermee, reserve_air_min: 0.0}
-  PZR_PORV1: {type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, capacite_kg_s: 26.5, p_ref_bar: 162.0,
+  PZR_PORV1: {type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, alim: LBA, capacite_kg_s: 26.5, p_ref_bar: 162.0,
               temps_course_s: 1.0, position_repli: fermee, reserve_air_min: 10.0}   # spec : réserve d'air 10 min
-  PZR_PORV2: {type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, capacite_kg_s: 26.5, p_ref_bar: 162.0,
+  PZR_PORV2: {type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, alim: LBB, capacite_kg_s: 26.5, p_ref_bar: 162.0,
               temps_course_s: 1.0, position_repli: fermee, reserve_air_min: 10.0}
   PZR_ISOL1: {type: Valve, systeme: RCP, actionneur: MOV, alim: LHA, temps_course_s: 10.0}   # vanne d'isolement amont PORV ; course HYPOTHESE
   PZR_ISOL2: {type: Valve, systeme: RCP, actionneur: MOV, alim: LHB, temps_course_s: 10.0}
@@ -571,6 +632,9 @@ composants:
   RRI_P2: {gabarit: pompe_rri, alim: LHB}
   SEC_P1: {gabarit: pompe_sec, alim: LHA}
   SEC_P2: {gabarit: pompe_sec, alim: LHB}
+  # air comprimé
+  SAR_C1: {gabarit: compresseur_air, alim: LHA}
+  SAR_C2: {gabarit: compresseur_air, alim: LHB}
   # accumulateurs
   ACC{b}_ISOL: {type: Valve, systeme: RIS, actionneur: MOV, alim: LHA, temps_course_s: 60.0}   # HYPOTHESE course
   # ASG
@@ -753,6 +817,21 @@ alarmes:
   - {id: REFROID_RAPIDE, mesure: primaire.vitesse_refroidissement_c_h, haut: 56.0, priorite: 2, libelle: "Refroidissement > 56 °C sur une heure glissante"}
   - {id: ACCU_INJECTION, mesure: accu.qm_kg_s, haut: 0.5, priorite: 1, libelle: "Les accumulateurs injectent", temporisation_s: 0.0}
   - {id: RRA_FERMETURE, mesure: logique.rra_isole_auto, haut: 0.5, priorite: 1, libelle: "Aspiration RRA fermée (P > 41 bar)", temporisation_s: 0.0}
+  - {id: PERTE_RESEAU, mesure: elec.reseau_ok, bas: 0.5, priorite: 1, libelle: "Perte du réseau 400 kV", temporisation_s: 0.0}
+  - {id: LGA_HT, mesure: elec.LGA.tension_pct, bas: 62.0, priorite: 1, libelle: "Tableau 6,6 kV LGA hors tension", temporisation_s: 0.0}
+  - {id: LGB_HT, mesure: elec.LGB.tension_pct, bas: 62.0, priorite: 1, libelle: "Tableau 6,6 kV LGB hors tension", temporisation_s: 0.0}
+  - {id: LHA_HT, mesure: elec.LHA.tension_pct, bas: 62.0, priorite: 1, libelle: "Tableau secouru LHA hors tension", temporisation_s: 0.0}
+  - {id: LHB_HT, mesure: elec.LHB.tension_pct, bas: 62.0, priorite: 1, libelle: "Tableau secouru LHB hors tension", temporisation_s: 0.0}
+  - {id: DIESEL_A, mesure: elec.DIESEL_A.en_service, haut: 0.5, priorite: 2, libelle: "Diesel A en service", temporisation_s: 0.0}
+  - {id: DIESEL_B, mesure: elec.DIESEL_B.en_service, haut: 0.5, priorite: 2, libelle: "Diesel B en service", temporisation_s: 0.0}
+  - {id: BATT_A, mesure: elec.LBA.decharge, haut: 0.5, priorite: 2, libelle: "Batterie 125 V A en décharge", temporisation_s: 0.0}
+  - {id: BATT_B, mesure: elec.LBB.decharge, haut: 0.5, priorite: 2, libelle: "Batterie 125 V B en décharge", temporisation_s: 0.0}
+  - {id: LBA_HT, mesure: elec.LBA.charge_pct, bas: 0.5, priorite: 1, libelle: "Batterie A épuisée : contrôle-commande voie A perdu", temporisation_s: 0.0}
+  - {id: LBB_HT, mesure: elec.LBB.charge_pct, bas: 0.5, priorite: 1, libelle: "Batterie B épuisée : contrôle-commande voie B perdu", temporisation_s: 0.0}
+  - {id: AIR_BAS, mesure: air.p_bar, bas: 6.0, priorite: 2, libelle: "Pression d'air comprimé basse"}
+  - {id: AIR_PERDU, mesure: air.p_bar, bas: 5.0, priorite: 1, libelle: "Air comprimé perdu : vannes pneumatiques en repli", temporisation_s: 0.0}
+  - {id: JOINTS_PP, mesure: joints.fuite_m3h, haut: 0.5, priorite: 1, libelle: "Fuite aux joints des pompes primaires", temporisation_s: 0.0}
+  - {id: HORS_DOMAINE, mesure: joints.hors_domaine, haut: 0.5, priorite: 1, libelle: "PZR vide ou plein : simulation figée (hors domaine)", temporisation_s: 0.0}
   - {id: SOUS_CRITICITE, mesure: coeur.marge_arret_chaud_pcm, bas: 1000.0, priorite: 1, libelle: "Marge d'arrêt insuffisante à l'arrêt"}
   - {id: C3_C4, mesure: logique.c3_c4, haut: 0.5, priorite: 1, libelle: "Préalarme ΔT (C-3/C-4) : runback", temporisation_s: 0.0}
   - {id: ASG_EN_SERVICE, mesure: asg.qm_kg_s, haut: 1.0, priorite: 2, libelle: "ASG en service"}

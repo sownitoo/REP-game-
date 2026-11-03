@@ -27,7 +27,7 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 | ☰ | scénarios (avec fiche de conduite), sauvegarde, chargement |
 | Espace / Échap | pause / fermer le panneau |
 
-## Version actuelle : V2
+## Version actuelle : V3
 
 | Onglet | Contenu |
 |---|---|
@@ -36,6 +36,7 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 | Secondaire · ASG | vapeur, turbine, condenseur, poste d'eau ; alimentation de secours |
 | **RCV · REA** | charge (pompes, FCV-121, joints), décharge (LCV-459/460, orifices, CV-8152), VCT, PTR, appoint eau / bore |
 | **RRA · RRI · SEC** | 2 trains RRA (verrou 30 bar, fermeture auto 41 bar), boucle RRI, eau de mer, accumulateurs |
+| **Électricité · Air** | schéma unifilaire : réseau, alternateur, TA/TS, tableaux LG/LH, diesels, séquenceur, batteries 125 V, air comprimé |
 | Logique · Courbes · Journal | permissifs (dont P-11), IS (signal), seuils ; 1 à 6 courbes ; chronologie |
 
 | Modèle | Détail |
@@ -45,6 +46,15 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 | RCV / REA | débit dispo des pompes de charge, décharge ∝ √ΔP, VCT (niveau, bore), PTR, borication / dilution / auto / urgence |
 | RRA, RRI, SEC | échangeurs à contre-courant, RRI = un nœud thermique, perte RRI → défaut des pompes primaires |
 | Logique | AU, **IS (signal + ordres hors RIS)**, P-4 → P-14 dont **P-11**, C-x, accumulateurs, états standards RP / AN/GV / AN/RRA / arrêt à froid |
+| Électricité | délestage, diesels (10 s), séquenceurs arrêt / accident, batteries (2 h / 30 min), perte du 125 V |
+| Air, joints | rupture du collecteur, vannes pneumatiques en repli ; fuite des joints PP sans injection ni RRI |
+
+| Scénario (menu ☰) | Ce qu'il apprend |
+|---|---|
+| S2 RP → AN/RRA | blocages P-11, accumulateurs, bore, vitesse de refroidissement, RRA |
+| S5 perte des alimentations externes | délestage, diesels, séquenceur, circulation naturelle, VDA |
+| S6 perte totale des sources | batteries, turbopompe ASG, joints, remettre le diesel A en service à temps |
+| S12 perte d'air comprimé | positions de repli, AU, ASG, isoler la fuite |
 
 ## Scénario S2 : de RP à AN/RRA (fiche résumée, détail dans ☰)
 

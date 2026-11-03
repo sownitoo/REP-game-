@@ -61,7 +61,7 @@ def appliquer_automatismes_v2(c: Centrale, e: EtatLogique, dt: float) -> None:
     if e.is_actif:
         e.isolement_are_complet = True
         for p in c.asg.motopompes + rcv.pompes:
-            if not p.etat.en_marche:
+            if not p.etat.en_marche and c.sources(p).electricite_ok:
                 p.demarrer()
                 journal.ajouter(t, "automatisme", f"Démarrage {p.id} (IS)", PRIORITE_MOYENNE)
     raison_is = "IS (phase A)"

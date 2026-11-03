@@ -179,6 +179,9 @@ class Logique(Composant):
             causes.append("déclenchement turbine au-dessus de P-7")
         if e.is_actif:
             causes.append("injection de sécurité")
+        el = c.cfg.electricite
+        if not e.p7 and all(c.elec.tension_pct(k) < el.sous_tension_pct for k in el.tableaux_normaux):
+            causes.append("sous-tension 6,6 kV normal (2/2)")
         return causes
 
     def evaluer(self, dt: float) -> None:

@@ -6,13 +6,16 @@ const LIBELLES_ACTIONS = {
   demarrer: "Démarrer", arreter: "Arrêter", ouvrir: "Ouvrir", fermer: "Fermer",
   auto: "Passer en AUTO", manu: "Passer en MANU", position: "Position", vitesse: "Vitesse (%)",
   declencher: "Déclencher", rearmer: "Réarmer", consigne_vitesse: "Consigne vitesse (tr/min)",
-  coupler: "Coupler au réseau", decoupler: "Découpler", consigne_mw: "Consigne (MW)", consigne: "Consigne",
+  coupler: "Coupler", decoupler: "Découpler", consigne_mw: "Consigne (MW)", consigne: "Consigne",
   declencher_au: "AU manuel", rearmer_au: "Réarmer l'AU", rearmer_isolement_are: "Réarmer l'isolement ARE",
   bloquer_flux_bas: "Bloquer l'AU flux seuil bas", debloquer_flux_bas: "Débloquer l'AU flux seuil bas",
   extraire_arret: "Extraire les groupes d'arrêt", puissance: "Puissance (%)", position_g: "Groupe G (pas)",
   mode_tmoy: "Mode Tmoy (C-7 / C-8)", mode_pression: "Mode pression", rearmer_c7: "Réarmer C-7",
   borication: "Borication (m³ d'acide)", dilution: "Dilution (m³ d'eau)", arret: "Arrêt",
   bloquer_is: "Bloquer l'IS (sous P-11)", declencher_is: "IS manuelle", rearmer_is: "Réarmer l'IS",
+  ouvrir_arrivee: "Ouvrir l'arrivée normale", fermer_arrivee: "Fermer l'arrivée normale",
+  perte_reseau: "Perte du réseau (formateur)", retour_reseau: "Retour du réseau (formateur)",
+  isoler_fuite: "Isoler la fuite", decoupler: "Découpler",
 };
 const ACTIONS_AVEC_VALEUR = new Set(["position", "position_g", "vitesse", "consigne_vitesse", "consigne_mw", "consigne", "puissance",
                                      "borication", "dilution"]);
@@ -28,7 +31,8 @@ const RESUME_CLES = ["en_marche", "defaut", "position_pct", "auto", "vitesse_pct
 const RESUME_MAX = 5;
 const SYNOPTIQUES = [["synoptique-primaire", "construirePrimaire"], ["synoptique-secondaire", "construireSecondaire"],
                      ["synoptique-asg", "construireASG"], ["synoptique-rcv", "construireRCV"],
-                     ["synoptique-rra", "construireRRA"], ["synoptique-coeur", "construireVueCoeur"]];
+                     ["synoptique-rra", "construireRRA"], ["synoptique-coeur", "construireVueCoeur"],
+                     ["synoptique-elec", "construireElec"]];
 function construireVueCoeur(svg) { VueCoeur.construire(svg); }
 
 const etat = { transport: null, dernier: null, selection: null, minuterieConditions: null, seuils: {} };
@@ -170,6 +174,13 @@ function majVoyants(e) {
     ["IS bloquée", lg.is_bloquee && !lg.is_actif, "on-orange", "blocage sous P-11"],
     ["Turbine déclenchée", t.declenchee, "on-rouge", t.cause],
     ["Perte RRI", lg.perte_rri, "on-rouge", "pompes primaires à arrêter"],
+    ["Réseau perdu", e.mesures["elec.reseau_ok"] < 0.5, "on-rouge", "perte des alimentations externes"],
+    ["Diesels", e.mesures["elec.DIESEL_A.en_service"] > 0.5 || e.mesures["elec.DIESEL_B.en_service"] > 0.5, "on-orange",
+     "groupe(s) électrogène(s) en service"],
+    ["Batteries", e.mesures["elec.LBA.decharge"] > 0.5 || e.mesures["elec.LBB.decharge"] > 0.5, "on-orange",
+     `A ${fmt(e.mesures["elec.LBA.charge_pct"], 0)} % · B ${fmt(e.mesures["elec.LBB.charge_pct"], 0)} %`],
+    ["Air perdu", e.mesures["air.p_bar"] < 5, "on-rouge", "vannes pneumatiques en repli"],
+    ["Simulation figée", e.mesures["joints.hors_domaine"] > 0.5, "on-rouge", "PZR vide ou plein : hors du domaine du modèle"],
     ["P-14", lg.p14, "on-rouge", "niveau GV très haut"], ["Runback", lg.c3 || lg.c4, "on-rouge", "C-3 / C-4"],
     ["Isolement ARE", lg.isolement_are_au || lg.isolement_are_complet, "on-orange", ""],
     ["ASG", e.mesures["asg.qm_kg_s"] > 1, "on-orange", "alimentation de secours des GV en service"],
@@ -235,6 +246,9 @@ function majSynoptiques(e) {
       g.classList.toggle("ouverte", c.ouverte);
     } else if (g.classList.contains("turbine")) {
       g.classList.toggle("declenchee", c.declenchee);
+    } else if (g.classList.contains("diesel")) {
+      g.classList.toggle("marche", !!c.en_service);
+      g.classList.toggle("defaut", c.etat === "echec");
     } else if (g.classList.contains("chaufferette")) {
       g.classList.toggle("active", c.puissance_kw > 0);
       g.classList.toggle("en-manu", !c.auto);
@@ -244,6 +258,23 @@ function majSynoptiques(e) {
     grp.querySelectorAll(".vanne").forEach(g => classerVanne(g, comp.TURBINE[grp.dataset.vanneTurbine])));
   const couplage = document.querySelector(".synoptique [data-couplage]");
   if (couplage) couplage.setAttribute("stroke", comp.TURBINE.couplee ? "#3fbf6a" : "#4b5560");
+  document.querySelectorAll(".synoptique [data-tension]").forEach(l =>
+    l.classList.toggle("sous-tension", (m[l.dataset.tension] ?? 100) >= 62));
+  document.querySelectorAll(".synoptique [data-disj]").forEach(r => {
+    const [id, champ] = r.dataset.disj.split(".");
+    const c = comp[id] || {};
+    r.classList.toggle("ferme", champ === "couple" ? c.etat === "couple" : !!c[champ]);
+  });
+  document.querySelectorAll(".synoptique [data-diesel]").forEach(t => {
+    const d = comp[t.dataset.diesel];
+    if (d) t.textContent = { arret: "à l'arrêt", demarrage: "démarrage…", pret: "à vitesse", couple: "couplé",
+                             echec: "ÉCHEC" }[d.etat] + (d.refus ? " · en panne" : "");
+  });
+  const srcLg = document.querySelector(".synoptique [data-source-lg]");
+  if (srcLg && comp.RESEAU) srcLg.textContent = { TS: "LG sur le soutirage", TA: "LG sur les transfos auxiliaires",
+                                                   "": "LG HORS TENSION" }[comp.RESEAU.source_normale];
+  const alt = document.querySelector(".synoptique [data-alternateur]");
+  if (alt) alt.classList.toggle("couple", !!comp.TURBINE.couplee);
   const rea = document.querySelector(".synoptique [data-rea-mode]");
   if (rea && comp.REA) rea.textContent = `mode ${comp.REA.mode}` + (comp.REA.appoint_auto ? " · appoint" : "");
   const mode = document.querySelector(".synoptique [data-gct-mode]");

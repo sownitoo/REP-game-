@@ -2,7 +2,7 @@
 
 Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 
-182 valeurs marquées `# HYPOTHESE`.
+204 valeurs marquées `# HYPOTHESE`.
 
 | Clé | Valeur | Justification |
 |---|---|---|
@@ -57,6 +57,20 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `rri.chaleur_par_pompe_primaire_mw` | `0.5` | (barrière thermique + paliers) |
 | `rri.delai_pompes_primaires_s` | `300.0` | sans RRI, défaut des pompes primaires (spec : arrêt en ~2 min) |
 | `sec.debit_pompe_m3h` | `3000.0` |  |
+| `electricite.diesel.surcharge_pct` | `110.0` |  |
+| `electricite.diesel.surcharge_delai_s` | `20.0` | déclenchement sur surcharge |
+| `electricite.sequenceur_arret` | `` | spec (s après le couplage du diesel) ;  pour ASG et air |
+| `electricite.charges_fixes_kw` | `400.0` | 380 V secouru, chargeurs, ventilation, par tableau |
+| `electricite.batterie_recharge_s` | `28800.0` | recharge complète en 8 h |
+| `electricite.commande_cc` | `{LBA: [ASG_TP], LBB: []}` | régulation de la turbopompe ASG sur la voie A |
+| `air_comprime.p_nom_bar` | `7.0` |  |
+| `air_comprime.p_min_bar` | `5.0` | en dessous, les vannes pneumatiques perdent leur air |
+| `air_comprime.chute_bar_min` | `0.5` | baisse de pression sans compresseur (consommation normale) |
+| `air_comprime.capacite_compresseur` | `1.5` | débit d'un compresseur / consommation normale |
+| `air_comprime.fuite_rupture` | `4.0` | rupture du collecteur : 4 × la consommation normale |
+| `joints_pp.delai_degradation_s` | `780.0` | (≈ 13 min sans injection ni barrière thermique) |
+| `joints_pp.fuite_initiale_m3h` | `4.8` | (≈ 21 gpm par pompe, à 155 bar) |
+| `joints_pp.delai_rupture_s` | `3600.0` | une heure plus tard, joints détruits |
 | `accumulateurs.volume_m3` | `38.0` | (par accumulateur, un par boucle) |
 | `accumulateurs.volume_eau_m3` | `29.0` |  |
 | `accumulateurs.bore_ppm` | `2500.0` |  |
@@ -130,17 +144,23 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `gabarits.pompe_asg_mp.q_nom_m3h` | `100` |  |
 | `gabarits.pompe_asg_mp.h_nom_m` | `850` | (injecte dans un GV à ~80 bar) |
 | `gabarits.pompe_asg_mp.h0_m` | `1050` |  |
+| `gabarits.pompe_asg_mp.puissance_kw` | `500.0` |  |
 | `gabarits.pompe_reprise.q_nom_m3h` | `1360` | 60 % des purges nominales |
 | `gabarits.clapet.kv_max` | `8000` | (perte de charge faible) |
+| `gabarits.pompe_charge.puissance_kw` | `600.0` | (charge électrique sur le tableau secouru) |
 | `gabarits.pompe_charge.temps_demarrage_s` | `5.0` |  |
 | `gabarits.vanne_rcv_isol.temps_course_s` | `5.0` |  |
 | `gabarits.pompe_rra.q_nom_m3h` | `700` | (~3 000 gpm) |
+| `gabarits.pompe_rra.puissance_kw` | `400.0` |  |
 | `gabarits.pompe_rra.h_nom_m` | `90` |  |
 | `gabarits.pompe_rra.h0_m` | `110` |  |
 | `gabarits.vanne_rra_asp.temps_course_s` | `60.0` |  |
 | `gabarits.vanne_rra_reglage.kv_max` | `230` | (≈ 700 m³/h sous ~9 bar) |
 | `gabarits.pompe_rri.q_nom_m3h` | `2500` |  |
+| `gabarits.pompe_rri.puissance_kw` | `500.0` |  |
 | `gabarits.pompe_sec.q_nom_m3h` | `3000` |  |
+| `gabarits.pompe_sec.puissance_kw` | `400.0` |  |
+| `gabarits.compresseur_air.puissance_kw` | `250.0` |  |
 | `gabarits.vanne_are_gd.kv_max` | `1080` | (≈ 2 010 m³/h à 56 % sous 6 bar) |
 | `gabarits.vanne_are_gd.temps_course_s` | `5.0` |  |
 | `gabarits.vanne_are_pd.kv_max` | `160` | (~15 % du débit) |
@@ -151,12 +171,14 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `gabarits.vanne_vda.reserve_air_min` | `30.0` | (secours azote, spec) |
 | `gabarits.vanne_asg.kv_max` | `30` | (≈ 100 m³/h sous 11 bar) |
 | `gabarits.vanne_asg.position_repli` | `ouverte` | (sécurité : alimenter les GV) |
+| `gabarits.vanne_asg.reserve_air_min` | `120.0` | bouteilles d'azote de secours (pilotage pendant un black-out) |
 | `composants.CEX_RECIRC` | `{type: Valve, systeme: CEX, actionneur: AOV, air: SAR, kv_max: 150,` | kv  (~900 m³/h) |
 | `composants.PUITS_APPOINT` | `{type: ControlValve, systeme: CEX, actionneur: AOV, air: SAR, kv_max: 140,` | ~200 m³/h |
 | `composants.PUITS_REJET` | `{type: ControlValve, systeme: CEX, actionneur: AOV, air: SAR, kv_max: 35,` | ~200 m³/h |
 | `composants.ABP` | `{type: Resistance, systeme: ABP, dp_nom_bar: 5.0, q_nom_m3h: 4560, rho_nom_kg_m3: 987}` | ΔP réchauffeurs BP |
 | `composants.APD` | `{type: Pump, systeme: APP, alim: LHA, q_nom_m3h: 230,` | spec ; hauteurs |
 | `composants.AHP` | `{type: Resistance, systeme: AHP, dp_nom_bar: 3.0, q_nom_m3h: 7600, rho_nom_kg_m3: 888}` | ΔP réchauffeurs HP |
+| `composants.VDA1` | `{gabarit: vanne_vda, alim: LBA}` | électrovannes de pilotage sur le 125 V () |
 | `composants.R_BOUCLE{b}` | `{type: Resistance, systeme: RCP, dp_nom_bar: 3.76, q_nom_m3h: 20100, rho_nom_kg_m3: 748}` | 60 % de la hauteur pompe |
 | `composants.R_CUVE` | `{type: Resistance, systeme: RCP, dp_nom_bar: 2.40, q_nom_m3h: 80400, rho_nom_kg_m3: 712}` | 40 % (cœur + plénums) |
 | `composants.PZR_ASP2` | `{type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, temps_course_s: 5.0,` | course |

@@ -1,0 +1,18 @@
+id: s6_perte_totale_sources
+titre: "S6 — Perte totale des sources électriques"
+description: >-
+  Perte du réseau et refus de démarrage des deux diesels. Seules les batteries 125 V tiennent le
+  contrôle-commande (voie B 30 min, voie A 2 h). Sans injection aux joints ni RRI, les joints des pompes
+  primaires fuient. Le diesel A est réparé au bout de 45 min : à vous de le remettre en service à temps.
+etat_initial: rp100
+duree_s: 10800
+pannes:
+  - {t_s: 30, type: perte_reseau}
+  - {t_s: 0, type: diesel_refus, cible: DIESEL_A, reparation_s: 2700}
+  - {t_s: 0, type: diesel_refus, cible: DIESEL_B}
+objectifs:
+  - "La turbopompe ASG (pilotée sur la batterie A) est la seule source d'eau des GV : surveiller les niveaux."
+  - "Batterie B vide à ~30 min : VDA3/4 et PORV2 perdues. Batterie A : 2 h."
+  - "Joints des pompes primaires : fuite à partir de ~13 min, joints détruits ~1 h plus tard. Le PZR se vide."
+  - "À 45 min : DIESEL_A → Réarmer, puis Démarrer (couplage automatique, séquenceur)."
+  - "Vérifier la reprise de la charge (injection aux joints) et du RRI ; remonter le niveau PZR."

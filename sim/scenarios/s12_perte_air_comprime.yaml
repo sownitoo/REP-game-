@@ -1,0 +1,15 @@
+id: s12_perte_air_comprime
+titre: "S12 — Perte d'air comprimé"
+description: >-
+  Une rupture sur le collecteur d'air vide l'air de régulation en quelques minutes. Chaque vanne
+  pneumatique part en position de repli (après sa réserve locale) : eau alimentaire fermée, aspersion
+  PZR fermée, charge RCV grande ouverte, décharge fermée, VIV fermées au bout de 15 min…
+etat_initial: rp100
+duree_s: 7200
+pannes:
+  - {t_s: 30, type: rupture_air}
+objectifs:
+  - "Observer les positions de repli (onglets Secondaire, RCV) et l'AU qui suit la perte d'eau alimentaire."
+  - "L'ASG prend le relais (vannes ASG ouvertes en repli, réserve d'azote 2 h)."
+  - "FCV-121 grande ouverte et décharge fermée : arrêter la pompe de charge pour ne pas remplir le PZR."
+  - "SAR → Isoler la fuite, démarrer le 2e compresseur, attendre le retour de la pression (> 5 bar)."
