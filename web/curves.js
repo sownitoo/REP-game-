@@ -4,7 +4,7 @@
 const Courbes = {
   MAX: 6,
   couleurs: ["#4ea1ff", "#3fbf6a", "#f0a030", "#e5484d", "#c58af9", "#2fc5c0"],
-  choisies: ["GV1.niveau_pct", "GV1.p_bar", "turbine.p_elec_mw", "source.tmoy_c"],
+  choisies: ["coeur.puissance_pct", "primaire.tmoy_c", "pzr.p_bar", "pzr.niveau_pct", "GV1.niveau_pct", "turbine.p_elec_mw"],
   donnees: null,
 
   init(variables) {
@@ -30,17 +30,21 @@ const Courbes = {
         } else {
           this.choisies = this.choisies.filter(x => x !== v);
         }
-        this.rafraichir();
+        this.demander();
       });
       lab.append(cb, " " + v);
       div.appendChild(lab);
     }
   },
 
-  async rafraichir() {
+  // l'historique est demandé au simulateur (même protocole en mode serveur et navigateur)
+  demander() {
     if (!this.choisies.length) { this.donnees = null; this.dessiner(); return; }
-    const r = await fetch(`/api/historique?vars=${encodeURIComponent(this.choisies.join(","))}`);
-    this.donnees = await r.json();
+    envoyer({ type: "historique", vars: this.choisies });
+  },
+
+  recevoir(series) {
+    this.donnees = series;
     this.dessiner();
   },
 

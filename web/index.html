@@ -4,9 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mini-Centrale REP</title>
-  <link rel="stylesheet" href="/web/style.css">
+  <meta name="description" content="Simulateur pédagogique schématique d'une centrale REP 4 boucles (générique).">
+  <link rel="stylesheet" href="style.css">
+  <script src="mode.js"></script>
 </head>
 <body>
+  <div id="chargement">
+    <div class="carte-chargement">
+      <strong>Mini-Centrale REP</strong>
+      <p id="chargement-texte">Démarrage du simulateur…</p>
+      <p class="discret">En mode navigateur, Python (Pyodide, ~10 Mo) se télécharge au premier lancement.</p>
+    </div>
+  </div>
+
   <!-- ======================= barre du haut ======================= -->
   <header id="barre">
     <div class="bloc titre">
@@ -36,14 +46,22 @@
   <main>
     <section id="zone-principale">
       <nav id="onglets">
-        <button data-onglet="secondaire" class="actif">Secondaire (VVP · GRE · CEX · APP · ARE)</button>
-        <button data-onglet="logique">Logique (permissifs, AU, automatismes)</button>
+        <button data-onglet="primaire" class="actif">Primaire (RCP · PZR · cœur)</button>
+        <button data-onglet="secondaire">Secondaire (VVP · GRE · CEX · APP · ARE)</button>
+        <button data-onglet="asg">ASG</button>
+        <button data-onglet="logique">Logique</button>
         <button data-onglet="courbes">Courbes</button>
         <button data-onglet="journal">Journal</button>
-        <span class="discret onglets-futurs">Primaire · RCV · RRA · RIS · ASG · RRI/SEC · Électricité : versions suivantes</span>
+        <span class="discret onglets-futurs">RCV · RRA · RIS · RRI/SEC · Électricité : versions suivantes</span>
       </nav>
-      <div id="onglet-secondaire" class="onglet actif">
-        <svg id="synoptique" viewBox="0 0 1500 880" preserveAspectRatio="xMidYMid meet"></svg>
+      <div id="onglet-primaire" class="onglet actif">
+        <svg id="synoptique-primaire" class="synoptique" viewBox="0 0 1500 880" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div id="onglet-secondaire" class="onglet">
+        <svg id="synoptique-secondaire" class="synoptique" viewBox="0 0 1500 880" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div id="onglet-asg" class="onglet">
+        <svg id="synoptique-asg" class="synoptique" viewBox="0 0 1500 700" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
       <div id="onglet-logique" class="onglet"><div id="logique"></div></div>
       <div id="onglet-courbes" class="onglet">
@@ -67,7 +85,7 @@
     <aside id="panneau-droit">
       <section id="panneau-equipement">
         <h2 id="eq-titre">Équipement</h2>
-        <p class="discret" id="eq-aide">Cliquer sur un équipement du synoptique.</p>
+        <p class="discret" id="eq-aide">Cliquer sur un équipement d'un synoptique.</p>
         <div id="eq-etat"></div>
         <div id="eq-commandes"></div>
         <div id="eq-message"></div>
@@ -79,9 +97,12 @@
     </aside>
   </main>
 
-  <script src="/web/svg.js"></script>
-  <script src="/web/synoptics/secondaire.js"></script>
-  <script src="/web/curves.js"></script>
-  <script src="/web/app.js"></script>
+  <script src="svg.js"></script>
+  <script src="synoptics/primaire.js"></script>
+  <script src="synoptics/secondaire.js"></script>
+  <script src="synoptics/asg.js"></script>
+  <script src="transport.js"></script>
+  <script src="curves.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

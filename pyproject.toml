@@ -1,6 +1,6 @@
 [project]
 name = "mini-centrale-rep"
-version = "0.0.1"
+version = "0.1.0"
 description = "Simulateur pédagogique schématique d'une centrale REP 4 boucles (générique)"
 requires-python = ">=3.11"
 

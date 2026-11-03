@@ -74,14 +74,14 @@ function construireSecondaire(svg) {
   Sym.texte(svg, 20, 20, "▲ soupapes VVP (5 par ligne, 82 → 86 bar)   ⊠ vanne régulée   M = en manuel   contour orange = ordre automatique", "atm", "start");
   Sym.valeur(svg, 370, 660, "N_ARE.p_bar", "bar", 1, "val", "middle", "P refoul. ARE ");
 
-  // ------------------------------------------------------------------ source (V0)
-  const src = Sym._groupe(svg, "SOURCE", "source", "Source de chaleur V0 (remplace le primaire)");
-  svgEl("rect", { x: 735, y: 240, width: 140, height: 100, rx: 6, class: "corps" }, src);
-  Sym.texte(src, 805, 258, "SOURCE V0", "lib-fort");
-  Sym.valeur(src, 805, 276, "source.p_mw", "MW", 0, "val-fort");
-  Sym.valeur(src, 805, 294, "source.tmoy_c", "°C", 1, "val", "middle", "Tmoy ");
-  Sym.valeur(src, 805, 310, "source.tref_c", "°C", 1, "val", "middle", "Tref ");
-  Sym.texte(src, 805, 328, "chaleur → 4 GV", "atm");
+  // ------------------------------------------------------------------ rappel du primaire
+  const prim = Sym._groupe(svg, "GRAPPES", "source", "Primaire (détail dans l'onglet Primaire)");
+  svgEl("rect", { x: 735, y: 240, width: 140, height: 100, rx: 6, class: "corps" }, prim);
+  Sym.texte(prim, 805, 258, "PRIMAIRE", "lib-fort");
+  Sym.valeur(prim, 805, 276, "coeur.puissance_pct", "%", 1, "val-fort");
+  Sym.valeur(prim, 805, 294, "primaire.tmoy_c", "°C", 1, "val", "middle", "Tmoy ");
+  Sym.valeur(prim, 805, 310, "pzr.p_bar", "bar", 1, "val", "middle", "P PZR ");
+  Sym.texte(prim, 805, 328, "chaleur → 4 GV", "atm");
   Sym.fleche(svg, 735, 300, 684, 330);
 
   // ------------------------------------------------------------------ contournement
@@ -89,7 +89,8 @@ function construireSecondaire(svg) {
     Sym.vanne(svg, [840, 867, 893, 920][k], 165, id, { orient: "v", reg: true, label: `G${k + 1}`, cote: "bas" }));
   const regGct = Sym._groupe(svg, "REG_GCTC", "regulation", "Régulation du contournement (consigne)");
   svgEl("rect", { x: 830, y: 225, width: 100, height: 22, rx: 4, class: "corps" }, regGct);
-  Sym.texte(regGct, 880, 240, "GCT-c (consigne)", "lib");
+  Sym.texte(regGct, 880, 240, "GCT-c", "lib");
+  svgEl("text", { x: 880, y: 222, class: "val", "text-anchor": "middle", "data-gct-mode": "1" }, svg).textContent = "—";
   Sym.valeur(svg, 890, 270, "gctc.qm_kg_s", "kg/s", 0, "val", "start");
 
   // ------------------------------------------------------------------ turbine + alternateur

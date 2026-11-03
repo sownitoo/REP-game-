@@ -1,5 +1,66 @@
 # Changelog
 
+## V1 — 2026-11-03 — Primaire 4 boucles, pressuriseur, cœur, ASG + mode navigateur
+
+### Ajouté
+- **Cœur boîte noire** (`sim/core_model/coeur.py`) : cinétique ponctuelle 1 groupe (saut prompt), Doppler, modérateur,
+  bore, grappes (courbe en S, chute en 2 s), nœud combustible, puissance résiduelle (Way-Wigner), régulation
+  des grappes en auto (Tmoy − Tref + voie « écart de puissance »).
+- **Primaire** (`sim/systems/rcp.py`) : 3 nœuds cuve + 3 nœuds par boucle, réseau hydraulique (4 pompes,
+  antidévireur, pompes de soulèvement d'huile), circulation naturelle, échange GV ε-NTU (UA ∝ débit^0,8).
+- **Pressuriseur** (`sim/systems/pzr.py`) : équilibre liquide/vapeur, chaufferettes P + TOR, aspersion B2/B3,
+  2 PORV + isolements, 3 soupapes, expansion/contraction. **RCV simplifié** : charge régulée, décharge TOR.
+- **ASG** (`sim/systems/asg.py`) : CST → 2 motopompes + 1 turbopompe (vapeur GV1/GV2) → 4 vannes régulées → GV.
+- **Logique V1** : AU flux haut/bas, ΔT surtempérature/surpuissance (avance-retard), P PZR haute/basse, niveau PZR
+  haut, débit primaire bas (2/3 par boucle, 1 ou 2 boucles selon P-8), permissifs P-4 → P-14, C-3/C-4 (runback),
+  C-7, C-8, C-9, C-11 ; GCT-c en mode Tmoy ou pression ; démarrage auto ASG ; isolement/coupure sur PZR bas.
+- **Alarmes** avec temporisation de confirmation (2 s) et hystérésis en valeur absolue (fini le papillotement).
+- **Interface** : onglets Primaire et ASG, bandeau de permissifs, état d'exploitation (RP, AN/GV…), commandes RPR.
+- **Mode navigateur** : la même simulation tourne dans le navigateur (Pyodide dans un Web Worker), donc
+  déployable en statique sur Vercel (`vercel.json`, `web/sim_bundle.zip`). Le moteur n'a plus besoin de numpy,
+  CoolProp ni PyYAML à l'exécution (tables pré-calculées, config JSON dans le paquet).
+- 87 tests (`pytest`, ≈ 2 min).
+
+### Résultats des tests d'acceptation (mesurés)
+
+| # | Situation | Résultat |
+|---|---|---|
+| B1 | 1 h à 100 % sans action | P PZR 154,98 → 155,01 bar, niveau PZR 60,0 %, Tmoy 307,09 °C, 99,7 %, 1 135 MWe, 0 alarme |
+| B1 | Bilan et masse primaire | cœur 3 402,4 + pompes 18,0 MW ≈ GV 3 419,7 MW (écart 0,02 %) ; dérive de masse −5·10⁻⁴ %/h |
+| B2 | Échelon −10 % | pas d'AU ni de PORV/soupape ; P PZR 152,8 → 155,4 bar ; puissance mini 84,7 % ; Tmoy − Tref = −0,7 °C à 15 min |
+| B3 | Déclenchement turbine | AU (P-7) ; GCT-c 90 % (C-8) ; P PZR mini 139,6 bar ; niveau PZR mini 28,8 % ; GV 31 → 58 % ; P GV max 77,0 bar ; Tmoy → 292,5 °C ; marge saturation mini 20,1 °C |
+| B4 | Arrêt PP1 | AU « débit primaire bas B1 » à 2,0 s ; boucle 1 à −14,7 % (antidévireur), autres à 108,8 % |
+| B5 | Perte totale ARE | AU à 18,4 s ; 3 pompes ASG, 120 kg/s maxi ; niveaux GV remontés à 39 % en 30 min ; −38 m³ dans la CST |
+| B6 | Circulation naturelle (4 PP arrêtées) | débits 4,5 à 4,8 % ; ΔT boucle 8,9 °C ; marge saturation mini 37,4 °C ; 34 MW résiduels à 1 h |
+| B7 | Consigne P PZR à 164 bar | PORV ouvertes à 162 bar (t = 313 s), P reste sous le seuil d'AU (165,5 bar), pas d'AU |
+| B8 | Verrous | PP sans huile, grappes avec AU, blocage flux bas sans P-10, décharge RCV sans charge : refusés avec raison |
+| — | Performance | serveur ≈ 2 400 pas/s (×600 tenu à ≈ ×240) ; navigateur ×60 tenu, ×600 tenu à ≈ ×110 |
+
+### Écarts par rapport à la proposition validée
+- **B5** : l'AU arrive par le déclenchement turbine (perte du vide condenseur, voir point 6 ci-dessous) et non par
+  « niveau GV très bas ». Le test accepte la première cause atteinte. L'ASG démarre bien sur niveau très bas.
+- **B6** : en circulation naturelle, le GCT-c en **mode Tmoy oscille** (Tmoy mesurée en retard sur la chaleur évacuée).
+  Le test passe le GCT-c en **mode pression**, ce qu'on fait aussi en pratique pour piloter un refroidissement.
+- **Ajouts** : voie « écart de puissance » sur les grappes (sans elle, l'échelon −10 % descendait à 77 %) ;
+  pompes de soulèvement d'huile ; temporisation des alarmes.
+
+### Ce qui reste approximatif
+1. **Cœur** : 1 groupe de neutrons retardés, pas de xénon/samarium, pas de distribution axiale (ΔI = 0 dans
+   les ΔT surtempérature/surpuissance), coefficients de contre-réaction constants, bore figé (REA en V2).
+2. **Pressuriseur** : 1 zone à l'équilibre (pas d'eau sous-refroidie ni de vapeur surchauffée).
+3. **RCV** : charge et décharge seulement (pas de VCT, de joints de pompes ni de borication).
+4. **Primaire** : réseau quasi statique (pas d'inertie de la colonne d'eau ; le ralentissement vient de l'inertie
+   des pompes), échange GV global (pas de zones préchauffage/ébullition).
+5. **GCT-c en mode Tmoy instable en circulation naturelle** : utiliser le mode pression.
+6. **Condenseur** : quand l'alimentation s'arrête, la chaleur des soutirages part d'un coup au condenseur,
+   d'où une perte du vide trop rapide (~18 s) en perte totale ARE. À corriger en V2.
+7. **ASG** : turbopompe sans modèle de turbine (vitesse imposée si la vapeur est disponible).
+8. **Électricité et air comprimé** : toujours disponibles (V3). **Pas d'injection de sécurité** ni
+   d'isolement vapeur automatique (V4) : le seuil P PZR basse fait l'AU, pas l'IS.
+9. Reste de la V0 : turbine à 1 corps, réchauffeurs sans inertie, gonflement/tassement global (voir plus bas).
+
+142 valeurs marquées `# HYPOTHESE`, listées dans [`docs/HYPOTHESES.md`](docs/HYPOTHESES.md).
+
 ## V0 — 2026-11-02 — Moteur générique + boucle secondaire
 
 ### Ajouté

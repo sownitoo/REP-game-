@@ -23,7 +23,8 @@ def attendre(ws: Any, genre: str) -> dict[str, Any]:
 def test_a12_serveur_websocket_et_api() -> None:
     with TestClient(creer_app()) as client:
         assert client.get("/").status_code == 200
-        assert client.get("/web/app.js").status_code == 200
+        assert client.get("/app.js").status_code == 200
+        assert "serveur" in client.get("/mode.js").text          # le mode serveur prime sur web/mode.js
         with client.websocket_connect("/ws") as ws:
             init = ws.receive_json()
             assert init["type"] == "init"
@@ -42,6 +43,8 @@ def test_a12_serveur_websocket_et_api() -> None:
             demarrer = next(c for c in cond["commandes"] if c["action"] == "demarrer")
             assert demarrer["conditions"] and all("texte" in c and "ok" in c for c in demarrer["conditions"])
 
+            ws.send_json({"type": "historique", "vars": ["GV1.p_bar"]})
+            assert "t_s" in attendre(ws, "historique")["series"]
             ws.send_json({"type": "acceleration", "valeur": 10})
             etat = attendre(ws, "etat")
             assert "mesures" in etat and "alarmes" in etat and etat["etat_standard"]

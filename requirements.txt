@@ -1,7 +1,9 @@
-numpy>=1.26
-CoolProp>=6.6
+# Mode local (serveur). Le mode navigateur n'a besoin d'aucune dépendance.
 PyYAML>=6.0
 fastapi>=0.110
 uvicorn[standard]>=0.29
+# Tests
 httpx>=0.27
 pytest>=8.0
+# Seulement pour régénérer config/tables_eau.json (python -m sim.tools.tables_eau)
+CoolProp>=6.6

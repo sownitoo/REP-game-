@@ -1,22 +1,29 @@
-// Client du simulateur : WebSocket, mise à jour du synoptique, panneau équipement, alarmes.
+// Client du simulateur : synoptiques, panneau équipement, alarmes, logique, courbes, sauvegarde.
+// Le transport (WebSocket ou Web Worker Pyodide) est choisi par transport.js selon window.REP_MODE.
 "use strict";
 
 const LIBELLES_ACTIONS = {
   demarrer: "Démarrer", arreter: "Arrêter", ouvrir: "Ouvrir", fermer: "Fermer",
-  auto: "Passer en AUTO", manu: "Passer en MANU", position: "Position (%)", vitesse: "Vitesse (%)",
+  auto: "Passer en AUTO", manu: "Passer en MANU", position: "Position", vitesse: "Vitesse (%)",
   declencher: "Déclencher", rearmer: "Réarmer", consigne_vitesse: "Consigne vitesse (tr/min)",
   coupler: "Coupler au réseau", decoupler: "Découpler", consigne_mw: "Consigne (MW)", consigne: "Consigne",
   declencher_au: "AU manuel", rearmer_au: "Réarmer l'AU", rearmer_isolement_are: "Réarmer l'isolement ARE",
+  bloquer_flux_bas: "Bloquer l'AU flux seuil bas", debloquer_flux_bas: "Débloquer l'AU flux seuil bas",
+  extraire_arret: "Extraire les groupes d'arrêt", puissance: "Puissance (%)",
+  mode_tmoy: "Mode Tmoy (C-7 / C-8)", mode_pression: "Mode pression", rearmer_c7: "Réarmer C-7",
 };
-const ACTIONS_AVEC_VALEUR = new Set(["position", "vitesse", "consigne_vitesse", "consigne_mw", "consigne"]);
+const ACTIONS_AVEC_VALEUR = new Set(["position", "vitesse", "consigne_vitesse", "consigne_mw", "consigne", "puissance"]);
 const MESURES_BARRE = [
-  ["source.p_mw", "P source", "MW", 0], ["source.tmoy_c", "Tmoy", "°C", 1],
-  ["collecteur.p_bar", "P vapeur", "bar", 1], ["GV1.niveau_pct", "N GV1", "%", 1],
-  ["GV2.niveau_pct", "N GV2", "%", 1], ["GV3.niveau_pct", "N GV3", "%", 1], ["GV4.niveau_pct", "N GV4", "%", 1],
+  ["coeur.puissance_pct", "Puissance", "%", 1], ["primaire.tmoy_c", "Tmoy", "°C", 1],
+  ["pzr.p_bar", "P PZR", "bar", 1], ["pzr.niveau_pct", "N PZR", "%", 1],
+  ["collecteur.p_bar", "P vapeur", "bar", 1], ["GV1.niveau_pct", "N GV1", "%", 0],
+  ["GV2.niveau_pct", "N GV2", "%", 0], ["GV3.niveau_pct", "N GV3", "%", 0], ["GV4.niveau_pct", "N GV4", "%", 0],
   ["turbine.p_elec_mw", "P élec", "MWe", 0], ["condenseur.p_bar", "P cond", "bar", 3],
 ];
+const SYNOPTIQUES = [["synoptique-primaire", "construirePrimaire"], ["synoptique-secondaire", "construireSecondaire"],
+                     ["synoptique-asg", "construireASG"]];
 
-const etat = { ws: null, dernier: null, selection: null, minuterieConditions: null };
+const etat = { transport: null, dernier: null, selection: null, minuterieConditions: null, seuils: {} };
 
 // ============================================================================ utilitaires
 function formatTemps(s) {
@@ -30,24 +37,34 @@ function el(tag, attrs = {}, texte) {
   if (texte !== undefined) e.textContent = texte;
   return e;
 }
-function envoyer(msg) { if (etat.ws && etat.ws.readyState === 1) etat.ws.send(JSON.stringify(msg)); }
+function envoyer(msg) { etat.transport.envoyer(msg); }
+function telecharger(nom, objet) {
+  const blob = new Blob([JSON.stringify(objet)], { type: "application/json" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: nom });
+  a.click();
+}
 
-// ============================================================================ connexion
-function connecter() {
-  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
-  etat.ws = ws;
-  ws.onmessage = ev => {
-    const msg = JSON.parse(ev.data);
-    if (msg.type === "init") initialiser(msg);
-    else if (msg.type === "etat") majEtat(msg);
-    else if (msg.type === "conditions") afficherCommandes(msg);
-    else if (msg.type === "reponse") afficherReponse(msg);
-  };
-  ws.onclose = () => setTimeout(connecter, 1000);
+// ============================================================================ messages du simulateur
+function surMessage(msg) {
+  if (msg.type === "init") initialiser(msg);
+  else if (msg.type === "etat") majEtat(msg);
+  else if (msg.type === "conditions") afficherCommandes(msg);
+  else if (msg.type === "reponse") afficherReponse(msg);
+  else if (msg.type === "historique") Courbes.recevoir(msg.series);
+  else if (msg.type === "export") telecharger(`centrale_${formatTemps(msg.t_s).replaceAll(":", "h")}.json`, msg.donnees);
+  else if (msg.type === "import") alert(msg.ok ? `État chargé (t = ${formatTemps(msg.t_s)})` : `Échec : ${msg.erreur}`);
+  else if (msg.type === "erreur") alert(msg.texte);
+}
+
+function surStatut(texte) {
+  document.getElementById("chargement").style.display = "flex";
+  document.getElementById("chargement-texte").textContent = texte;
 }
 
 function initialiser(msg) {
-  document.getElementById("version").textContent = `${msg.meta.version} — ${msg.meta.nom}`;
+  document.getElementById("chargement").style.display = "none";
+  const mode = window.REP_MODE === "serveur" ? "serveur Python" : "dans le navigateur";
+  document.getElementById("version").textContent = `${msg.meta.version} — simulation ${mode}`;
   const acc = document.getElementById("accelerations");
   acc.querySelectorAll("button[data-acc]").forEach(b => b.remove());
   msg.accelerations.forEach(a => {
@@ -60,14 +77,15 @@ function initialiser(msg) {
   sel.innerHTML = "";
   msg.scenarios.forEach(s => sel.appendChild(el("option", { value: s.id, title: s.description }, s.titre)));
   etat.seuils = msg.seuils;
-  const svg = document.getElementById("synoptique");
-  if (!svg.childElementCount) {
-    construireSecondaire(svg);
+  SYNOPTIQUES.forEach(([id, fonction]) => {
+    const svg = document.getElementById(id);
+    if (svg.childElementCount) return;
+    window[fonction](svg);
     svg.addEventListener("click", ev => {
       const g = ev.target.closest("[data-id]");
       if (g) selectionner(g.dataset.id);
     });
-  }
+  });
   const barre = document.getElementById("mesures-barre");
   barre.innerHTML = "";
   MESURES_BARRE.forEach(([k, lib]) => {
@@ -94,7 +112,7 @@ function majEtat(e) {
     if (s) s.textContent = `${fmt(m[k], dec)} ${unite}`;
   });
   majVoyants(e);
-  majSynoptique(e);
+  majSynoptiques(e);
   majAlarmes(e.alarmes);
   majLogique(e);
   majJournal(e.journal);
@@ -105,9 +123,10 @@ function majVoyants(e) {
   const lg = e.logique, t = e.composants.TURBINE;
   const v = [
     ["AU", lg.au, "on-rouge"], ["Turbine décl.", t.declenchee, "on-rouge"], ["P-7", lg.p7, "on-vert"],
-    ["P-14", lg.p14, "on-rouge"], ["C-9", lg.c9, "on-vert"],
-    ["Isol. ARE", lg.isolement_are_au || lg.isolement_are_complet, "on-orange"],
-    ["Couplé", t.couplee, "on-vert"],
+    ["P-10", lg.p10, "on-vert"], ["P-12", lg.p12, "on-orange"], ["P-14", lg.p14, "on-rouge"],
+    ["C-3/C-4", lg.c3 || lg.c4, "on-rouge"], ["C-7", lg.c7, "on-orange"], ["C-8", lg.c8, "on-orange"],
+    ["C-9", lg.c9, "on-vert"], ["Isol. ARE", lg.isolement_are_au || lg.isolement_are_complet, "on-orange"],
+    ["ASG", e.mesures["asg.qm_kg_s"] > 1, "on-orange"], ["Couplé", t.couplee, "on-vert"],
   ];
   const zone = document.getElementById("voyants");
   zone.innerHTML = "";
@@ -117,21 +136,28 @@ function majVoyants(e) {
   zone.appendChild(el("span", { class: "voyant on-vert", title: "Électricité modélisée en V3 : tableaux supposés sous tension" }, "6,6 kV ✓"));
 }
 
-function majSynoptique(e) {
+function majSynoptiques(e) {
   const m = e.mesures, comp = e.composants;
-  document.querySelectorAll("#synoptique [data-mesure]").forEach(t => {
+  document.querySelectorAll(".synoptique [data-mesure]").forEach(t => {
     const v = m[t.dataset.mesure];
     t.textContent = `${t.dataset.prefixe || ""}${fmt(v, Number(t.dataset.dec))} ${t.dataset.unite}`;
   });
-  document.querySelectorAll("#synoptique [data-niveau]").forEach(r => {
+  document.querySelectorAll(".synoptique [data-niveau]").forEach(r => {
     const n = Math.max(0, Math.min(100, m[r.dataset.niveau] ?? 0));
     const h = Number(r.dataset.haut) * n / 100;
     r.setAttribute("y", Number(r.dataset.bas) - h);
     r.setAttribute("height", h);
   });
-  document.querySelectorAll("#synoptique [data-debit]").forEach(p =>
+  document.querySelectorAll(".synoptique [data-grappe]").forEach(r => {
+    const v = m[r.dataset.grappe] ?? 0, max = Number(r.dataset.max);
+    const insere = r.dataset.inverse ? 1 - v / max : v / max;      // position en pas → fraction insérée
+    const h = Number(r.dataset.haut) * Math.max(0, Math.min(1, insere));
+    r.setAttribute("y", Number(r.dataset.bas) - Number(r.dataset.haut));
+    r.setAttribute("height", h);
+  });
+  document.querySelectorAll(".synoptique [data-debit]").forEach(p =>
     p.classList.toggle("circule", Math.abs(m[p.dataset.debit] ?? 0) > Number(p.dataset.seuil)));
-  document.querySelectorAll("#synoptique .equip[data-id]").forEach(g => {
+  document.querySelectorAll(".synoptique .equip[data-id]").forEach(g => {
     const c = comp[g.dataset.id];
     g.classList.toggle("selection", g.dataset.id === etat.selection);
     if (!c) return;
@@ -149,12 +175,17 @@ function majSynoptique(e) {
       g.classList.toggle("ouverte", c.ouverte);
     } else if (g.classList.contains("turbine")) {
       g.classList.toggle("declenchee", c.declenchee);
+    } else if (g.classList.contains("chaufferette")) {
+      g.classList.toggle("active", c.puissance_kw > 0);
+      g.classList.toggle("en-manu", !c.auto);
     }
   });
-  document.querySelectorAll("#synoptique [data-vanne-turbine]").forEach(grp =>
+  document.querySelectorAll(".synoptique [data-vanne-turbine]").forEach(grp =>
     grp.querySelectorAll(".vanne").forEach(g => classerVanne(g, comp.TURBINE[grp.dataset.vanneTurbine])));
-  const couplage = document.querySelector("#synoptique [data-couplage]");
+  const couplage = document.querySelector(".synoptique [data-couplage]");
   if (couplage) couplage.setAttribute("stroke", comp.TURBINE.couplee ? "#3fbf6a" : "#4b5560");
+  const mode = document.querySelector(".synoptique [data-gct-mode]");
+  if (mode) mode.textContent = `mode ${e.gct.mode}${e.gct.c8 ? " · C-8" : e.gct.c7 ? " · C-7" : ""}`;
 }
 
 function classerVanne(g, pct) {
@@ -181,34 +212,48 @@ function majAlarmes(alarmes) {
 
 function majLogique(e) {
   if (!document.getElementById("onglet-logique").classList.contains("actif")) return;
-  const lg = e.logique, s = etat.seuils || {};
-  const ligne = (nom, actif, texte, alerte = false) =>
-    `<tr><td><b>${nom}</b></td><td class="${actif ? (alerte ? "etat-alerte" : "etat-on") : "etat-off"}">${actif ? "PRÉSENT" : "absent"}</td><td class="discret">${texte || ""}</td></tr>`;
-  const t = e.composants.TURBINE;
+  const lg = e.logique, s = etat.seuils, m = e.mesures, t = e.composants.TURBINE;
+  const ligne = (nom, actif, texte, alerte = false, libOn = "PRÉSENT") =>
+    `<tr><td><b>${nom}</b></td><td class="${actif ? (alerte ? "etat-alerte" : "etat-on") : "etat-off"}">${actif ? libOn : "absent"}</td><td class="discret">${texte || ""}</td></tr>`;
+  const seuilsAu = Object.entries(s).filter(([k]) => k.startsWith("AU "))
+    .map(([k, v]) => `<tr><td>${k.slice(3)}</td><td colspan="2" class="discret">${v}</td></tr>`).join("");
+  const dts = [1, 2, 3, 4].map(b => `B${b} : ${fmt(m[`B${b}.dt_c`], 1)} / ${fmt(lg.otdt_seuil_c[b - 1], 1)} / ${fmt(lg.opdt_seuil_c[b - 1], 1)}`).join("<br>");
   document.getElementById("logique").innerHTML = `
-    <div class="carte"><h2>Permissifs et verrous</h2><table>
-      ${ligne("P-4", lg.p4, "disjoncteurs d'AU ouverts → déclenche la turbine, isole l'ARE si Tmoy basse", true)}
-      ${ligne("P-7", lg.p7, s["P-7"])}
-      ${ligne("P-14", lg.p14, s["P-14"], true)}
-      ${ligne("C-9", lg.c9, s["C-9"])}
-    </table></div>
     <div class="carte"><h2>Arrêt automatique (AU)</h2><table>
       ${ligne("AU", lg.au, lg.au ? "causes : " + lg.au_causes.join(", ") : "", true)}
       <tr><td>Causes présentes</td><td colspan="2">${lg.causes_au.join(", ") || "aucune"}</td></tr>
-      <tr><td>Seuil niveau GV</td><td colspan="2" class="discret">${s["AU niveau GV très bas"] || ""}</td></tr>
-      <tr><td>Déclenchement turbine</td><td colspan="2" class="discret">${s["AU déclenchement turbine"] || ""}</td></tr>
-      <tr><td>Niveaux très bas</td><td colspan="2">${lg.niveau_tres_bas_gv.map((x, i) => `GV${i + 1} ${x ? "⚠" : "ok"}`).join(" · ")}</td></tr>
+      ${ligne("Flux seuil bas", lg.flux_bas_bloque, "bloqué par l'opérateur (au-dessus de P-10)", false, "BLOQUÉ")}
+      <tr><td>ΔT mesuré / seuils</td><td colspan="2" class="discret">${dts}<br>(ΔT / surtempérature / surpuissance, °C)</td></tr>
+      ${seuilsAu}
     </table></div>
-    <div class="carte"><h2>Turbine</h2><table>
-      ${ligne("Déclenchée", t.declenchee, t.cause, true)}
+    <div class="carte"><h2>Permissifs (P)</h2><table>
+      ${ligne("P-4", lg.p4, "disjoncteurs d'AU ouverts : turbine, isolement ARE si Tmoy basse", true)}
+      ${ligne("P-7", lg.p7, s["P-7"])}
+      ${ligne("P-8", lg.p8, s["P-8"])}
+      ${ligne("P-9", lg.p9, s["P-9"])}
+      ${ligne("P-10", lg.p10, s["P-10"])}
+      ${ligne("P-12", lg.p12, s["P-12"], true)}
+      ${ligne("P-13", lg.p13, "charge turbine faible")}
+      ${ligne("P-14", lg.p14, s["P-14"], true)}
+    </table></div>
+    <div class="carte"><h2>Verrous de conduite (C)</h2><table>
+      ${ligne("C-2", lg.c2, s["C-2"], true)}
+      ${ligne("C-3", lg.c3, s["C-3"], true)}
+      ${ligne("C-4", lg.c4, s["C-4"], true)}
+      ${ligne("C-5", lg.c5, s["C-5"])}
+      ${ligne("C-7", lg.c7, s["C-7"])}
+      ${ligne("C-8", lg.c8, s["C-8"])}
+      ${ligne("C-9", lg.c9, s["C-9"])}
+      ${ligne("C-11", lg.c11, s["C-11"])}
+      <tr><td>Contournement</td><td colspan="2">mode ${e.gct.mode}</td></tr>
+    </table></div>
+    <div class="carte"><h2>Turbine et eau alimentaire</h2><table>
+      ${ligne("Turbine déclenchée", t.declenchee, t.cause, true)}
       <tr><td>Causes présentes</td><td colspan="2">${lg.causes_turbine.join(", ") || "aucune"}</td></tr>
-      <tr><td>Seuils</td><td colspan="2" class="discret">${s["Déclenchement turbine"] || ""}</td></tr>
-    </table></div>
-    <div class="carte"><h2>Eau alimentaire</h2><table>
-      ${ligne("Isolement GD", lg.isolement_are_au, s["Isolement ARE GD"], true)}
-      ${ligne("Isolement complet", lg.isolement_are_complet, s["Isolement ARE complet"], true)}
-      ${ligne("Recirculation CEX", lg.recirc_cex, "débit mini des pompes d'extraction")}
-      <tr><td>Déclenchement APP</td><td colspan="2" class="discret">${s["Déclenchement APP"] || ""}</td></tr>
+      ${ligne("Isolement ARE GD", lg.isolement_are_au, s["Isolement ARE GD"], true)}
+      ${ligne("Isolement ARE complet", lg.isolement_are_complet, s["Isolement ARE complet"], true)}
+      ${ligne("Décharge RCV isolée", lg.decharge_isolee, s["Niveau PZR bas"], true)}
+      <tr><td>ASG</td><td colspan="2" class="discret">${s["Démarrage ASG"]}</td></tr>
     </table></div>`;
 }
 
@@ -234,22 +279,27 @@ function selectionner(id) {
   envoyer({ type: "conditions", cible: id });
   clearInterval(etat.minuterieConditions);
   etat.minuterieConditions = setInterval(() => envoyer({ type: "conditions", cible: id }), 1000);
-  document.querySelectorAll("#synoptique .equip").forEach(g => g.classList.toggle("selection", g.dataset.id === id));
 }
 
 const LIBELLES_ETAT = {
   type: "Type", systeme: "Système", alim: "Alimentation", air: "Air comprimé", en_marche: "En marche",
   vitesse_pct: "Vitesse (%)", auto: "Auto", defaut: "Défaut", position_pct: "Position (%)", demande_pct: "Demande (%)",
   ordre_raison: "Ordre automatique", actionneur: "Actionneur", air_restant_min: "Réserve d'air (min)",
-  p_bar: "Pression (bar)", niveau_pct: "Niveau GE (%)", m_eau_t: "Masse d'eau (t)", ouverte: "Ouverte",
+  p_bar: "Pression (bar)", niveau_pct: "Niveau (%)", m_eau_t: "Masse d'eau (t)", ouverte: "Ouverte",
   tarage_bar: "Tarage (bar)", sollicitations: "Sollicitations", declenchee: "Déclenchée", cause: "Cause",
   couplee: "Couplée", vitesse_tr_min: "Vitesse (tr/min)", p_elec_mw: "P électrique (MW)", consigne_mw: "Consigne (MW)",
   consigne_eff_mw: "Consigne rampée (MW)", ouverture_reglage_pct: "Vannes de réglage (%)",
-  ouverture_arret_pct: "Vannes d'arrêt (%)", p_mw: "Puissance (MW)", tmoy_c: "Tmoy (°C)", tref_c: "Tref (°C)",
-  au: "AU", consigne: "Consigne", unite: "Unité", consigne_bar: "Consigne (bar)", ouverture_pct: "Ouverture (%)",
+  ouverture_arret_pct: "Vannes d'arrêt (%)", consigne: "Consigne", unite: "Unité", ouverture_pct: "Ouverture (%)",
   t_c: "Température (°C)", niveau_puits_pct: "Niveau puits (%)", volume_cst_m3: "Volume CST (m³)", ouvert: "Ouvert",
+  puissance_pct: "Puissance (%)", rho_pcm: "Réactivité (pcm)", position_pas: "Groupe de régulation (pas)",
+  arret_insere_pct: "Groupes d'arrêt insérés (%)", chute: "Grappes chutées (AU)", t_comb_c: "T combustible (°C)",
+  bore_ppm: "Bore (ppm)", vitesse_pas_min: "Vitesse grappes (pas/min)", consigne_manu_pas: "Consigne manuelle (pas)",
+  puissance_kw: "Puissance (kW)", coupe: "Coupure", chauffe_mw: "Chauffe (MW)", aspersion_kg_s: "Aspersion (kg/s)",
+  porv_kg_s: "PORV (kg/s)", mode: "Mode", c7: "C-7 armé", c8: "C-8 armé", demande: "Demande",
+  consigne_bar: "Consigne (bar)", charge_retard_pct: "Charge filtrée (%)",
 };
-const ETAT_CACHE = new Set(["regulee", "vitesse_variable", "ordre", "niveau_voies", "mini", "maxi", "consigne_vitesse_tr_min"]);
+const ETAT_CACHE = new Set(["regulee", "vitesse_variable", "ordre", "niveau_voies", "mini", "maxi", "consigne_vitesse_tr_min",
+                            "proportionnel", "voies_pression", "voies_niveau"]);
 
 function majPanneauEtat() {
   const c = etat.dernier && etat.dernier.composants[etat.selection];
@@ -258,7 +308,9 @@ function majPanneauEtat() {
   const lignes = Object.entries(c)
     .filter(([k, v]) => !ETAT_CACHE.has(k) && v !== null && v !== "" && !(typeof v === "object"))
     .map(([k, v]) => `<tr><td>${LIBELLES_ETAT[k] || k}</td><td class="valeur">${typeof v === "number" ? fmt(v, 2) : v === true ? "oui" : v === false ? "non" : v}</td></tr>`);
-  if (c.niveau_voies) lignes.push(`<tr><td>Voies de niveau</td><td class="valeur">${c.niveau_voies.map(x => fmt(x, 1)).join(" / ")}</td></tr>`);
+  for (const k of ["niveau_voies", "voies_pression", "voies_niveau"]) {
+    if (c[k]) lignes.push(`<tr><td>Voies de mesure</td><td class="valeur">${c[k].map(x => fmt(x, 1)).join(" / ")}</td></tr>`);
+  }
   div.innerHTML = `<table>${lignes.join("")}</table>`;
 }
 
@@ -306,32 +358,29 @@ document.querySelectorAll("#onglets [data-onglet]").forEach(b => b.addEventListe
   document.querySelectorAll("#onglets [data-onglet]").forEach(x => x.classList.toggle("actif", x === b));
   document.querySelectorAll(".onglet").forEach(o => o.classList.toggle("actif", o.id === `onglet-${b.dataset.onglet}`));
   if (etat.dernier) majEtat(etat.dernier);
-  if (b.dataset.onglet === "courbes") Courbes.rafraichir();
+  if (b.dataset.onglet === "courbes") Courbes.demander();
 }));
 setInterval(() => {
-  if (document.getElementById("onglet-courbes").classList.contains("actif")) Courbes.rafraichir();
+  if (document.getElementById("onglet-courbes").classList.contains("actif")) Courbes.demander();
 }, 1000);
 
 document.getElementById("btn-acquitter-tout").onclick = () => envoyer({ type: "acquitter", id: null });
-document.getElementById("btn-sauver").onclick = async () => {
-  const r = await fetch("/api/sauvegarde");
-  const blob = await r.blob();
-  const a = el("a", { href: URL.createObjectURL(blob), download: `centrale_${formatTemps(etat.dernier.t_s).replaceAll(":", "h")}.json` });
-  a.click();
-};
+document.getElementById("btn-sauver").onclick = () => envoyer({ type: "exporter" });
 document.getElementById("btn-charger").onclick = () => document.getElementById("fichier").click();
 document.getElementById("fichier").onchange = async ev => {
   const f = ev.target.files[0];
   if (!f) return;
-  const r = await fetch("/api/chargement", { method: "POST", headers: { "Content-Type": "application/json" }, body: await f.text() });
-  const rep = await r.json();
-  alert(r.ok ? `État chargé (t = ${formatTemps(rep.t_s)})` : `Échec : ${rep.detail}`);
+  try {
+    envoyer({ type: "importer", donnees: JSON.parse(await f.text()) });
+  } catch (err) {
+    alert(`Fichier illisible : ${err.message}`);
+  }
   ev.target.value = "";
 };
-document.getElementById("btn-scenario").onclick = async () => {
+document.getElementById("btn-scenario").onclick = () => {
   const id = document.getElementById("choix-scenario").value;
   if (confirm(`Charger le scénario « ${id} » ? L'état actuel sera perdu (pensez à sauvegarder).`))
-    await fetch(`/api/scenario/${id}`, { method: "POST" });
+    envoyer({ type: "scenario", id });
 };
 
-connecter();
+etat.transport = creerTransport(surMessage, surStatut);

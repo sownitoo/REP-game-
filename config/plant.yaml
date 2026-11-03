@@ -64,7 +64,7 @@ coeur:
   beta_pcm: 650                     # spec
   lambda_s: 0.08                    # spec (1 groupe de neutrons retardés)
   rho_max_fraction_beta: 0.9        # borne numérique : pas de surcriticité prompte (approximation du saut prompt)
-  source_neutrons: 1.0e-9           # HYPOTHESE source intrinsèque (n ≈ S/|ρ| en sous-critique)
+  source_neutrons: 1.0e-9           # HYPOTHESE source intrinsèque (n ≈ S / abs(ρ) en sous-critique)
   alpha_mod_pcm_c: -20.0            # spec
   alpha_doppler_pcm_c: -2.5         # spec
   alpha_bore_pcm_ppm: -10.0         # spec
