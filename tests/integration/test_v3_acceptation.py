@@ -65,7 +65,7 @@ def test_d3_s6_perte_totale_puis_diesel_repare() -> None:
     r = serie(c, 1800.0, 60.0, "joints.fuite_m3h", "elec.LBA.charge_pct", "pzr.niveau_pct")
     assert max(x["joints.fuite_m3h"] for x in r) <= fuite + 1.0, "injection aux joints rétablie : plus de dégradation"
     assert r[-1]["elec.LBA.charge_pct"] > r[0]["elec.LBA.charge_pct"], "batterie A rechargée"
-    assert not c.joints.etat.hors_domaine
+    assert not c.pzr.etat.hors_domaine
 
 
 def test_d4_s12_perte_air() -> None:

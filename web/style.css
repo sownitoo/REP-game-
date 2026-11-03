@@ -371,3 +371,9 @@ table.lecture td.froid, .froid { color: #a9cdf5; }
 .barriere-txt.b3 { fill: #c9d4df; }
 .cuve-bloc { fill: #2a1c14; stroke-width: 3; }
 .traversee { fill: #0d1217; stroke: #e8f4ff; stroke-width: 2; cursor: help; }
+
+/* ---------------- RIS · EAS · enceinte ---------------- */
+.repere-niveau { stroke: var(--orange); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.contour-acc { fill: #0d1217; stroke: #c8d2dc; stroke-width: 1.5; }
+.goutte { fill: #4ea1ff; opacity: .7; }
+.val.breche { fill: #ff9d87; }

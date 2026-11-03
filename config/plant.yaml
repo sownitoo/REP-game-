@@ -10,7 +10,7 @@
 # =============================================================================
 
 meta:
-  version: V3
+  version: V4
   nom: "Mini-Centrale REP 4 boucles (générique)"
 
 simulation:
@@ -126,6 +126,7 @@ pressuriseur:
   voies_pression: 4
   voies_niveau: 3
   retard_mesure_s: 0.5              # HYPOTHESE
+  compressibilite_kg_bar: 40.0      # HYPOTHESE primaire plein d'eau : masse stockée par bar (eau ~330 m³ + cuve)
 
 # --- Charge / décharge simplifiées (V1 ; RCV complet en V2) ---------------------
 rcv:
@@ -173,7 +174,7 @@ rri:
   debit_pompe_m3h: 2500.0           # HYPOTHESE
   chaleur_fixe_mw: 6.0              # HYPOTHESE autres utilisateurs (moteurs, ventilation…)
   chaleur_par_pompe_primaire_mw: 0.5   # HYPOTHESE (barrière thermique + paliers)
-  delai_pompes_primaires_s: 300.0   # HYPOTHESE : sans RRI, défaut des pompes primaires (spec : arrêt en ~2 min)
+  delai_pompes_primaires_s: 120.0   # spec : sans RRI, pompes primaires à arrêter sous ~2 min (sinon défaut)
 sec:
   debit_pompe_m3h: 3000.0           # HYPOTHESE
 
@@ -195,9 +196,11 @@ electricite:
     - {t_s: 11.0, pompes: {LHA: SEC_P1, LHB: SEC_P2}}
     - {t_s: 15.5, pompes: {LHA: ASG_MP1, LHB: ASG_MP2}}
     - {t_s: 20.0, pompes: {LHA: SAR_C1, LHB: SAR_C2}}
-  sequenceur_accident:                  # spec (avec IS) ; l'injection de sécurité elle-même arrive en V4
+  sequenceur_accident:                  # spec (avec IS)
     - {t_s: 2.0, pompes: {LHA: RCV_PC1, LHB: RCV_PC2}}
-    - {t_s: 15.5, pompes: {LHA: ASG_MP1, LHB: ASG_MP2}}
+    - {t_s: 6.5, pompes: {LHA: RIS_PMP1, LHB: RIS_PMP2}}
+    - {t_s: 15.5, pompes: {LHA: RRA_P1, LHB: RRA_P2}}
+    - {t_s: 17.0, pompes: {LHA: ASG_MP1, LHB: ASG_MP2}}
     - {t_s: 20.0, pompes: {LHA: RRI_P1, LHB: RRI_P2}}
     - {t_s: 24.5, pompes: {LHA: SEC_P1, LHB: SEC_P2}}
     - {t_s: 29.0, pompes: {LHA: SAR_C1, LHB: SAR_C2}}
@@ -222,6 +225,47 @@ joints_pp:
   delai_rupture_s: 3600.0               # HYPOTHESE : une heure plus tard, joints détruits
   fuite_max_m3h: 68.0                   # spec (par pompe, en black-out)
   p_ref_bar: 155.0
+
+# --- Injection de sécurité (RIS, §4.4) ------------------------------------------------
+ris:
+  mp: {q_nom_m3h: 97.0, dp_nom_bar: 46.0, dp0_bar: 106.0}   # spec : 2 pompes SI (moyenne pression)
+  bp: {q_nom_m3h: 700.0, dp_nom_bar: 10.0, dp0_bar: 14.0}   # spec : pompes RRA en injection (~14 bar)
+  ptr_recirculation_pct: 48.0         # spec : arrêt auto des pompes RRA, bascule sur les puisards
+  ptr_tres_bas_pct: 17.0              # spec : arrêt auto de l'aspersion
+  t_puisard_max_injection_c: 120.0    # HYPOTHESE (borne de la température réinjectée)
+  puisard_min_m3: 50.0                # HYPOTHESE : eau minimale dans les puisards pour passer en recirculation
+
+# --- Enceinte de confinement (§9.5) ----------------------------------------------------------
+enceinte:
+  volume_m3: 70000.0                  # HYPOTHESE (enceinte interne d'un 1 300 MWe)
+  p_initiale_bar: 1.013
+  t_initiale_c: 30.0
+  humidite: 0.5                       # HYPOTHESE (humidité relative initiale)
+  ha_parois_kw_c: 3000.0              # HYPOTHESE (béton + acier, condensation)
+  capacite_parois_mj_c: 3000.0        # HYPOTHESE (couche de surface qui participe)
+  p_calcul_bar: 5.8                   # HYPOTHESE pression de calcul (alarme)
+  aspersion_m3h: 700.0                # HYPOTHESE par pompe EAS
+  efficacite_aspersion: 0.9           # HYPOTHESE (les gouttes arrivent presque à la température de l'atmosphère)
+
+# --- Bâche de décharge du pressuriseur (PRT) -----------------------------------------------------
+prt:
+  volume_m3: 51.0                     # spec
+  volume_eau_m3: 38.0                 # spec (~3/4 d'eau)
+  t_initiale_c: 40.0                  # HYPOTHESE
+  p_azote_bar: 1.2                    # HYPOTHESE
+  p_disque_bar: 8.0                   # spec : disques de rupture
+  t_alarme_c: 46.0                    # spec
+
+# --- Brèches (§9.4) -----------------------------------------------------------------------------
+breches:
+  cd: 0.6                             # HYPOTHESE coefficient de décharge (liquide)
+  cd_vapeur: 0.6                      # spec : débit sonique ~ 0,6 · A · P / √(R·T)
+  g_sature_kg_m2s_bar: 500.0          # HYPOTHESE débit critique diphasique d'eau saturée ≈ 500 × P (kg/m²/s, P en bar)
+  vide_debut_vapeur_pct: 30.0         # HYPOTHESE vide primaire (% du volume de découvrement) où la brèche commence à voir de la vapeur
+  vide_tout_vapeur_pct: 60.0          # HYPOTHESE … et où elle ne crache plus que de la vapeur (joints hydrauliques vidés)
+  diametre_tube_gv_cm: 2.0            # HYPOTHESE (rupture guillotine d'un tube : 2 sections)
+  activite_primaire: 1.0              # activité de l'eau primaire (unité arbitraire)
+  activite_alarme: 0.001              # HYPOTHESE seuil « activité GV haute »
 
 # --- Accumulateurs (RIS, partie passive) ---------------------------------------------
 accumulateurs:
@@ -461,6 +505,20 @@ gabarits:
     puissance_kw: 400.0             # HYPOTHESE
     temps_demarrage_s: 10.0
     temps_ralentissement_s: 10.0
+  pompe_is:
+    type: Pump
+    systeme: RIS
+    q_nom_m3h: 97.0                 # spec
+    puissance_kw: 900.0             # HYPOTHESE
+    temps_demarrage_s: 5.0
+    temps_ralentissement_s: 5.0
+  pompe_eas:
+    type: Pump
+    systeme: EAS
+    q_nom_m3h: 700.0                # HYPOTHESE
+    puissance_kw: 600.0             # HYPOTHESE
+    temps_demarrage_s: 5.0
+    temps_ralentissement_s: 5.0
   compresseur_air:
     type: Pump
     systeme: SAR
@@ -632,6 +690,14 @@ composants:
   RRI_P2: {gabarit: pompe_rri, alim: LHB}
   SEC_P1: {gabarit: pompe_sec, alim: LHA}
   SEC_P2: {gabarit: pompe_sec, alim: LHB}
+  # RIS / EAS
+  RIS_PMP1: {gabarit: pompe_is, alim: LHA}
+  RIS_PMP2: {gabarit: pompe_is, alim: LHB}
+  RIS_BIT: {type: Valve, systeme: RIS, actionneur: MOV, alim: LHA, temps_course_s: 10.0}   # injection HP (charge → branches froides)
+  RIS_PUISARD1: {type: Valve, systeme: RIS, actionneur: MOV, alim: LHA, temps_course_s: 30.0}   # recirculation : aspiration puisards
+  RIS_PUISARD2: {type: Valve, systeme: RIS, actionneur: MOV, alim: LHB, temps_course_s: 30.0}
+  EAS_P1: {gabarit: pompe_eas, alim: LHA}
+  EAS_P2: {gabarit: pompe_eas, alim: LHB}
   # air comprimé
   SAR_C1: {gabarit: compresseur_air, alim: LHA}
   SAR_C2: {gabarit: compresseur_air, alim: LHB}
@@ -727,7 +793,16 @@ regulations:
 logique:
   p7: {puissance_max_pct: 10.0, charge_turbine_max_pct: 10.0}   # P-7 = non P-10 ET P-13
   p11_p_pzr_bar: 138.0              # spec : P-11, autorise le blocage de l'IS basse pression
-  injection_securite: {p_pzr_basse_bar: 122.0, p_vapeur_basse_bar: 41.0, rearmement_s: 60.0}   # ordres de grandeur NRC
+  injection_securite:                # spec (signaux de sauvegarde)
+    p_pzr_basse_bar: 125.6          # 2/3 (ici 2/4), bloquable sous P-11
+    p_enceinte_haute_bar_rel: 0.24  # 2/3
+    ecart_vapeur_bar: 6.9           # écart de pression entre lignes vapeur
+    debit_vapeur_haut_pct: 110.0    # HYPOTHESE seuil à pleine charge (% du débit nominal d'une ligne)
+    debit_vapeur_haut_bas_pct: 40.0 # HYPOTHESE seuil à faible charge (programme de type Westinghouse)
+    charge_debit_bas_pct: 20.0      # HYPOTHESE charge turbine sous laquelle le seuil bas s'applique
+    p_vapeur_basse_bar: 42.4        # avec débit vapeur haut (ou Tmoy < P-12) : IS + isolement vapeur
+    rearmement_s: 60.0
+  p_enceinte_tres_haute_bar_rel: 2.07   # spec : aspersion enceinte (EAS) + phase B + isolement vapeur
   etats:
     t_rra_max_c: 177.0              # spec
     p_rra_max_bar: 30.0             # spec
@@ -831,7 +906,19 @@ alarmes:
   - {id: AIR_BAS, mesure: air.p_bar, bas: 6.0, priorite: 2, libelle: "Pression d'air comprimé basse"}
   - {id: AIR_PERDU, mesure: air.p_bar, bas: 5.0, priorite: 1, libelle: "Air comprimé perdu : vannes pneumatiques en repli", temporisation_s: 0.0}
   - {id: JOINTS_PP, mesure: joints.fuite_m3h, haut: 0.5, priorite: 1, libelle: "Fuite aux joints des pompes primaires", temporisation_s: 0.0}
-  - {id: HORS_DOMAINE, mesure: joints.hors_domaine, haut: 0.5, priorite: 1, libelle: "PZR vide ou plein : simulation figée (hors domaine)", temporisation_s: 0.0}
+  - {id: HORS_DOMAINE, mesure: primaire.hors_domaine, haut: 0.5, priorite: 1, libelle: "Cœur découvert : simulation figée (accident grave, hors domaine)", temporisation_s: 0.0}
+  - {id: PRIMAIRE_EN_EAU, mesure: primaire.en_eau, haut: 0.5, priorite: 1, libelle: "Pressuriseur plein d'eau : plus de bulle, pression pilotée par l'injection et les décharges", temporisation_s: 0.0}
+  - {id: PRIMAIRE_SATURE, mesure: primaire.sature, haut: 0.5, priorite: 1, libelle: "Primaire saturé : vapeur dans la cuve (marge à la saturation nulle)", temporisation_s: 0.0}
+  - {id: NIVEAU_CUVE, mesure: cuve.niveau_pct, bas: 60.0, priorite: 1, libelle: "Niveau cuve bas (vide dans le primaire)", temporisation_s: 0.0}
+  - {id: P_ENCEINTE, mesure: enceinte.p_rel_bar, haut: 0.15, priorite: 2, libelle: "Pression enceinte en hausse"}
+  - {id: P_ENCEINTE_TH, mesure: enceinte.p_rel_bar, haut: 2.07, priorite: 1, libelle: "Pression enceinte très haute : aspersion + phase B", temporisation_s: 0.0}
+  - {id: PUISARD, mesure: enceinte.puisard_m3, haut: 1.0, priorite: 2, libelle: "Eau dans les puisards de l'enceinte"}
+  - {id: PTR_RECIRC, mesure: rcv.ptr_pct, bas: 48.0, priorite: 1, libelle: "PTR à 48 % : passer en recirculation sur les puisards", temporisation_s: 0.0}
+  - {id: PRT_T, mesure: prt.t_c, haut: 46.0, priorite: 2, libelle: "Température bâche de décharge PZR haute"}
+  - {id: PRT_DISQUE, mesure: prt.disque_rompu, haut: 0.5, priorite: 1, libelle: "Disque de rupture de la bâche de décharge rompu", temporisation_s: 0.0}
+  - {id: ACTIVITE_GV, mesure: gv.activite_max, haut: 0.001, priorite: 1, libelle: "Activité haute dans un GV (fuite primaire → secondaire)", temporisation_s: 0.0}
+  - {id: INJECTION, mesure: ris.qm_kg_s, haut: 0.5, priorite: 1, libelle: "Injection de sécurité en cours", temporisation_s: 0.0}
+  - {id: ISOL_VAPEUR, mesure: logique.isolement_vapeur, haut: 0.5, priorite: 1, libelle: "Isolement vapeur", temporisation_s: 0.0}
   - {id: SOUS_CRITICITE, mesure: coeur.marge_arret_chaud_pcm, bas: 1000.0, priorite: 1, libelle: "Marge d'arrêt insuffisante à l'arrêt"}
   - {id: C3_C4, mesure: logique.c3_c4, haut: 0.5, priorite: 1, libelle: "Préalarme ΔT (C-3/C-4) : runback", temporisation_s: 0.0}
   - {id: ASG_EN_SERVICE, mesure: asg.qm_kg_s, haut: 1.0, priorite: 2, libelle: "ASG en service"}

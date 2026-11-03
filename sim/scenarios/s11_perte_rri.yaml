@@ -1,0 +1,15 @@
+id: s11_perte_rri
+titre: "S11 — Perte du RRI"
+description: >-
+  Une fuite vide le circuit de réfrigération intermédiaire (RRI) : ses pompes s'arrêtent. Les pompes
+  primaires perdent le refroidissement de leurs paliers et de leur barrière thermique : il faut les arrêter
+  en ~2 minutes, sinon elles sont détruites. Sans RRI, plus de RRA ni de refroidissement de la décharge RCV.
+etat_initial: rp100
+duree_s: 3600
+pannes:
+  - {t_s: 30, type: perte_rri}
+objectifs:
+  - "Alarme RRI : vérifier l'onglet RRA · RRI · SEC (pompes RRI arrêtées, impossibles à relancer)."
+  - "Déclencher le réacteur (AU manuel), puis arrêter les 4 pompes primaires avant 2 min."
+  - "Garder l'injection aux joints (charge RCV) : elle protège les joints sans barrière thermique."
+  - "Vérifier la circulation naturelle (débit ~5 %, ΔT boucles) et évacuer la chaleur par les GV."

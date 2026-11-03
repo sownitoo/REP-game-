@@ -26,10 +26,10 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 | Badge d'état en haut | état standard + check-list pour passer à l'état suivant |
 | Survol d'un équipement | **fiche** : nom, type, circuit, rôle (aussi en tête du panneau au clic) |
 | Survol d'un sigle | **décomposition** (RCV = R Réacteur · CV Contrôle chimique et Volumétrique) et rôle |
-| ☰ | scénarios (avec fiche de conduite), sauvegarde, chargement, **glossaire des sigles** |
+| ☰ | scénarios (avec fiche de conduite), sauvegarde, chargement, **glossaire des sigles**, **⚠ pannes (formateur)** |
 | Espace / Échap | pause / fermer le panneau |
 
-## Version actuelle : V3
+## Version actuelle : V4
 
 | Onglet | Contenu |
 |---|---|
@@ -39,6 +39,7 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 | Secondaire · ASG | vapeur, turbine, condenseur, poste d'eau ; alimentation de secours |
 | **RCV · REA** | charge (pompes, FCV-121, joints), décharge (LCV-459/460, orifices, CV-8152), VCT, PTR, appoint eau / bore |
 | **RRA · RRI · SEC** | 2 trains RRA (verrou 30 bar, fermeture auto 41 bar), boucle RRI, eau de mer, accumulateurs |
+| **RIS · EAS · Enceinte** | PTR et puisards, injection HP (charge par la BIT) / MP / BP (pompes RRA), aspersion, enceinte (pression, température, puisards), PRT et son disque, brèches, niveau cuve |
 | **Électricité · Air** | schéma unifilaire : réseau, alternateur, TA/TS, tableaux LG/LH, diesels, séquenceur, batteries 125 V, air comprimé |
 | Logique · Courbes · Journal | permissifs (dont P-11), IS (signal), seuils ; 1 à 6 courbes ; chronologie |
 
@@ -48,7 +49,9 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 | Primaire | 4 boucles + cuve, pompes, circulation naturelle, GV ε-NTU, **branches RRA** dans le même réseau |
 | RCV / REA | débit dispo des pompes de charge, décharge ∝ √ΔP, VCT (niveau, bore), PTR, borication / dilution / auto / urgence |
 | RRA, RRI, SEC | échangeurs à contre-courant, RRI = un nœud thermique, perte RRI → défaut des pompes primaires |
-| Logique | AU, **IS (signal + ordres hors RIS)**, P-4 → P-14 dont **P-11**, C-x, accumulateurs, états standards RP / AN/GV / AN/RRA / arrêt à froid |
+| Logique | AU, **IS** (P PZR basse, P enceinte haute, écart vapeur, débit vapeur haut), **isolement vapeur**, **phase A / B**, recirculation (PTR 48 % / 17 %), P-4 → P-14, C-x, états standards |
+| Primaire saturé | vide dans la cuve : **P = Psat(eau la plus chaude)**, PZR qui monte quand la PORV crache (TMI), niveau cuve ; PZR plein d'eau : pression par compressibilité, décharge d'eau par les PORV |
+| Brèches, enceinte | débit critique (sous-refroidi → saturé → vapeur quand les joints hydrauliques se vident), RTGV + activité, brèche vapeur ; enceinte air + vapeur, parois, puisards, aspersion ; PRT + disque |
 | Électricité | délestage, diesels (10 s), séquenceurs arrêt / accident, batteries (2 h / 30 min), perte du 125 V |
 | Air, joints | rupture du collecteur, vannes pneumatiques en repli ; fuite des joints PP sans injection ni RRI |
 
@@ -58,6 +61,11 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 | S5 perte des alimentations externes | délestage, diesels, séquenceur, circulation naturelle, VDA |
 | S6 perte totale des sources | batteries, turbopompe ASG, joints, remettre le diesel A en service à temps |
 | S12 perte d'air comprimé | positions de repli, AU, ASG, isoler la fuite |
+| **S7** petite brèche primaire (5 cm) | IS, ordre HP puis MP, plateau ~80 bar, puisards, recirculation, arrêter l'IS à temps |
+| **S8** PORV bloquée ouverte | vanne d'isolement, primaire qui bout, niveau PZR trompeur (TMI), disque de la PRT |
+| **S9** rupture de tube de GV | activité du GV, isolement (VIV, ASG), égaliser les pressions |
+| **S10** brèche vapeur (fin de cycle) | IS sur P enceinte, isolement vapeur, surrefroidissement, **retour critique**, aspersion |
+| **S11** perte du RRI | arrêter les pompes primaires en moins de 2 min |
 
 ## Scénario S2 : de RP à AN/RRA (fiche résumée, détail dans ☰)
 
@@ -79,7 +87,7 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 ## Tests
 
 ```bash
-python -m pytest              # tout (≈ 6 min, dont S2, S5, S6 de bout en bout)
+python -m pytest              # tout (≈ 8 min, dont S2, S5, S6, S7 à S10 de bout en bout)
 python -m pytest -m "not lent"  # sans les longs transitoires
 ```
 
@@ -94,8 +102,11 @@ sim/core/                réseau hydraulique (Newton), horloge, journal/alarmes,
 sim/components/          pompe, vannes, clapet, soupape, bâche, volume diphasique, capteur, PI
 sim/thermo/              tables eau/vapeur pré-calculées (CoolProp IF97, config/tables_eau.json)
 sim/core_model/          cœur boîte noire : neutronique, grappes, puissance résiduelle
-sim/systems/             primaire (rcp), pressuriseur, RCV/REA, RRA, RRI/SEC, accumulateurs, ASG, GV, VVP,
-                         turbine, GCT-c, condenseur, poste d'eau
+sim/systems/             primaire (rcp), pressuriseur (+ vide primaire), RCV/REA, RRA, RRI/SEC, accumulateurs,
+                         RIS, enceinte + PRT, brèches, ASG, GV, VVP, turbine, GCT-c, condenseur, poste d'eau,
+                         air comprimé, joints des PP
+sim/electrical/          réseau, tableaux, diesels, séquenceurs, batteries
+sim/scenarios/           scénarios (YAML), pannes programmées, pupitre formateur
 sim/logic/               permissifs, AU, IS, automatismes, régulations, verrous, états standards
 sim/plant.py             assemblage + pas de calcul (ordre du §2.3 de la spec)
 sim/interface.py         protocole JSON commun aux deux modes

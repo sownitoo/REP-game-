@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mini-Centrale REP</title>
   <meta name="description" content="Simulateur pédagogique schématique d'une centrale REP 4 boucles (générique).">
-  <link rel="stylesheet" href="style.css?v=5">
-  <script src="mode.js?v=5"></script>
+  <link rel="stylesheet" href="style.css?v=6">
+  <script src="mode.js?v=6"></script>
 </head>
 <body>
   <div id="chargement">
@@ -48,6 +48,7 @@
           <button id="btn-charger">📂 Charger un état</button>
           <hr>
           <button id="btn-glossaire">📖 Glossaire des sigles</button>
+          <button id="btn-formateur">⚠ Pannes (formateur)</button>
           <input type="file" id="fichier" accept=".json" hidden>
           <hr>
           <p class="discret petit">Molette : zoom · glisser : se déplacer · double-clic : zoom ×2<br>
@@ -67,6 +68,7 @@
         <button data-onglet="asg">ASG</button>
         <button data-onglet="rcv">RCV · REA</button>
         <button data-onglet="rra">RRA · RRI · SEC</button>
+        <button data-onglet="ris">RIS · EAS · Enceinte</button>
         <button data-onglet="elec">Électricité · Air</button>
         <button data-onglet="logique">Logique</button>
         <button data-onglet="courbes">Courbes</button>
@@ -94,6 +96,9 @@
       </div>
       <div id="onglet-rra" class="onglet">
         <svg id="synoptique-rra" class="synoptique" viewBox="0 0 1400 800" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div id="onglet-ris" class="onglet">
+        <svg id="synoptique-ris" class="synoptique" viewBox="0 0 1400 820" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
       <div id="onglet-elec" class="onglet">
         <svg id="synoptique-elec" class="synoptique" viewBox="0 0 1400 820" preserveAspectRatio="xMidYMid meet"></svg>
@@ -181,21 +186,22 @@
     </div>
   </div>
 
-  <script src="svg.js?v=5"></script>
-  <script src="glossaire.js?v=5"></script>
-  <script src="zoom.js?v=5"></script>
-  <script src="coeur_geo.js?v=5"></script>
-  <script src="coeur_vue.js?v=5"></script>
-  <script src="neutrons.js?v=5"></script>
-  <script src="synoptics/ensemble.js?v=5"></script>
-  <script src="synoptics/primaire.js?v=5"></script>
-  <script src="synoptics/secondaire.js?v=5"></script>
-  <script src="synoptics/asg.js?v=5"></script>
-  <script src="synoptics/rcv.js?v=5"></script>
-  <script src="synoptics/rra.js?v=5"></script>
-  <script src="synoptics/elec.js?v=5"></script>
-  <script src="transport.js?v=5"></script>
-  <script src="curves.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="svg.js?v=6"></script>
+  <script src="glossaire.js?v=6"></script>
+  <script src="zoom.js?v=6"></script>
+  <script src="coeur_geo.js?v=6"></script>
+  <script src="coeur_vue.js?v=6"></script>
+  <script src="neutrons.js?v=6"></script>
+  <script src="synoptics/ensemble.js?v=6"></script>
+  <script src="synoptics/primaire.js?v=6"></script>
+  <script src="synoptics/secondaire.js?v=6"></script>
+  <script src="synoptics/asg.js?v=6"></script>
+  <script src="synoptics/rcv.js?v=6"></script>
+  <script src="synoptics/rra.js?v=6"></script>
+  <script src="synoptics/elec.js?v=6"></script>
+  <script src="synoptics/ris.js?v=6"></script>
+  <script src="transport.js?v=6"></script>
+  <script src="curves.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

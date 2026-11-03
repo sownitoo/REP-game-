@@ -1,0 +1,16 @@
+id: s9_rtgv
+titre: "S9 — Rupture de tube de générateur de vapeur (RTGV)"
+description: >-
+  Un tube du GV1 se rompt : l'eau primaire (active) passe dans le GV1. Le PZR se vide lentement, AU et IS
+  sur pression basse. L'eau du GV1 devient active : c'est ce qui permet de trouver le GV affecté.
+  Tant que le primaire reste au-dessus de la pression du GV1, la fuite continue et le GV1 se remplit.
+etat_initial: rp100
+duree_s: 7200
+pannes:
+  - {t_s: 30, type: rtgv, gv: 1}
+objectifs:
+  - "Identifier le GV affecté : activité de l'eau (alarme), niveau qui monte sans raison."
+  - "Isoler le GV1 : fermer VIV1 (et sa VIV1_BP), ASG1 en manuel à 0 %."
+  - "Refroidir par les GV sains (GCT / VDA 2-3-4) pour passer sous la pression du GV1."
+  - "Faire baisser la pression du primaire (aspersion PZR ou PORV) jusqu'à égalité avec le GV1 : la fuite s'arrête."
+  - "Arrêter l'injection dès que les critères sont remplis, avant que le GV1 ne déborde."

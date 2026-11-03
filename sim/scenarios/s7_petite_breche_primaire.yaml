@@ -1,0 +1,17 @@
+id: s7_petite_breche_primaire
+titre: "S7 — Petite brèche primaire (∅ 5 cm)"
+description: >-
+  À 100 %, une brèche de 5 cm s'ouvre sur la branche froide de la boucle 1, dans l'enceinte. La charge
+  RCV ne suffit pas : la pression baisse, AU puis injection de sécurité. Le primaire se stabilise vers
+  80 bar (température des GV) tant que l'injection HP + MP compense la fuite ; l'eau s'accumule aux puisards.
+etat_initial: rp100
+duree_s: 14400
+pannes:
+  - {t_s: 30, type: breche_primaire, diametre_cm: 5.0, boucle: 1}
+objectifs:
+  - "Diagnostiquer : niveau PZR qui baisse malgré la charge, P et T enceinte qui montent, puisards qui se remplissent."
+  - "AU puis IS (P PZR < 125,6 bar) : vérifier l'ordre d'injection — HP (charge par la BIT) d'abord, puis MP sous 106 bar."
+  - "Onglet RIS · EAS · Enceinte : débits HP / MP, marge à la saturation, niveau cuve."
+  - "Refroidir par les GV (GCT ou VDA) pour faire baisser la pression du primaire et la fuite."
+  - "PTR < 48 % : les pompes RRA s'arrêtent ; ouvrir RIS_PUISARD1/2 → recirculation sur les puisards, relancer les pompes."
+  - "Avant que le PZR soit plein : arrêter l'injection si la marge à la saturation et le niveau PZR sont rétablis."

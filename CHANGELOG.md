@@ -1,5 +1,72 @@
 # Changelog
 
+## V4 — 2026-11-03 — RIS, EAS, enceinte, brèches, primaire saturé, tous les signaux de sauvegarde
+
+### Ajouté
+- **Injection de sécurité** (`sim/systems/ris.py`) : HP = pompes de charge par la ligne BIT (ouverte sur IS),
+  MP = 2 pompes IS (débit nul au-dessus de 106 bar), BP = pompes RRA en injection (sous 14 bar), accumulateurs.
+  Aspiration PTR, puis **recirculation** sur les puisards (vannes `RIS_PUISARD1/2`, ouvrables si puisard > 50 m³) :
+  PTR < 48 % → arrêt automatique des pompes RRA, PTR < 17 % → arrêt de l'aspersion.
+- **Aspersion enceinte (EAS)** : 2 pompes, démarrage + **phase B** (RRI coupé des pompes primaires) sur
+  P enceinte > 2,07 bar rel.
+- **Enceinte** (`sim/systems/enceinte.py`) : 70 000 m³ d'air + vapeur, parois (béton + acier), puisards, aspersion,
+  condensation. **PRT** (bâche de décharge du PZR) : azote + eau, **disque de rupture à 8 bar**.
+- **Brèches** (`sim/systems/breches.py`) : primaire (débit critique : sous-refroidi → saturé → vapeur quand les
+  joints hydrauliques se vident), **RTGV** avec **activité** de l'eau du GV, **brèche vapeur** (en amont de la VIV),
+  PORV bloquée ouverte, grappe la plus efficace coincée, perte du RRI.
+- **Primaire saturé** (`sim/systems/pzr.py`) : quand l'eau la plus chaude atteint la saturation, un **vide** se forme
+  dans la cuve, **P = Psat(T chaude)**, la vapeur formée prend sa chaleur latente à l'eau ; le PZR est ramené à cette
+  pression en échangeant de l'eau avec le primaire → **le niveau PZR monte quand la PORV crache (TMI)**.
+  **Niveau cuve** (type RVLIS) affiché. **PZR plein d'eau** : la pression vient de la compressibilité (40 kg/bar),
+  les PORV/soupapes déchargent de l'eau. Le seul gel de simulation restant : **cœur découvert** (accident grave).
+- **Signaux** : IS sur P PZR basse (bloquable sous P-11), P enceinte > 0,24 bar rel, écart de pression entre lignes
+  vapeur, débit vapeur haut + (P vapeur basse ou P-12) ; **isolement vapeur** (VIV + by-pass) mémorisé, réarmable ;
+  seuil « débit vapeur haut » 40 % sous 20 % de charge → 110 % à pleine charge ; phase A (CV-8152, charge isolée).
+- **Pupitre formateur** (☰ → ⚠ Pannes) : brèche primaire (∅ au choix), RTGV, brèche vapeur, PORV bloquée, perte RRI,
+  grappe coincée, rupture d'air, perte / retour réseau, supprimer les brèches — à tout moment.
+- **Scénarios S7 à S11** avec fiche de conduite ; option de scénario `coeur:` (ex. fin de cycle, α_mod −60 pcm/°C).
+- **Interface** : onglet **RIS · EAS · Enceinte** (PTR et repères 48 / 17 %, pompes HP/MP/BP/EAS, BIT, puisards,
+  rampes d'aspersion, primaire avec brèches + niveau cuve, accumulateurs, PRT et disque, atmosphère) ; bloc RIS · EAS
+  de la vue d'ensemble (injection, P enceinte) ; voyants Injection / Isolement vapeur / Phase B ; alarmes primaire
+  saturé, niveau cuve bas, PZR plein d'eau, activité GV, PRT, puisards ; fiches et sigles RIS, EAS, PRT, BIT, RTGV, APRP.
+- 111 tests (`pytest`, ≈ 8 min).
+
+### Résultats des tests d'acceptation (mesurés, panne à t = 30 s depuis RP 100 %)
+
+| # | Situation | Résultat |
+|---|---|---|
+| E1 | Situation normale | P enceinte 0, PRT 1,27 bar disque intact, pas d'injection, cuve 100 %, 0 alarme |
+| E2 | **S7** brèche 5 cm branche froide | 125 kg/s au départ ; AU **+86 s**, IS **+91 s** (P PZR) ; **HP à +95 s, MP à +135 s** (sous 106 bar) ; plateau **82 bar** (température des GV), marge à la saturation mini 3,6 °C, cuve toujours pleine ; à 30 min : brèche 59 kg/s ≈ HP 95 + MP 126 m³/h, puisards 96 m³, P enceinte 0,35 bar rel, PTR 93 % |
+| E3 | Recirculation | IS manuelle → pompes RRA lancées ; PTR forcée à 47 % → arrêt RRA (« PTR à 48 % ») ; `RIS_PUISARD1` refusée puisard vide ; puisard 400 m³ → ouverture, recirculation, RRA relançable |
+| E4 | **S8** PORV bloquée ouverte | AU +37 s, IS +56 s ; **primaire saturé à +260 s** (75 bar), niveau PZR de 36 % → **99 %** pendant que le vide cuve atteint 10 m³ (TMI) ; **disque de la PRT rompu à +419 s** ; fermeture de `PZR_ISOL1` acceptée |
+| E5 | **S9** RTGV GV1 | **alarme d'activité à +5 s**, GV2-4 à 0 ; fuite 44 → 26 kg/s ; AU +320 s, IS +325 s ; VIV1 + by-pass + ASG1 fermés |
+| E6 | **S10** brèche vapeur 30 cm (fin de cycle, grappe coincée) | IS sur P enceinte **+15 s**, **isolement vapeur +53 s** (débit haut + P vapeur basse) ; Tmoy mini **160 °C** ; réactivité de −3 085 pcm → **+171 pcm à +18 min : retour critique** (puissance ≤ 1,2 %), puis le bore de la BIT la refait descendre ; P enceinte 2,07 bar rel → aspersion + phase B à +26 min ; ASG1 coupée → GV1 sec, brèche tarie |
+| E7 | **S11** perte du RRI | pompes RRI non relançables ; PP en **défaut à +120 s** sans action ; AU manuel + arrêt des 4 PP à +30 s → pompes intactes |
+| E8 | Pupitre formateur | brèche 2 cm → ~20 kg/s à 155 bar, eau aux puisards ; suppression → 0 |
+| E9 | Brèche 15 cm (bac à sable) | primaire saturé à +20 s ; 122 → 64 bar (5 min) → **42 bar à 10 min : accumulateurs** ; cuve mini **32 %** puis renoyée (BP sous 14 bar à +38 min) ; P = Psat(T chaude) à 0,5 bar près |
+
+### Écarts par rapport à la spec
+- **Ordre d'injection** : la spec cite HP / MP / BP ; ici l'HP passe par les pompes de charge (BIT) et la BP par les
+  pompes RRA (schéma « Westinghouse »). Les MP sont des pompes dédiées.
+- **Seuil de débit vapeur haut** programmé sur la charge turbine (HYPOTHESE) : avec un seuil fixe à 110 %, une brèche
+  vapeur après déclenchement turbine n'isolait jamais les lignes.
+- **Fin de cycle** pour S10 : α_mod −60 pcm/°C (au lieu de −20) et grappe coincée (800 pcm), sinon pas de retour de
+  réactivité visible.
+
+### Ce qui reste approximatif (V4)
+1. **Primaire diphasique en « vide + liquide »** : pas de mélange diphasique dans les boucles, la circulation
+   naturelle n'est pas coupée par le vide (pas de rupture de thermosiphon, pas de condensation en reflux dans les GV).
+2. Brèche : débit critique simplifié (K_sat·P quand l'eau est saturée), passage progressif à la vapeur entre 30 et
+   60 % du volume de découvrement (HYPOTHESE) ; dépressurisation d'une grosse brèche plus lente que la réalité.
+3. **Cœur découvert = simulation figée** (pas de modèle d'accident grave).
+4. PZR plein d'eau : chauffage ignoré, compressibilité constante ; PZR toujours 1 zone (le refroidissement brutal d'un
+   PZR par une insurge froide reste exagéré).
+5. Enceinte 1 nœud (pas de stratification, pas d'hydrogène), puisards parfaitement mélangés, pas de filtres.
+6. GV vidé par une brèche : il garde ~500 kg d'eau et sa vapeur à la pression de l'enceinte (pas de vapeur surchauffée).
+7. Activité : un traceur (1 = eau primaire), sans décroissance ni rejets ; pas de dosimétrie.
+
+227 valeurs marquées `# HYPOTHESE`, listées dans [`docs/HYPOTHESES.md`](docs/HYPOTHESES.md).
+
 ## V3.1 — 2026-11-03 — Vue d'ensemble, glossaire, fiches équipements
 - **Vue d'ensemble** (premier onglet) : un bloc par circuit (RCP, GV, RCV, REA, RRA, RRI, SEC, PTR, RIS, RPR, VVP,
   turbine, alternateur, ARE, GCT-c, poste d'eau, condenseur, CRF, ASG, réseau, tableaux, diesels, batteries, air),

@@ -24,6 +24,7 @@ class Scenario:
     duree_s: float | None = None
     pannes: list[dict[str, Any]] = field(default_factory=list)
     objectifs: list[str] = field(default_factory=list)     # fiche de conduite affichée au joueur
+    coeur: dict[str, float] = field(default_factory=dict)  # surcharges du cœur (ex. fin de cycle : alpha_mod_pcm_c)
 
 
 def lire_etat(nom: str) -> dict[str, Any]:
@@ -49,6 +50,10 @@ def lister_scenarios() -> list[Scenario]:
 def centrale_scenario(id_scenario: str) -> Centrale:
     sc = lire_scenario(id_scenario)
     c = centrale_depuis_etat(sc.etat_initial)
+    for cle, valeur in sc.coeur.items():
+        if not hasattr(c.coeur.cfg, cle):
+            raise ValueError(f"Scénario {sc.id} : paramètre du cœur inconnu « {cle} »")
+        setattr(c.coeur.cfg, cle, valeur)
     c.pannes = [{**p, "t_s": c.t_s + p["t_s"]} for p in sc.pannes]
     c.journal.ajouter(c.t_s, "info", f"Scénario {sc.id} : {sc.titre}", PRIORITE_INFO)
     return c

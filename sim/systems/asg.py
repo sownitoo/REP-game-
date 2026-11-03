@@ -43,6 +43,7 @@ class ASG:
                                         table.rho_liq_kg_m3(t_eau_c), p_initiale_bar)
         self.etat = EtatASG(qm_gv_kg_s=[0.0] * len(boucles), qm_vapeur_tps_kg_s=0.0,
                             p_bar=dict(self.reseau.etat.p_bar))
+        self._parts: dict[int, float] = {b: 1.0 / len(cfg.prises_vapeur_tps) for b in cfg.prises_vapeur_tps}
 
     @property
     def h_eau_kj_kg(self) -> float:
@@ -72,11 +73,14 @@ class ASG:
         self.etat.qm_gv_kg_s = [r.branche[f"L_ASG{b}"].qm_kg_s for b in self.boucles]
         self.etat.qm_vapeur_tps_kg_s = self.cfg.vapeur_tps_kg_s * self.turbopompe.etat.vitesse
         self.etat.p_bar = dict(r.etat.p_bar)
+        # la vapeur vient surtout du GV le plus haut en pression (clapets) : partage ∝ pression
+        p_prises = {b: gvs[self.boucles.index(b)].p_bar for b in self.cfg.prises_vapeur_tps}
+        total = sum(p_prises.values())
+        self._parts = {b: p / total if total > 0.0 else 0.0 for b, p in p_prises.items()}
 
     def vapeur_tps_par_gv_kg_s(self, b: int) -> float:
-        """Vapeur prélevée sur le GV b par la turbopompe (répartie entre les GV d'alimentation)."""
-        prises = self.cfg.prises_vapeur_tps
-        return self.etat.qm_vapeur_tps_kg_s / len(prises) if b in prises else 0.0
+        """Vapeur prélevée sur le GV b par la turbopompe (répartie entre les GV de prise, selon leur pression)."""
+        return self.etat.qm_vapeur_tps_kg_s * self._parts.get(b, 0.0)
 
     def qm_total_kg_s(self) -> float:
         return sum(max(0.0, q) for q in self.etat.qm_gv_kg_s)

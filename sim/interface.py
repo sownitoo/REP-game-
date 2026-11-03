@@ -45,7 +45,8 @@ def etat_ui(c: Centrale, sim: Simulateur) -> dict[str, Any]:
             "niveau_tres_bas_gv", "c2", "c3", "c4", "c5", "c7", "c8", "c9", "c11", "flux_bas_bloque",
             "causes_turbine", "isolement_are_au", "isolement_are_complet", "recirc_cex", "decharge_isolee",
             "otdt_seuil_c", "opdt_seuil_c", "p11", "is_actif", "is_causes", "causes_is", "is_bloquee",
-            "rra_isole_auto", "perte_rri", "aspiration_ptr")
+            "rra_isole_auto", "perte_rri", "aspiration_ptr", "isolement_vapeur", "phase_b", "causes_isolement_vapeur",
+            "is_inhibee")
     return {
         "type": "etat",
         "t_s": c.t_s,

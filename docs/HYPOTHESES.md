@@ -2,7 +2,7 @@
 
 Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 
-204 valeurs marquées `# HYPOTHESE`.
+227 valeurs marquées `# HYPOTHESE`.
 
 | Clé | Valeur | Justification |
 |---|---|---|
@@ -36,6 +36,7 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `pressuriseur.gamme_pression_bar` | `200.0` | gamme des capteurs de pression |
 | `pressuriseur.soupapes` | `{tarages_bar: [172.0, 172.0, 172.0], capacite_kg_s: 53.0, fermeture_pct: 3.0}` | spec ; blowdown |
 | `pressuriseur.retard_mesure_s` | `0.5` |  |
+| `pressuriseur.compressibilite_kg_bar` | `40.0` | primaire plein d'eau : masse stockée par bar (eau ~330 m³ + cuve) |
 | `rcv.t_vct_c` | `46.0` | température de l'eau dans la VCT |
 | `rcv.vct_volume_m3` | `10.0` | volume utile (0 → 100 % de niveau) |
 | `rcv.vct_niveau_initial_pct` | `50.0` |  |
@@ -55,7 +56,6 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `rri.debit_pompe_m3h` | `2500.0` |  |
 | `rri.chaleur_fixe_mw` | `6.0` | autres utilisateurs (moteurs, ventilation…) |
 | `rri.chaleur_par_pompe_primaire_mw` | `0.5` | (barrière thermique + paliers) |
-| `rri.delai_pompes_primaires_s` | `300.0` | sans RRI, défaut des pompes primaires (spec : arrêt en ~2 min) |
 | `sec.debit_pompe_m3h` | `3000.0` |  |
 | `electricite.diesel.surcharge_pct` | `110.0` |  |
 | `electricite.diesel.surcharge_delai_s` | `20.0` | déclenchement sur surcharge |
@@ -71,6 +71,23 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `joints_pp.delai_degradation_s` | `780.0` | (≈ 13 min sans injection ni barrière thermique) |
 | `joints_pp.fuite_initiale_m3h` | `4.8` | (≈ 21 gpm par pompe, à 155 bar) |
 | `joints_pp.delai_rupture_s` | `3600.0` | une heure plus tard, joints détruits |
+| `ris.t_puisard_max_injection_c` | `120.0` | (borne de la température réinjectée) |
+| `ris.puisard_min_m3` | `50.0` | eau minimale dans les puisards pour passer en recirculation |
+| `enceinte.volume_m3` | `70000.0` | (enceinte interne d'un 1 300 MWe) |
+| `enceinte.humidite` | `0.5` | (humidité relative initiale) |
+| `enceinte.ha_parois_kw_c` | `3000.0` | (béton + acier, condensation) |
+| `enceinte.capacite_parois_mj_c` | `3000.0` | (couche de surface qui participe) |
+| `enceinte.p_calcul_bar` | `5.8` | pression de calcul (alarme) |
+| `enceinte.aspersion_m3h` | `700.0` | par pompe EAS |
+| `enceinte.efficacite_aspersion` | `0.9` | (les gouttes arrivent presque à la température de l'atmosphère) |
+| `prt.t_initiale_c` | `40.0` |  |
+| `prt.p_azote_bar` | `1.2` |  |
+| `breches.cd` | `0.6` | coefficient de décharge (liquide) |
+| `breches.g_sature_kg_m2s_bar` | `500.0` | débit critique diphasique d'eau saturée ≈ 500 × P (kg/m²/s, P en bar) |
+| `breches.vide_debut_vapeur_pct` | `30.0` | vide primaire (% du volume de découvrement) où la brèche commence à voir de la vapeur |
+| `breches.vide_tout_vapeur_pct` | `60.0` | … et où elle ne crache plus que de la vapeur (joints hydrauliques vidés) |
+| `breches.diametre_tube_gv_cm` | `2.0` | (rupture guillotine d'un tube : 2 sections) |
+| `breches.activite_alarme` | `0.001` | seuil « activité GV haute » |
 | `accumulateurs.volume_m3` | `38.0` | (par accumulateur, un par boucle) |
 | `accumulateurs.volume_eau_m3` | `29.0` |  |
 | `accumulateurs.bore_ppm` | `2500.0` |  |
@@ -160,6 +177,9 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `gabarits.pompe_rri.puissance_kw` | `500.0` |  |
 | `gabarits.pompe_sec.q_nom_m3h` | `3000` |  |
 | `gabarits.pompe_sec.puissance_kw` | `400.0` |  |
+| `gabarits.pompe_is.puissance_kw` | `900.0` |  |
+| `gabarits.pompe_eas.q_nom_m3h` | `700.0` |  |
+| `gabarits.pompe_eas.puissance_kw` | `600.0` |  |
 | `gabarits.compresseur_air.puissance_kw` | `250.0` |  |
 | `gabarits.vanne_are_gd.kv_max` | `1080` | (≈ 2 010 m³/h à 56 % sous 6 bar) |
 | `gabarits.vanne_are_gd.temps_course_s` | `5.0` |  |
@@ -198,6 +218,9 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `regulations.niveau_pzr` | `{kp_kg_s_par_pct: 0.4, ti_s: 300.0}` | (débit de charge) |
 | `regulations.rra` | `{vitesse_refroidissement_c_h: 30.0, kp_par_c_h: 0.01, ti_s: 600.0}` | vannes d'échangeur en auto |
 | `regulations.niveau_asg` | `{consigne_pct: 40.0, kp_par_pct: 0.05, ti_s: 300.0}` | sous la consigne ARE pour ne pas la contrer |
+| `logique.injection_securite.debit_vapeur_haut_pct` | `110.0` | seuil à pleine charge (% du débit nominal d'une ligne) |
+| `logique.injection_securite.debit_vapeur_haut_bas_pct` | `40.0` | seuil à faible charge (programme de type Westinghouse) |
+| `logique.injection_securite.charge_debit_bas_pct` | `20.0` | charge turbine sous laquelle le seuil bas s'applique |
 | `logique.etats.marge_arret_pcm` | `1000.0` | marge d'antiréactivité visée |
 | `logique.etats.grappe_coincee_pcm` | `800.0` | grappe la plus efficace supposée coincée |
 | `logique.au.ecart_vapeur_eau_pct` | `40.0` | (débit eau insuffisant) |

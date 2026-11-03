@@ -9,6 +9,7 @@ from sim.core_model.coeur import Coeur
 from sim.plant import Centrale
 
 DT = 0.1
+T_FROID_C = 290.0     # eau la plus chaude du primaire (loin de la saturation)
 
 
 def coeur_nominal(cfg) -> Coeur:
@@ -72,12 +73,12 @@ def test_u13_pzr_chaufferettes_et_aspersion(rp100: Centrale) -> None:
     pz.chauffe_tor.etat.auto = False
     pz.chauffe_tor.etat.demande_manu = 1.0
     for _ in range(600):
-        pz.avancer(DT, 0.0, 0.0, 0.0, 0.0, lambda _: Sources())
+        pz.avancer(DT, 0.0, 0.0, 0.0, 0.0, lambda _: Sources(), T_FROID_C)
     assert pz.p_bar > p0 + 0.5                       # chauffe → la pression monte
     assert pz.vol.etat.m_kg == pytest.approx(m0)     # pas de débit : masse conservée
     p1 = pz.p_bar
     pz.chauffe_tor.etat.demande_manu = 0.0
     h_froide = tab.h_primaire_kj_kg(290.0)
     for _ in range(100):
-        pz.avancer(DT, -40.0, 0.0, 40.0, h_froide, lambda _: Sources())   # aspersion pleine (~2 × 95 m³/h), même débit ressorti
+        pz.avancer(DT, -40.0, 0.0, 40.0, h_froide, lambda _: Sources(), T_FROID_C)   # aspersion pleine (~2 × 95 m³/h), même débit ressorti
     assert pz.p_bar < p1 - 0.5                       # aspersion → la pression baisse

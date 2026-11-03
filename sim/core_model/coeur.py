@@ -47,6 +47,7 @@ class EtatCoeur:
     q_caloporteur_kw: float = 0.0
     vitesse_pas_min: float = 0.0  # vitesse actuelle des grappes (> 0 = extraction)
     desequilibre_retard_pct: float = 0.0   # (puissance − charge turbine) filtrée : voie « déséquilibre »
+    rho_coincee_pcm: float = 0.0  # V4 : grappe la plus efficace restée hors du cœur (antiréactivité perdue)
 
 
 class Coeur(Composant):
@@ -85,7 +86,7 @@ class Coeur(Composant):
     def rho_grappes_pcm(self) -> float:
         e, g = self.etat, self.cfg.grappes
         return (self._rho_regulation(e.z_pas) - self.rho_grappes_nom + self._rho_groupe(e.g_pas, g.compensation_pcm)
-                + g.arret_pcm * e.arret_insere)
+                + g.arret_pcm * e.arret_insere + e.rho_coincee_pcm * e.arret_insere)
 
     def rho_moderateur_pcm(self, t_mod_c: float) -> float:
         c = self.cfg

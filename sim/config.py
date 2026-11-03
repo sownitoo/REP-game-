@@ -224,6 +224,7 @@ class PressuriseurCfg:
     voies_pression: int
     voies_niveau: int
     retard_mesure_s: float
+    compressibilite_kg_bar: float
 
 
 @dataclass
@@ -356,6 +357,51 @@ class JointsPpCfg:
     delai_rupture_s: float
     fuite_max_m3h: float
     p_ref_bar: float
+
+
+@dataclass
+class RisCfg:
+    mp: PompeChargeCfg
+    bp: PompeChargeCfg
+    ptr_recirculation_pct: float
+    ptr_tres_bas_pct: float
+    t_puisard_max_injection_c: float
+    puisard_min_m3: float
+
+
+@dataclass
+class EnceinteCfg:
+    volume_m3: float
+    p_initiale_bar: float
+    t_initiale_c: float
+    humidite: float
+    ha_parois_kw_c: float
+    capacite_parois_mj_c: float
+    p_calcul_bar: float
+    aspersion_m3h: float
+    efficacite_aspersion: float
+
+
+@dataclass
+class PrtCfg:
+    volume_m3: float
+    volume_eau_m3: float
+    t_initiale_c: float
+    p_azote_bar: float
+    p_disque_bar: float
+    t_alarme_c: float
+
+
+@dataclass
+class BrechesCfg:
+    cd: float
+    cd_vapeur: float
+    diametre_tube_gv_cm: float
+    g_sature_kg_m2s_bar: float
+    vide_debut_vapeur_pct: float
+    vide_tout_vapeur_pct: float
+    activite_primaire: float
+    activite_alarme: float
 
 
 @dataclass
@@ -821,6 +867,11 @@ class OpdtCfg:
 @dataclass
 class InjectionSecuriteCfg:
     p_pzr_basse_bar: float
+    p_enceinte_haute_bar_rel: float
+    ecart_vapeur_bar: float
+    debit_vapeur_haut_pct: float
+    debit_vapeur_haut_bas_pct: float
+    charge_debit_bas_pct: float
     p_vapeur_basse_bar: float
     rearmement_s: float
 
@@ -841,6 +892,7 @@ class LogiqueCfg:
     p7: P7Cfg
     p11_p_pzr_bar: float
     injection_securite: InjectionSecuriteCfg
+    p_enceinte_tres_haute_bar_rel: float
     etats: EtatsCfg
     p8_puissance_pct: float
     p9_puissance_pct: float
@@ -889,6 +941,10 @@ class CentraleCfg:
     electricite: ElectriciteCfg
     air_comprime: AirComprimeCfg
     joints_pp: JointsPpCfg
+    ris: RisCfg
+    enceinte: EnceinteCfg
+    prt: PrtCfg
+    breches: BrechesCfg
     asg: AsgCfg
     generateurs_vapeur: GVCfg
     vapeur: VapeurCfg

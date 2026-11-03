@@ -16,8 +16,13 @@ const LIBELLES_ACTIONS = {
   ouvrir_arrivee: "Ouvrir l'arrivée normale", fermer_arrivee: "Fermer l'arrivée normale",
   perte_reseau: "Perte du réseau (formateur)", retour_reseau: "Retour du réseau (formateur)",
   isoler_fuite: "Isoler la fuite", decoupler: "Découpler",
+  rearmer_isolement_vapeur: "Réarmer l'isolement vapeur", rearmer_phase_b: "Réarmer la phase B",
+  breche_primaire: "Brèche primaire (∅ cm)", rtgv: "Rupture de tube de GV (n° GV)",
+  breche_vapeur: "Brèche vapeur (n° GV)", porv_bloquee: "PORV bloquée ouverte (n° 1 ou 2)", perte_rri: "Perte du RRI",
+  rupture_air: "Rupture du collecteur d'air", supprimer_breches: "Supprimer les brèches",
+  grappe_coincee: "Grappe la plus efficace coincée (fin de cycle)",
 };
-const ACTIONS_AVEC_VALEUR = new Set(["position", "position_g", "vitesse", "consigne_vitesse", "consigne_mw", "consigne", "puissance",
+const ACTIONS_AVEC_VALEUR = new Set(["breche_primaire", "rtgv", "breche_vapeur", "porv_bloquee", "position", "position_g", "vitesse", "consigne_vitesse", "consigne_mw", "consigne", "puissance",
                                      "borication", "dilution"]);
 const MESURES_BARRE = [
   ["coeur.puissance_pct", "Puissance", "%", 1], ["primaire.tmoy_c", "Tmoy", "°C", 1],
@@ -32,10 +37,10 @@ const RESUME_MAX = 5;
 const SYNOPTIQUES = [["synoptique-ensemble", "construireEnsemble"], ["synoptique-primaire", "construirePrimaire"], ["synoptique-secondaire", "construireSecondaire"],
                      ["synoptique-asg", "construireASG"], ["synoptique-rcv", "construireRCV"],
                      ["synoptique-rra", "construireRRA"], ["synoptique-coeur", "construireVueCoeur"],
-                     ["synoptique-elec", "construireElec"]];
+                     ["synoptique-elec", "construireElec"], ["synoptique-ris", "construireRIS"]];
 function construireVueCoeur(svg) { VueCoeur.construire(svg); }
 
-const VERSION_UI = "V3";     // doit correspondre à meta.version de plant.yaml
+const VERSION_UI = "V4";     // doit correspondre à meta.version de plant.yaml
 const etat = { transport: null, dernier: null, selection: null, minuterieConditions: null, seuils: {} };
 
 // ============================================================================ utilitaires
@@ -193,7 +198,9 @@ function majVoyants(e) {
     ["Batteries", e.mesures["elec.LBA.decharge"] > 0.5 || e.mesures["elec.LBB.decharge"] > 0.5, "on-orange",
      `A ${fmt(e.mesures["elec.LBA.charge_pct"], 0)} % · B ${fmt(e.mesures["elec.LBB.charge_pct"], 0)} %`],
     ["Air perdu", e.mesures["air.p_bar"] < 5, "on-rouge", "vannes pneumatiques en repli"],
-    ["Simulation figée", e.mesures["joints.hors_domaine"] > 0.5, "on-rouge", "PZR vide ou plein : hors du domaine du modèle"],
+    ["Simulation figée", e.mesures["primaire.hors_domaine"] > 0.5, "on-rouge", "primaire hors du domaine du modèle"],
+    ["Injection", e.mesures["ris.qm_kg_s"] > 0.5, "on-rouge", "injection de sécurité en cours"],
+    ["Isolement vapeur", lg.isolement_vapeur, "on-orange", ""], ["Phase B", lg.phase_b, "on-rouge", "aspersion enceinte"],
     ["P-14", lg.p14, "on-rouge", "niveau GV très haut"], ["Runback", lg.c3 || lg.c4, "on-rouge", "C-3 / C-4"],
     ["Isolement ARE", lg.isolement_are_au || lg.isolement_are_complet, "on-orange", ""],
     ["ASG", e.mesures["asg.qm_kg_s"] > 1, "on-orange", "alimentation de secours des GV en service"],
@@ -283,6 +290,8 @@ function majSynoptiques(e) {
     if (d) t.textContent = { arret: "à l'arrêt", demarrage: "démarrage…", pret: "à vitesse", couple: "couplé",
                              echec: "ÉCHEC" }[d.etat] + (d.refus ? " · en panne" : "");
   });
+  const disque = document.querySelector(".synoptique [data-disque]");
+  if (disque) disque.textContent = m["prt.disque_rompu"] > 0.5 ? "DISQUE ROMPU" : "disque intact";
   const srcLg = document.querySelector(".synoptique [data-source-lg]");
   if (srcLg && comp.RESEAU) srcLg.textContent = { TS: "LG sur le soutirage", TA: "LG sur les transfos auxiliaires",
                                                    "": "LG HORS TENSION" }[comp.RESEAU.source_normale];
@@ -605,6 +614,10 @@ function afficherGlossaire() {
     .map(([k, s]) => `<tr><td class="sigle-cle">${k}</td><td>${Glossaire.decomposition(k)}<div class="fiche-role">${s.nom} — ${s.role}</div></td></tr>`);
   document.getElementById("liste-glossaire").innerHTML = `<table class="table-glossaire">${lignes.join("")}</table>`;
 }
+document.getElementById("btn-formateur").onclick = () => {
+  document.getElementById("menu-contenu").hidden = true;
+  selectionner("FORMATEUR");
+};
 document.getElementById("btn-glossaire").onclick = () => {
   document.getElementById("menu-contenu").hidden = true;
   document.getElementById("vue-glossaire").hidden = false;

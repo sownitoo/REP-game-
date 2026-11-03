@@ -26,6 +26,8 @@ from sim.thermo.tables import TableEau
 from sim.units import KG_PAR_T, POURCENT
 
 
+MASSE_LIQUIDE_MIN_KG = 500.0     # fond d'eau d'un GV vidé par une brèche (garde le volume dans le domaine diphasique)
+
 @dataclass
 class EtatGV:
     v_bulles_m3: float
@@ -88,9 +90,14 @@ class GenerateurVapeur(Composant):
         return POURCENT * (v - n.v_bas_m3) / n.v_plage_m3
 
     def facteur_mouillage(self) -> float:
-        """Réduction de l'échange si les tubes se découvrent (masse d'eau faible)."""
+        """Réduction de l'échange si les tubes se découvrent (masse d'eau faible) ; nul quand le GV est sec."""
         m_seuil = self.cfg.masse_assechement_t * KG_PAR_T
-        return min(1.0, self.vol.m_liq_kg / m_seuil)
+        return min(1.0, max(0.0, self.vol.m_liq_kg - MASSE_LIQUIDE_MIN_KG) / m_seuil)
+
+    def masse_disponible_kg(self, p_aval_bar: float) -> float:
+        """Masse qu'une brèche peut encore vider : le GV « sec » garde sa vapeur à la pression aval + un fond d'eau."""
+        m_min = self.cfg.v_secondaire_m3 * self.table.sat(p_aval_bar).rho_v_kg_m3 + MASSE_LIQUIDE_MIN_KG
+        return max(0.0, self.vol.etat.m_kg - m_min)
 
     # --- dynamique ---
     def avancer(self, dt: float, q_kw: float, qm_alim_kg_s: float, h_alim_kj_kg: float,
@@ -101,6 +108,11 @@ class GenerateurVapeur(Composant):
         p_avant = self.vol.p_bar
         hg = self.vol.sat.hg_kj_kg
         qm_sortie = qm_ligne_kg_s + qm_decharge_kg_s
+        dispo = max(0.0, self.vol.etat.m_kg - MASSE_LIQUIDE_MIN_KG) / dt + qm_alim_kg_s
+        if qm_sortie > dispo:                          # GV vidé : ne peut pas sortir plus que ce qu'il contient
+            f = dispo / qm_sortie
+            qm_ligne_kg_s, qm_decharge_kg_s, qm_sortie = f * qm_ligne_kg_s, f * qm_decharge_kg_s, dispo
+            e.qm_ligne_kg_s, e.qm_decharge_kg_s = qm_ligne_kg_s, qm_decharge_kg_s
         self.vol.integrer(dt, qm_alim_kg_s, qm_alim_kg_s * h_alim_kj_kg + q_kw, qm_sortie, qm_sortie * hg)
 
         n = self.cfg.niveau_ge

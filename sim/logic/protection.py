@@ -74,6 +74,12 @@ class EtatLogique:
     perte_rri: bool = False
     aspiration_ptr: bool = False
     deviation_vct: bool = False
+    # V4 : isolement vapeur, phase B / aspersion, inhibition de l'IS après réarmement
+    isolement_vapeur: bool = False
+    causes_isolement_vapeur: list[str] = field(default_factory=list)
+    phase_b: bool = False
+    is_inhibee: bool = False
+    recirculation_demandee: bool = False
     # filtres des protections ΔT et de la variation de flux
     flux_retard_pct: float = 0.0
     otdt_retard_c: list[float] = field(default_factory=list)
@@ -214,7 +220,7 @@ class Logique(Composant):
     # ------------------------------------------------------------------ commandes
     def commandes(self) -> list[str]:
         return ["declencher_au", "rearmer_au", "bloquer_flux_bas", "debloquer_flux_bas", "rearmer_isolement_are",
-                "bloquer_is", "declencher_is", "rearmer_is"]
+                "bloquer_is", "declencher_is", "rearmer_is", "rearmer_isolement_vapeur", "rearmer_phase_b"]
 
     def executer(self, action: str, valeur: float | None) -> None:
         e = self.etat
@@ -224,6 +230,7 @@ class Logique(Composant):
             e.au = False
             e.au_causes = []
             e.p4 = False
+            e.is_inhibee = False            # disjoncteurs d'AU refermés : l'IS automatique est de nouveau active
             self.c.coeur.rearmer()
         elif action == "bloquer_flux_bas":
             e.flux_bas_bloque = True
@@ -238,6 +245,11 @@ class Logique(Composant):
         elif action == "rearmer_is":
             e.is_actif = False
             e.is_causes = []
+            e.is_inhibee = True             # plus d'IS automatique jusqu'au réarmement de l'AU (spec)
+        elif action == "rearmer_isolement_vapeur":
+            e.isolement_vapeur = False
+        elif action == "rearmer_phase_b":
+            e.phase_b = False
 
     def exporter_etat(self) -> dict[str, Any]:
         return asdict(self.etat)

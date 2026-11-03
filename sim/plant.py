@@ -2,12 +2,12 @@
 
 Ordre d'un pas :
   1. commandes joueur (appliquées dès réception, entre deux pas)
-  2. électricité (stub, tout est sous tension — V3)
-  3. logique : capteurs → permissifs → AU → automatismes
+  2. pannes programmées, électricité (tableaux, diesels, batteries), air comprimé
+  3. logique : capteurs → permissifs → AU → IS / isolement vapeur / phase B → automatismes
   4. régulations → demandes des actionneurs, puis mouvement des actionneurs et des grappes
   5. hydraulique : primaire (+ RRA), collecteur vapeur, eau alimentaire, ASG
-  6. thermique : cœur, RRA, accumulateurs, RCV/REA (bore), primaire, pressuriseur, GV, turbine,
-     condenseur, bâches, réchauffeurs, RRI/SEC
+  6. thermique : cœur, RRA, accumulateurs, brèches, RIS / EAS, RCV/REA (bore), primaire, pressuriseur
+     (+ vide primaire), PRT, enceinte, GV, turbine, condenseur, bâches, réchauffeurs, RRI/SEC
   7. mesures, alarmes, historique
 """
 
@@ -29,9 +29,12 @@ from sim.logic.protection import Logique
 from sim.logic.regulations import Regulations
 from sim.electrical.reseau import Diesel, Electricite, TableauSecouru
 from sim.scenarios import pannes
+from sim.scenarios.formateur import Formateur
 from sim.systems.accumulateurs import Accumulateurs
 from sim.systems.air import AirComprime
 from sim.systems.asg import ASG
+from sim.systems.breches import Breches
+from sim.systems.enceinte import PRT, Enceinte
 from sim.systems.condenseur import Condenseur
 from sim.systems.gct import Contournement
 from sim.systems.gv import GenerateurVapeur
@@ -41,13 +44,16 @@ from sim.systems.pzr import Pressuriseur
 from sim.systems.rcp import COEUR, DESCENTE, PLENUM, CircuitPrimaire, bc, bf, gvp
 from sim.systems.rcv import RCV, Rea
 from sim.systems.rra import RRA
+from sim.systems.ris import RIS
 from sim.systems.rri import RRI
 from sim.systems.turbine import Turbine
 from sim.systems.vvp import Vapeur
 from sim.thermo.tables import obtenir_table
 from sim.units import KG_PAR_T, KW_PAR_MW, POURCENT, S_PAR_H, interp_table
 
-VERSION_SAUVEGARDE = 4
+VERSION_SAUVEGARDE = 5
+PUISARD_REFERENCE_M3 = 2000.0     # échelle d'affichage du niveau des puisards
+P_ASPIRATION_RIS_BAR = 1.0        # aspiration des pompes d'injection (PTR / puisards ~ pression atmosphérique)
 ENERGIE_FISSION_J = 3.2e-11       # ~200 MeV récupérés par fission
 W_PAR_KW = 1.0e3
 PERIODE_INFINIE_S = 1.0e9         # réacteur critique : période infinie (affichée « ∞ »)
@@ -98,8 +104,9 @@ class Reponse:
 
 
 class Centrale:
-    """Centrale V3 : primaire 4 boucles + PZR + cœur, RCV/REA, RRA, RRI/SEC, accumulateurs, secondaire, ASG,
-    électricité (réseau, tableaux, diesels, séquenceurs, batteries), air comprimé, joints des pompes primaires."""
+    """Centrale V4 : primaire 4 boucles + PZR (primaire saturé / plein d'eau) + cœur, RCV/REA, RRA, RRI/SEC,
+    accumulateurs, secondaire, ASG, électricité (réseau, tableaux, diesels, séquenceurs, batteries), air comprimé,
+    joints des pompes primaires, RIS (HP / MP / BP, recirculation), EAS, enceinte, PRT, brèches."""
 
     def __init__(self, cfg: CentraleCfg | None = None) -> None:
         self.cfg = cfg = cfg or charger_config()
@@ -162,6 +169,11 @@ class Centrale:
         self.air = AirComprime(cfg.air_comprime, [self.pompes["SAR_C1"], self.pompes["SAR_C2"]])
         self.joints = JointsPP(cfg.joints_pp, len(self.boucles))
         self.pannes: list[dict[str, Any]] = []
+        self.ris = RIS(cfg.ris, cfg.enceinte, self.composants, self.rra.pompes)
+        self.enceinte = Enceinte(cfg.enceinte, self.table)
+        self.prt = PRT(cfg.prt, self.table)
+        self.breches = Breches(cfg.breches, len(self.boucles))
+        self.formateur = Formateur(self)
         self.logique = Logique(self)
         self.regulations = Regulations(cfg.regulations, self)
 
@@ -174,6 +186,7 @@ class Centrale:
             r.reg_p_pzr.id: r.reg_p_pzr, self.pzr.chauffe_prop.id: self.pzr.chauffe_prop,
             self.pzr.chauffe_tor.id: self.pzr.chauffe_tor, self.rea.id: self.rea,
             self.elec.id: self.elec, self.air.id: self.air, **self.elec.diesels, **self.elec.tableaux,
+            self.formateur.id: self.formateur,
         }
         self.initialiser_100pct()
 
@@ -257,7 +270,7 @@ class Centrale:
         charge = self.rcv.fcv121
         charge.etat.position = charge.etat.demande_auto = q_charge / rc.charge_max_m3h
         self.rcv.calculer(0.0, nom.p_primaire_bar, self.primaire.t(bf(cfg.primaire.boucle_decharge)), False, True,
-                          self.masse_primaire_kg(), 0.0, cfg.accumulateurs.bore_ppm, self.table.cp_primaire_kj_kgk(rc.t_vct_c))
+                          self.masse_primaire_kg(), [], self.table.cp_primaire_kj_kgk(rc.t_vct_c))
         for rep in ("RCV_JOINTS", "RCV_HCV128"):          # vannes manuelles (HCV)
             self.vannes[rep].etat.auto = False
         q_ch = self.rcv.kg_s(q_charge)
@@ -321,8 +334,8 @@ class Centrale:
     # ================================================================== pas de temps
     def pas(self) -> None:
         dt = self.dt_s
-        if self.joints.etat.hors_domaine:
-            return          # PZR vide : le primaire sort du domaine du modèle, la simulation est figée
+        if self.pzr.etat.hors_domaine:
+            return          # cœur découvert ou primaire plein d'eau : hors du domaine du modèle, simulation figée
         # 1-2. pannes programmées, électricité, air comprimé
         pannes.avancer(self)
         self.elec.avancer(dt, self, self.logique.etat.is_actif)
@@ -334,6 +347,8 @@ class Centrale:
         self.turbine.reguler(dt, self.vapeur.etat.p_collecteur_bar)
         self.asg.piloter_turbopompe(self.gvs)
         lg = self.logique.etat
+        if self.breches.etat.porv_bloquee:                  # panne mécanique : la PORV reste ouverte
+            self.vannes[self.breches.etat.porv_bloquee].fixer_ordre(1.0, "bloquée ouverte (panne mécanique)")
         self.coeur.bouger_grappes(dt, self.coeur.vitesse_auto_pas_min(dt, self.primaire.tmoy_c, self.turbine.charge_pct),
                                   retrait_interdit=lg.c2 or lg.c3 or lg.c4, retrait_auto_interdit=lg.c5 or lg.c11)
         for c in list(self.pompes.values()) + list(self.vannes.values()):
@@ -387,15 +402,39 @@ class Centrale:
         p_prim = self.pzr.p_bar
         self.accus.avancer(dt, p_prim)
         qm_acc = self.accus.qm_total_kg_s
+        # V4 : brèches, injection de sécurité MP / BP et aspersion (aspiration PTR ou puisards)
+        enc, br, ris = self.enceinte, self.breches, self.ris
+        t_breche = pr.t(bf(br.etat.primaire_boucle))
+        br.calculer(p_prim, enc.etat.p_bar, tab.rho_primaire_kg_m3(t_breche), tab.psat_bar(t_breche),
+                    [gv.p_bar for gv in self.gvs], [gv.tsat_c for gv in self.gvs],
+                    br.fraction_vapeur(self.pzr.etat.v_vide_m3, self.volume_decouvrement_m3), tab.tsat_c(p_prim))
+        qm_breche_liquide = br.etat.qm_primaire_kg_s - br.etat.qm_primaire_vapeur_kg_s
+        gv_breche = self.gvs[br.etat.vapeur_gv - 1]           # un GV vidé par la brèche vapeur ne crache plus rien
+        br.etat.qm_vapeur_kg_s = min(br.etat.qm_vapeur_kg_s, gv_breche.masse_disponible_kg(enc.etat.p_bar) / dt)
+        injection_bp = self.logique.etat.is_actif and not any(self.rra.aspiration_ouverte(i)
+                                                              for i in range(len(self.rra.pompes)))
+        ris.calculer(p_prim, P_ASPIRATION_RIS_BAR, injection_bp)
+        demande = ris.q_injection_m3h + ris.etat.q_eas_m3h
+        if ris.recirculation:
+            dispo = enc.prelever_puisard(dt, demande)
+            t_inj, bore_inj = min(enc.etat.t_puisard_c, cfg.ris.t_puisard_max_injection_c), cfg.rcv.ptr.bore_ppm
+        else:
+            dispo = min(demande, self.rcv.etat.ptr_m3 * S_PAR_H / dt)
+            self.rcv.etat.ptr_m3 = max(0.0, self.rcv.etat.ptr_m3 - dispo * dt / S_PAR_H)
+            t_inj, bore_inj = cfg.rcv.ptr.t_c, cfg.rcv.ptr.bore_ppm
+        facteur = dispo / demande if demande > 0.0 else 0.0
+        qm_ris = ris.q_injection_m3h * facteur * tab.rho_liq_kg_m3(t_inj) / S_PAR_H
+        q_aspersion = ris.etat.q_eas_m3h * facteur
         self.rcv.calculer(dt, p_prim, pr.t(bf(pc.boucle_decharge)), self.rra.en_service(), rri_ok,
-                          self.masse_primaire_kg(), qm_acc, cfg.accumulateurs.bore_ppm, cp_froid)
+                          self.masse_primaire_kg(), [(qm_acc, cfg.accumulateurs.bore_ppm), (qm_ris, bore_inj)], cp_froid)
         # apports au primaire : charge (sortie régénérateur) + joints (froids) en B1, accumulateurs à la descente
         rc, e_rcv = cfg.rcv, self.rcv.etat
         qm_charge = self.rcv.kg_s(e_rcv.q_charge_m3h)
         qm_joints = self.qm_charge_kg_s() - qm_charge
         apports = [(bf(pc.boucle_charge), qm_charge, tab.h_primaire_kj_kg(e_rcv.t_charge_c)),
                    (bf(pc.boucle_charge), qm_joints, tab.h_primaire_kj_kg(rc.t_vct_c)),
-                   (DESCENTE, qm_acc, tab.h_primaire_kj_kg(cfg.accumulateurs.t_c))]
+                   (DESCENTE, qm_acc, tab.h_primaire_kj_kg(cfg.accumulateurs.t_c)),
+                   (DESCENTE, qm_ris, tab.h_primaire_kj_kg(t_inj))]
         boucles_asp = pc.boucles_aspersion
         t_asp = sum(pr.t(bf(b)) for b in boucles_asp) / len(boucles_asp)
         vitesses = [pr.pompes[self.boucles.index(b)].etat.vitesse for b in boucles_asp]
@@ -403,14 +442,12 @@ class Centrale:
         q_rra_net = self.rra.q_total_kw - self.rra.chaleur_pompes_kw()
         # joints des pompes primaires : fuite si ni injection aux joints ni RRI
         injection_joints = self.rcv.nb_pompes() > 0 and e_rcv.q_joints_m3h > DEBIT_INJECTION_MIN_M3H
-        deja_hors_domaine = self.joints.etat.hors_domaine
-        self.joints.avancer(dt, injection_joints, rri_ok, p_prim, self.pzr.niveau_pct)
-        if self.joints.etat.hors_domaine and not deja_hors_domaine:
-            self.journal.ajouter(self.t_s, "automatisme", "PZR vide ou plein : hors du domaine du simulateur, "
-                                 "simulation figée (recharger un état ou un scénario)", PRIORITE_HAUTE)
+        rri_pp = rri_ok and not self.logique.etat.phase_b       # la phase B isole le RRI des pompes primaires
+        self.joints.avancer(dt, injection_joints, rri_pp, p_prim)
         qm_joints_fuite = self.joints.fuite_totale_m3h * tab.rho_primaire_kg_m3(pr.t(DESCENTE)) / S_PAR_H
-        pr.avancer(dt, self.coeur.puissance_thermique_kw, self.gvs, apports, self.qm_decharge_kg_s() + qm_joints_fuite,
-                   qm_asp, self.pzr.vol.sat.hf_kj_kg, q_rra_net)
+        sorties = self.qm_decharge_kg_s() + qm_joints_fuite + qm_breche_liquide + br.etat.qm_rtgv_kg_s
+        pr.avancer(dt, self.coeur.puissance_thermique_kw, self.gvs, apports, sorties,
+                   qm_asp, self.pzr.vol.sat.hf_kj_kg, q_rra_net, self.pzr.etat.q_vide_kw)
         # RRI / SEC : échangeurs RRA, décharge RCV, pompes primaires, autres utilisateurs
         ri = cfg.rri
         nb_pp = sum(p.etat.en_marche for p in pr.pompes)
@@ -420,8 +457,23 @@ class Centrale:
         self.suivi.avancer(dt, pr.tmoy_c)
         h_bc_exp = tab.h_primaire_kj_kg(self.primaire.t(bc(pc.boucle_expansion)))
         for s in self.pzr.avancer(dt, self.primaire.etat.qm_expansion_kg_s, h_bc_exp, qm_asp,
-                                  tab.h_primaire_kj_kg(t_asp), self.sources):
+                                  tab.h_primaire_kj_kg(t_asp), self.sources, pr.t_chaud_c,
+                                  br.etat.qm_primaire_vapeur_kg_s):
             self.journal.ajouter(self.t_s, "automatisme", f"Ouverture soupape {s}", PRIORITE_HAUTE)
+        self._verifier_domaine()
+        # décharge du PZR → PRT → (disque rompu) enceinte ; brèches → enceinte ; aspersion
+        disque = self.prt.etat.disque_rompu
+        vers_enceinte = self.prt.avancer(dt, self.pzr.etat.qm_porv_kg_s + self.pzr.etat.qm_soupapes_kg_s,
+                                         self.pzr.h_decharge_kj_kg, enc.etat.p_bar)
+        if self.prt.etat.disque_rompu and not disque:
+            self.journal.ajouter(self.t_s, "automatisme", "Disque de rupture de la PRT rompu : décharge dans l'enceinte",
+                                 PRIORITE_HAUTE)
+        j = br.etat.vapeur_gv - 1
+        vers_enceinte += [(qm_joints_fuite, tab.h_primaire_kj_kg(pr.t(DESCENTE))),
+                          (qm_breche_liquide, tab.h_primaire_kj_kg(pr.t(bf(br.etat.primaire_boucle)))),
+                          (br.etat.qm_primaire_vapeur_kg_s, tab.hg_kj_kg(self.pzr.p_bar)),
+                          (br.etat.qm_vapeur_kg_s, tab.hg_kj_kg(self.gvs[j].p_bar))]
+        enc.avancer(dt, vers_enceinte, q_aspersion, t_inj)
         # GV : eau alimentaire ARE + ASG
         h_are, h_asg = pe.h_alim_kj_kg, self.asg.h_eau_kj_kg
         for i, gv in enumerate(self.gvs):
@@ -429,8 +481,15 @@ class Centrale:
             qm_asg = max(0.0, self.asg.etat.qm_gv_kg_s[i])
             qm_alim = qm_are + qm_asg
             h_alim = (qm_are * h_are + qm_asg * h_asg) / qm_alim if qm_alim > 0.0 else h_are
+            if gv.b == br.etat.rtgv_gv and br.etat.qm_rtgv_kg_s > 0.0:      # RTGV : eau primaire dans le GV
+                h_prim = tab.h_primaire_kj_kg(pr.t(gvp(gv.b)))
+                h_alim = (qm_alim * h_alim + br.etat.qm_rtgv_kg_s * h_prim) / (qm_alim + br.etat.qm_rtgv_kg_s)
+                qm_alim += br.etat.qm_rtgv_kg_s
             decharge = self.vapeur.qm_decharge_kg_s(i) + self.asg.vapeur_tps_par_gv_kg_s(gv.b)
+            if gv.b == br.etat.vapeur_gv:
+                decharge += br.etat.qm_vapeur_kg_s
             gv.avancer(dt, self.primaire.etat.q_gv_kw[i], qm_alim, h_alim, self.vapeur.etat.qm_lignes_kg_s[i], decharge)
+        br.avancer_activite(dt, [gv.vol.m_liq_kg for gv in self.gvs])
         # turbine
         p_h = self.vapeur.etat.p_collecteur_bar
         self.turbine.calculer_puissance(dt, self._qm_turbine, p_h, cd.etat.p_bar)
@@ -450,6 +509,23 @@ class Centrale:
         cd.cst.integrer(dt, pe.qm("L_REJET") - pe.qm("L_APPOINT") - sum(self.asg.etat.qm_gv_kg_s))
         pe.avancer_rechauffeurs(dt, self.turbine.charge_pct, cd.etat.t_c)
 
+    def _verifier_domaine(self) -> None:
+        """Garde-fou du modèle : cœur découvert (accident grave, pas modélisé)."""
+        pz = self.pzr
+        raison = ""
+        if pz.etat.v_vide_m3 > self.volume_decouvrement_m3:
+            raison = "cœur découvert (vide primaire au-dessus du cœur) : accident grave, hors du domaine du simulateur"
+        if raison and not pz.etat.hors_domaine:
+            pz.etat.hors_domaine = raison
+            self.journal.ajouter(self.t_s, "automatisme", f"SIMULATION FIGÉE : {raison} — recharger un état ou un "
+                                 "scénario", PRIORITE_HAUTE)
+
+    @property
+    def volume_decouvrement_m3(self) -> float:
+        """Vide primaire au-delà duquel le haut du cœur est dénoyé (tout sauf cœur et descente)."""
+        v = self.cfg.primaire.volumes_m3
+        return self.primaire.volume_total_m3 - v.coeur - v.descente
+
     # ================================================================== mesures
     def masse_eau_totale_kg(self) -> float:
         """Secondaire : GV + puits + CST (circuit fermé hors décharges à l'atmosphère)."""
@@ -457,8 +533,9 @@ class Centrale:
                 + self.condenseur.cst.etat.m_kg)
 
     def masse_primaire_kg(self) -> float:
-        """Primaire : nœuds liquides + pressuriseur."""
-        return self.primaire.masse_liquide_kg() + self.pzr.vol.etat.m_kg
+        """Primaire : nœuds liquides (moins le vide) + pressuriseur."""
+        return (self.primaire.masse_liquide_kg() + self.pzr.vol.etat.m_kg + self.pzr.etat.m_comprime_kg
+                - self.pzr.etat.v_vide_m3 / self.pzr.vol.sat.vf_m3_kg)
 
     def _mesurer(self) -> None:
         m: dict[str, float] = {}
@@ -576,7 +653,36 @@ class Centrale:
             m[f"elec.{d.id}.tension_pct"] = POURCENT * float(d.etat.etat in ("pret", "couple"))
         m["joints.fuite_m3h"] = self.joints.fuite_totale_m3h
         m["joints.volume_m3"] = self.joints.etat.volume_fuite_m3
-        m["joints.hors_domaine"] = float(self.joints.etat.hors_domaine)
+        m["primaire.hors_domaine"] = float(bool(pz.etat.hors_domaine))
+        m["primaire.vide_m3"] = pz.etat.v_vide_m3
+        m["primaire.sature"] = float(pz.etat.sature)
+        m["primaire.en_eau"] = float(pz.en_eau)
+        m["cuve.niveau_pct"] = POURCENT * max(0.0, 1.0 - pz.etat.v_vide_m3 / self.volume_decouvrement_m3)
+        # V4 : enceinte, PRT, RIS, brèches
+        en, pt, ri, bre = self.enceinte.etat, self.prt.etat, self.ris.etat, self.breches.etat
+        m["enceinte.p_bar"] = en.p_bar
+        m["enceinte.p_rel_bar"] = self.enceinte.p_rel_bar
+        m["enceinte.t_c"] = en.t_c
+        m["enceinte.puisard_m3"] = en.puisard_m3
+        m["enceinte.t_puisard_c"] = en.t_puisard_c
+        m["enceinte.puisard_pct"] = POURCENT * min(1.0, en.puisard_m3 / PUISARD_REFERENCE_M3)
+        m["prt.p_bar"] = pt.p_bar
+        m["prt.t_c"] = pt.t_c
+        m["prt.disque_rompu"] = float(pt.disque_rompu)
+        m["ris.q_hp_m3h"] = self.rcv.etat.q_bit_m3h
+        m["ris.q_mp_m3h"] = ri.q_mp_m3h
+        m["ris.q_bp_m3h"] = ri.q_bp_m3h
+        m["ris.q_eas_m3h"] = ri.q_eas_m3h
+        m["ris.qm_kg_s"] = self.rcv.kg_s(self.rcv.etat.q_bit_m3h + ri.q_mp_m3h + ri.q_bp_m3h)
+        m["ris.recirculation"] = float(ri.recirculation)
+        m["breche.primaire_kg_s"] = bre.qm_primaire_kg_s
+        m["breche.rtgv_kg_s"] = bre.qm_rtgv_kg_s
+        m["breche.vapeur_kg_s"] = bre.qm_vapeur_kg_s
+        for i, b in enumerate(self.boucles):
+            m[f"GV{b}.activite"] = bre.activite_gv[i]
+        m["gv.activite_max"] = max(bre.activite_gv)
+        m["logique.isolement_vapeur"] = float(lg.isolement_vapeur)
+        m["logique.phase_b"] = float(lg.phase_b)
         m_ot, m_op = self.logique.marges_dt_pct()
         m["otdt.marge_pct"] = m_ot
         m["opdt.marge_pct"] = m_op
@@ -730,6 +836,7 @@ class Centrale:
             "TURBINE": self.turbine, "CONDENSEUR": self.condenseur, "REG_GCTC": self.gct,
             "RCV": self.rcv, "REA": self.rea, "RRA": self.rra, "RRI": self.rri, "ACCUS": self.accus,
             "SUIVI": self.suivi, "ELEC": self.elec, "SAR": self.air, "JOINTS": self.joints,
+            "ENCEINTE": self.enceinte, "PRT": self.prt, "BRECHES": self.breches, "RIS": self.ris,
             r.reg_vda.id: r.reg_vda, r.reg_puits.id: r.reg_puits, r.reg_p_pzr.id: r.reg_p_pzr,
         })
         return objets

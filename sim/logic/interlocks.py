@@ -16,6 +16,7 @@ from sim.electrical.reseau import Diesel, TableauSecouru
 from sim.logic.regulations import ConsigneReglable
 from sim.systems.gct import Contournement
 from sim.systems.pzr import GroupeChaufferettes
+from sim.systems.rri import PANNE_PERMANENTE_S
 from sim.units import POURCENT, S_PAR_MIN
 
 if TYPE_CHECKING:
@@ -61,7 +62,14 @@ def conditions_pompe(c: Centrale, p: Pompe, action: str, valeur: float | None) -
                                    c.rcv.asp_vct.etat.position > 0.0 or c.rcv.asp_ptr.etat.position > 0.0))
         if p in c.rra.pompes:
             i = c.rra.pompes.index(p)
-            conds.append(Condition("Aspiration du train ouverte (2 vannes en série)", c.rra.aspiration_ouverte(i)))
+            en_is = c.logique.etat.is_actif and (c.ris.recirculation or
+                                                 c.rcv.niveau_ptr_pct >= c.cfg.ris.ptr_recirculation_pct)
+            conds.append(Condition("Aspiration du train ouverte (branche chaude), ou IS avec PTR / puisards",
+                                   c.rra.aspiration_ouverte(i) or en_is))
+        if p in c.rri.pompes:
+            reste = c.rri.etat.panne_jusqua_s - c.t_s
+            conds.append(Condition("Circuit RRI réparé" + (f" ({reste / S_PAR_MIN:.0f} min)"
+                                                            if 0 < reste < PANNE_PERMANENTE_S / 2 else ""), reste <= 0.0))
         return conds
     if action == "arreter":
         return [Condition("Pompe en marche", p.etat.en_marche)]
@@ -123,6 +131,10 @@ def conditions_ouverture_v2(c: Centrale, v: Vanne) -> list[Condition]:
         return [Condition("Pas d'IS", not lg.is_actif)]
     if v is rcv.urgence:
         return [Condition("Pompe de charge en marche", rcv.nb_pompes() > 0)]
+    if v in c.ris.puisard:
+        mini = c.cfg.ris.puisard_min_m3
+        return [Condition(f"Eau dans les puisards ≥ {mini:g} m³ ({c.enceinte.etat.puisard_m3:.0f} m³)",
+                          c.enceinte.etat.puisard_m3 >= mini)]
     if v in c.rra.vannes_aspiration():
         seuil = c.cfg.rra.p_ouverture_max_bar
         return [Condition(f"Pression primaire < {seuil:g} bar ({c.pzr.p_bar:.1f} bar)", c.pzr.p_bar < seuil)]
@@ -209,6 +221,14 @@ def conditions_rpr(c: Centrale, action: str) -> list[Condition]:
     if action == "bloquer_is":
         return [Condition("IS non bloquée", not e.is_bloquee),
                 Condition(f"P-11 présent (P PZR < {c.cfg.logique.p11_p_pzr_bar:g} bar)", e.p11)]
+    if action == "rearmer_isolement_vapeur":
+        return [Condition("Isolement vapeur présent", e.isolement_vapeur),
+                Condition("Aucune cause présente" + (f" ({', '.join(e.causes_isolement_vapeur)})"
+                                                     if e.causes_isolement_vapeur else ""), not e.causes_isolement_vapeur)]
+    if action == "rearmer_phase_b":
+        seuil = c.cfg.logique.p_enceinte_tres_haute_bar_rel
+        return [Condition("Phase B présente", e.phase_b),
+                Condition(f"P enceinte < {seuil:g} bar rel ({c.enceinte.p_rel_bar:.2f})", c.enceinte.p_rel_bar < seuil)]
     if action == "declencher_is":
         return [Condition("IS non déjà présente", not e.is_actif)]
     if action == "rearmer_is":
@@ -216,6 +236,7 @@ def conditions_rpr(c: Centrale, action: str) -> list[Condition]:
         delai = c.cfg.logique.injection_securite.rearmement_s
         return [Condition("IS présente", e.is_actif),
                 Condition(f"IS présente depuis ≥ {delai:g} s ({duree:.0f} s)", e.is_actif and duree >= delai),
+                Condition("AU présent (P-4)", e.au),
                 Condition("Aucune cause d'IS présente" + (f" ({', '.join(e.causes_is)})" if e.causes_is else ""),
                           not e.causes_is)]
     return []

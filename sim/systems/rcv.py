@@ -107,6 +107,7 @@ class EtatRcv:
     q_dispo_m3h: float = 0.0
     q_charge_m3h: float = 0.0
     q_joints_m3h: float = 0.0
+    q_bit_m3h: float = 0.0          # injection de sécurité haute pression (charge → BIT → branches froides)
     q_decharge_m3h: float = 0.0
     q_rra_m3h: float = 0.0
     q_deviation_m3h: float = 0.0
@@ -137,6 +138,7 @@ class RCV:
         self.asp_vct: Vanne = v("RCV_ASP_VCT")                      # type: ignore[assignment]
         self.asp_ptr: Vanne = v("RCV_ASP_PTR")                      # type: ignore[assignment]
         self.urgence: Vanne = v("RCV_BORI_URG")                     # type: ignore[assignment]
+        self.bit: Vanne = v("RIS_BIT")                              # type: ignore[assignment]
         self.etat = EtatRcv(vct_m3=cfg.vct_volume_m3 * cfg.vct_niveau_initial_pct / POURCENT,
                             vct_bore_ppm=bore_initial_ppm, ptr_m3=cfg.ptr.volume_m3,
                             bore_primaire_ppm=bore_initial_ppm)
@@ -145,6 +147,10 @@ class RCV:
     @property
     def niveau_vct_pct(self) -> float:
         return POURCENT * self.etat.vct_m3 / self.cfg.vct_volume_m3
+
+    @property
+    def niveau_ptr_pct(self) -> float:
+        return POURCENT * self.etat.ptr_m3 / self.cfg.ptr.volume_m3
 
     def nb_pompes(self) -> int:
         return sum(p.etat.en_marche for p in self.pompes)
@@ -171,8 +177,8 @@ class RCV:
 
     # ------------------------------------------------------------------ pas de calcul
     def calculer(self, dt: float, p_primaire_bar: float, t_decharge_c: float, rra_en_service: bool, rri_ok: bool,
-                 masse_primaire_kg: float, qm_accumulateurs_kg_s: float, bore_accumulateurs_ppm: float,
-                 cp_kj_kgk: float) -> None:
+                 masse_primaire_kg: float, apports_bore: list[tuple[float, float]], cp_kj_kgk: float) -> None:
+        """apports_bore : autres entrées d'eau dans le primaire (débit kg/s, bore ppm) : accumulateurs, RIS."""
         """Débits, températures, VCT, bore du primaire (un pas)."""
         c, e = self.cfg, self.etat
         sv = c.vct_seuils_pct
@@ -183,7 +189,8 @@ class RCV:
         demande_charge = c.charge_max_m3h * self.fcv121.etat.position * self.isol_charge.etat.position
         e.q_joints_m3h = min(demande_joints, e.q_dispo_m3h)
         e.q_charge_m3h = min(demande_charge, e.q_dispo_m3h - e.q_joints_m3h)
-        q_pompes = e.q_charge_m3h + e.q_joints_m3h
+        e.q_bit_m3h = (e.q_dispo_m3h - e.q_joints_m3h - e.q_charge_m3h) * self.bit.etat.position
+        q_pompes = e.q_charge_m3h + e.q_joints_m3h + e.q_bit_m3h
         # aspiration : borication d'urgence et borication REA (acide envoyé à l'aspiration des pompes),
         # complétées par la VCT ou la PTR
         rea = self.rea.etat
@@ -233,16 +240,16 @@ class RCV:
         e.effluents_m3 += e.q_deviation_m3h * dt / S_PAR_H
         # bore du primaire : la décharge sort à la concentration du primaire (pas d'effet), les entrées diluent / borent
         q_entree_primaire = self.qm_entree_primaire_kg_s()
-        flux = (q_entree_primaire * (e.bore_charge_ppm - e.bore_primaire_ppm)
-                + qm_accumulateurs_kg_s * (bore_accumulateurs_ppm - e.bore_primaire_ppm))
+        flux = q_entree_primaire * (e.bore_charge_ppm - e.bore_primaire_ppm)
+        flux += sum(qm * (bore - e.bore_primaire_ppm) for qm, bore in apports_bore)
         e.bore_primaire_ppm = max(0.0, e.bore_primaire_ppm + dt * flux / masse_primaire_kg)
 
     # ------------------------------------------------------------------ débits vers le primaire
     def qm_entree_primaire_kg_s(self) -> float:
-        """Charge + part des joints qui entre au primaire."""
+        """Charge + injection HP (BIT) + part des joints qui entre au primaire."""
         e, j = self.etat, self.cfg.joints
         joints = j.entree_primaire_m3h * min(1.0, e.q_joints_m3h / j.injection_m3h)
-        return self.kg_s(e.q_charge_m3h + joints)
+        return self.kg_s(e.q_charge_m3h + e.q_bit_m3h + joints)
 
     def qm_sortie_primaire_kg_s(self) -> float:
         return self.kg_s(self.etat.q_decharge_m3h + self.etat.q_rra_m3h)

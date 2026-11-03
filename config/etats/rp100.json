@@ -1,5 +1,5 @@
 {
- "version": 4,
+ "version": 5,
  "t_s": 0.0,
  "objets": {
   "CRF1": {
@@ -751,6 +751,65 @@
    "consigne_manu": 1.0,
    "defaut": ""
   },
+  "RIS_PMP1": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "RIS_PMP2": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "RIS_BIT": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RIS_PUISARD1": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RIS_PUISARD2": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "EAS_P1": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "EAS_P2": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
   "SAR_C1": {
    "en_marche": true,
    "vitesse": 1.0,
@@ -1104,7 +1163,8 @@
    "rho_pcm": -7.858184090880904e-05,
    "q_caloporteur_kw": 3403551.9432850485,
    "vitesse_pas_min": 0.0,
-   "desequilibre_retard_pct": 0.07349744309562514
+   "desequilibre_retard_pct": 0.07349744309562514,
+   "rho_coincee_pcm": 0.0
   },
   "PRIMAIRE": {
    "t_c": {
@@ -1159,7 +1219,12 @@
    "qm_aspersion_kg_s": 0.04778760474876884,
    "qm_porv_kg_s": 0.0,
    "qm_soupapes_kg_s": 0.0,
-   "q_chauffe_kw": 82.80168345091077
+   "q_chauffe_kw": 82.80168345091077,
+   "v_vide_m3": 0.0,
+   "q_vide_kw": -0.0,
+   "sature": false,
+   "hors_domaine": "",
+   "m_comprime_kg": 0.0
   },
   "PZR.volume": {
    "m_kg": 20267.52406797054,
@@ -1282,6 +1347,7 @@
    "q_dispo_m3h": 47.174051296961935,
    "q_charge_m3h": 12.45584495343825,
    "q_joints_m3h": 7.3,
+   "q_bit_m3h": 0.0,
    "q_decharge_m3h": 16.998304822795706,
    "q_rra_m3h": 0.0,
    "q_deviation_m3h": 0.0,
@@ -1317,7 +1383,8 @@
    "t_c": 19.873584643269368,
    "q_utilisateurs_kw": 9613.73304736575,
    "q_sec_kw": 9605.899737204596,
-   "sans_rri_s": 0.0
+   "sans_rri_s": 0.0,
+   "panne_jusqua_s": -1.0
   },
   "ACCUS": {
    "v_eau_m3": [
@@ -1480,8 +1547,47 @@
     0.0,
     0.0
    ],
-   "volume_fuite_m3": 0.0,
-   "hors_domaine": false
+   "volume_fuite_m3": 0.0
+  },
+  "ENCEINTE": {
+   "t_c": 30.0,
+   "m_vapeur_kg": 1062.418687710484,
+   "t_parois_c": 30.0,
+   "puisard_m3": 0.0,
+   "t_puisard_c": 30.0,
+   "m_air_kg": 79793.5690129332,
+   "p_bar": 1.0129999999999997
+  },
+  "PRT": {
+   "m_eau_kg": 37620.0,
+   "t_c": 40.0,
+   "disque_rompu": false,
+   "p_bar": 1.2738452282133481
+  },
+  "BRECHES": {
+   "primaire_m2": 0.0,
+   "primaire_boucle": 1,
+   "rtgv_m2": 0.0,
+   "rtgv_gv": 1,
+   "vapeur_m2": 0.0,
+   "vapeur_gv": 1,
+   "porv_bloquee": "",
+   "qm_primaire_kg_s": 0.0,
+   "qm_primaire_vapeur_kg_s": 0.0,
+   "qm_rtgv_kg_s": 0.0,
+   "qm_vapeur_kg_s": 0.0,
+   "activite_gv": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "RIS": {
+   "q_mp_m3h": 0.0,
+   "q_bp_m3h": 0.0,
+   "q_eas_m3h": 0.0,
+   "recirculation": false
   },
   "REG_VDA": {
    "valeur": 79.0
@@ -1720,6 +1826,11 @@
   "perte_rri": false,
   "aspiration_ptr": false,
   "deviation_vct": false,
+  "isolement_vapeur": false,
+  "causes_isolement_vapeur": [],
+  "phase_b": false,
+  "is_inhibee": false,
+  "recirculation_demandee": false,
   "flux_retard_pct": 99.77942035994829,
   "otdt_retard_c": [
    307.0449372338337,

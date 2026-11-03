@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from sim.core.events import PRIORITE_HAUTE, PRIORITE_MOYENNE
 from sim.logic.voting import vote
+from sim.units import POURCENT
 
 if TYPE_CHECKING:
     from sim.logic.protection import EtatLogique
@@ -34,12 +35,19 @@ def calculer_is(c: Centrale, e: EtatLogique) -> None:
         e.is_bloquee = False
         c.journal.ajouter(c.t_s, "automatisme", "P-11 perdu : blocage de l'IS levé", PRIORITE_MOYENNE)
     causes = []
-    if not e.is_bloquee:
-        if vote(votes, capteur.depasse(isc.p_pzr_basse_bar, au_dessus=False)):
-            causes.append(f"pression PZR < {isc.p_pzr_basse_bar:g} bar")
-        for gv in c.gvs:
-            if gv.p_bar < isc.p_vapeur_basse_bar:
-                causes.append(f"pression vapeur GV{gv.b} < {isc.p_vapeur_basse_bar:g} bar")
+    if not e.is_bloquee and vote(votes, capteur.depasse(isc.p_pzr_basse_bar, au_dessus=False)):
+        causes.append(f"pression PZR < {isc.p_pzr_basse_bar:g} bar")
+    p_rel = c.enceinte.p_rel_bar
+    if p_rel > isc.p_enceinte_haute_bar_rel:
+        causes.append(f"pression enceinte > {isc.p_enceinte_haute_bar_rel:g} bar rel")
+    p_gv = [gv.p_bar for gv in c.gvs]
+    if max(p_gv) - min(p_gv) > isc.ecart_vapeur_bar:
+        causes.append(f"écart de pression entre lignes vapeur > {isc.ecart_vapeur_bar:g} bar")
+    e.causes_isolement_vapeur = causes_isolement_vapeur(c, e)
+    if e.causes_isolement_vapeur and not e.causes_isolement_vapeur[0].startswith("pression enceinte"):
+        causes.append(e.causes_isolement_vapeur[0])
+    if e.is_inhibee:                       # après réarmement de l'IS : seulement manuelle, jusqu'au réarmement de l'AU
+        causes = []
     if e.is_manuel:
         causes = ["manuelle"] + causes
         e.is_manuel = False
@@ -51,6 +59,24 @@ def calculer_is(c: Centrale, e: EtatLogique) -> None:
         c.journal.ajouter(c.t_s, "automatisme", f"INJECTION DE SÉCURITÉ : {', '.join(causes)}", PRIORITE_HAUTE)
 
 
+def causes_isolement_vapeur(c: Centrale, e: EtatLogique) -> list[str]:
+    """Débit vapeur haut ET (P vapeur basse OU Tmoy très basse P-12) ; ou P enceinte très haute."""
+    isc, lg = c.cfg.logique.injection_securite, c.cfg.logique
+    causes = []
+    if c.enceinte.p_rel_bar > lg.p_enceinte_tres_haute_bar_rel:
+        causes.append(f"pression enceinte > {lg.p_enceinte_tres_haute_bar_rel:g} bar rel")
+    # seuil « débit vapeur haut » : 40 % sous 20 % de charge turbine, puis linéaire jusqu'à 110 % à pleine charge
+    charge = min(max(c.turbine.charge_pct, isc.charge_debit_bas_pct), POURCENT)
+    pente = (isc.debit_vapeur_haut_pct - isc.debit_vapeur_haut_bas_pct) / (POURCENT - isc.charge_debit_bas_pct)
+    seuil = (isc.debit_vapeur_haut_bas_pct + pente * (charge - isc.charge_debit_bas_pct)) / POURCENT
+    seuil *= c.cfg.generateurs_vapeur.debit_vapeur_nom_kg_s
+    debit_haut = any(gv.etat.qm_ligne_kg_s + gv.etat.qm_decharge_kg_s > seuil for gv in c.gvs)
+    p_basse = min(gv.p_bar for gv in c.gvs) < isc.p_vapeur_basse_bar
+    if debit_haut and (p_basse or e.p12):
+        causes.append("débit vapeur haut + " + ("pression vapeur basse" if p_basse else "Tmoy très basse (P-12)"))
+    return causes
+
+
 def appliquer_automatismes_v2(c: Centrale, e: EtatLogique, dt: float) -> None:
     journal, t = c.journal, c.t_s
     cfg = c.cfg
@@ -60,13 +86,47 @@ def appliquer_automatismes_v2(c: Centrale, e: EtatLogique, dt: float) -> None:
     # --- IS : ordres ---
     if e.is_actif:
         e.isolement_are_complet = True
-        for p in c.asg.motopompes + rcv.pompes:
-            if not p.etat.en_marche and c.sources(p).electricite_ok:
+        ptr_bas = rcv.niveau_ptr_pct < cfg.ris.ptr_recirculation_pct
+        demarrage = c.asg.motopompes + rcv.pompes + c.ris.pompes_mp + c.rri.pompes + c.rri.pompes_sec
+        if not ptr_bas or c.ris.recirculation:
+            demarrage += c.ris.pompes_bp
+        for p in demarrage:
+            if not p.etat.en_marche and not p.etat.defaut and c.sources(p).electricite_ok:
                 p.demarrer()
                 journal.ajouter(t, "automatisme", f"Démarrage {p.id} (IS)", PRIORITE_MOYENNE)
     raison_is = "IS (phase A)"
     rcv.isol_enc.fixer_ordre(FERMEE if e.is_actif else None, raison_is)
     rcv.isol_charge.fixer_ordre(FERMEE if e.is_actif else None, "IS")
+    c.ris.bit.fixer_ordre(OUVERTE if e.is_actif else None, "IS : injection haute pression")
+
+    # --- isolement vapeur (mémorisé) ---
+    if e.causes_isolement_vapeur and not e.isolement_vapeur:
+        e.isolement_vapeur = True
+        journal.ajouter(t, "automatisme", f"ISOLEMENT VAPEUR : {e.causes_isolement_vapeur[0]}", PRIORITE_HAUTE)
+    for b in c.boucles:
+        for rep_ in (f"VIV{b}", f"VIV{b}_BP"):
+            c.vannes[rep_].fixer_ordre(FERMEE if e.isolement_vapeur else None, "isolement vapeur")
+
+    # --- pression enceinte très haute : aspersion (EAS) + phase B (isole le RRI des pompes primaires) ---
+    if c.enceinte.p_rel_bar > cfg.logique.p_enceinte_tres_haute_bar_rel and not e.phase_b:
+        e.phase_b = True
+        journal.ajouter(t, "automatisme", "Pression enceinte très haute : aspersion EAS + isolement phase B", PRIORITE_HAUTE)
+    if e.phase_b:
+        for p in c.ris.pompes_eas:
+            if not p.etat.en_marche and not p.etat.defaut and c.sources(p).electricite_ok:
+                p.demarrer()
+
+    # --- recirculation : PTR à 48 % → arrêt des pompes RRA ; à 17 % → arrêt de l'aspersion ---
+    if not c.ris.recirculation:
+        if rcv.niveau_ptr_pct < cfg.ris.ptr_recirculation_pct:
+            for p in c.ris.pompes_bp:
+                if p.etat.en_marche and not any(c.rra.aspiration_ouverte(i) for i in range(len(c.rra.pompes))):
+                    p.declencher("PTR basse : passer en recirculation")
+                    journal.ajouter(t, "automatisme", f"Arrêt {p.id} : PTR à 48 %", PRIORITE_HAUTE)
+        if rcv.niveau_ptr_pct < cfg.ris.ptr_tres_bas_pct:
+            for p in c.ris.pompes_eas:
+                if p.etat.en_marche:
+                    p.declencher("PTR très basse : aspersion sur les puisards")
 
     # --- VCT : bascule de l'aspiration sur la PTR (niveau très bas ou IS) ; retour manuel (les vannes
     #     restent en place quand l'ordre disparaît) ; déviation vers les effluents sur niveau haut ---
@@ -136,7 +196,7 @@ def appliquer_automatismes_v2(c: Centrale, e: EtatLogique, dt: float) -> None:
 
     # --- RRI perdu : les pompes primaires perdent leur refroidissement ---
     pp_en_marche = [p for p in c.primaire.pompes if p.etat.en_marche]
-    e.perte_rri = bool(pp_en_marche) and not c.rri.disponible()
+    e.perte_rri = bool(pp_en_marche) and (not c.rri.disponible() or e.phase_b)
     if e.perte_rri:
         c.rri.etat.sans_rri_s += dt
         if c.rri.etat.sans_rri_s > cfg.rri.delai_pompes_primaires_s:

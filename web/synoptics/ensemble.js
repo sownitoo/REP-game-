@@ -17,12 +17,13 @@ const BLOCS_ENSEMBLE = [
   ["gv", "primaire", "GV", "GV ×4", "1 par boucle", 452, 250, 108, 100,
    [["GV1.p_bar", "bar", 1, ""], ["GV1.niveau_pct", "%", 0, "niv. "]]],
   ["pp", "primaire", "PP RCP", "PP ×4", "pompes primaires", 275, 410, 120, 64, [["B1.debit_pct", "%", 0, "débit "]]],
-  ["ris", "rra", "RIS", "RIS", "accumulateurs", 112, 262, 104, 76, [["ACC1.p_bar", "bar", 0, "N₂ "]]],
+  ["ris", "ris", "RIS EAS", "RIS · EAS", "injection · aspersion", 112, 262, 104, 76,
+   [["ris.qm_kg_s", "kg/s", 0, "inj. "], ["enceinte.p_rel_bar", "bar", 2, "enc. "]]],
   ["rra", "rra", "RRA", "RRA", "refroidissement à l'arrêt", 60, 620, 160, 80, [["rra.q_mw", "MW", 1, ""]]],
   ["rcv", "rcv", "RCV VCT", "RCV", "chimie et volume du primaire", 250, 620, 160, 84,
    [["rcv.charge_m3h", "m³/h", 1, "charge "], ["primaire.bore_ppm", "ppm", 0, "bore "]]],
   ["rri", "rra", "RRI", "RRI", "réfrigération intermédiaire", 440, 620, 180, 80, [["rri.t_c", "°C", 1, ""], ["rri.q_mw", "MW", 1, ""]]],
-  ["ptr", "rcv", "PTR", "PTR", "réserve d'eau borée", 60, 740, 160, 80, [["rcv.ptr_m3", "m³", 0, ""]]],
+  ["ptr", "ris", "PTR", "PTR", "réserve d'eau borée (IS)", 60, 740, 160, 80, [["rcv.ptr_pct", "%", 0, ""]]],
   ["rea", "rcv", "REA", "REA", "appoint en eau et en bore", 250, 740, 160, 80, [["rcv.vct_niveau_pct", "%", 0, "VCT "]]],
   ["sec", "rra", "SEC", "SEC", "eau brute secourue (mer)", 440, 740, 180, 80, [["sec.q_mw", "MW", 1, ""]]],
   ["vvp", "secondaire", "VVP VDA VIV", "VVP", "vapeur principale · VIV · VDA", 700, 80, 160, 90,
@@ -176,12 +177,13 @@ function etatsEnsemble(e) {
   s.pzr = m["pzr.p_bar"] > 162 || m["pzr.niveau_pct"] < 17 || m["pzr.niveau_pct"] > 92 ? "alerte" : "ok";
   s.gv = [1, 2, 3, 4].every(b => m[`GV${b}.niveau_pct`] > 20 && m[`GV${b}.niveau_pct`] < 75) ? "ok" : "alerte";
   s.rpr = lg.au || lg.is_actif ? "defaut" : "ok";
-  s.ris = m["accu.qm_kg_s"] > 0.5 ? "defaut" : [1, 2, 3, 4].every(b => (c[`ACC${b}_ISOL`] || {}).position_pct <= 0) ? "arret" : "ok";
+  s.ris = m["accu.qm_kg_s"] > 0.5 || m["ris.qm_kg_s"] > 0.5 || m["ris.q_eas_m3h"] > 1 ? "defaut"
+    : m["enceinte.p_rel_bar"] > 0.1 ? "alerte" : "ok";
   s.rra = m["rra.q_mw"] > 0.1 ? "ok" : "arret";
   s.rcv = marche(["RCV_PC1", "RCV_PC2"]) ? (m["rcv.decharge_m3h"] > 0.5 ? "ok" : "alerte") : "defaut";
   s.rri = !marche(["RRI_P1", "RRI_P2"]) ? "defaut" : m["rri.t_c"] > 45 ? "alerte" : "ok";
   s.sec = marche(["SEC_P1", "SEC_P2"]) ? "ok" : "defaut";
-  s.ptr = lg.aspiration_ptr ? "alerte" : "ok";
+  s.ptr = m["rcv.ptr_pct"] < 48 ? "defaut" : lg.aspiration_ptr || lg.is_actif ? "alerte" : "ok";
   s.rea = c.REA && c.REA.mode !== "auto" ? "alerte" : "ok";
   s.vvp = m["vapeur.soupapes_ouvertes"] > 0 || m["vapeur.vda_qm_kg_s"] > 1 ? "alerte" : "ok";
   s.turbine = c.TURBINE.declenchee ? "arret" : "ok";

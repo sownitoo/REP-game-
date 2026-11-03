@@ -1,0 +1,19 @@
+id: s10_breche_vapeur
+titre: "S10 — Brèche vapeur dans l'enceinte (fin de cycle)"
+description: >-
+  En fin de cycle (coefficient modérateur très négatif) et avec la grappe la plus efficace restée coincée
+  hors du cœur, la ligne vapeur du GV1 se rompt dans l'enceinte (∅ 30 cm, en amont de la VIV). Le GV1 se
+  vide d'un coup : surrefroidissement du primaire, pression enceinte qui monte, isolement vapeur… et la
+  réactivité remonte quand l'eau froide entre dans le cœur.
+etat_initial: rp100
+duree_s: 7200
+coeur: {alpha_mod_pcm_c: -60.0}
+pannes:
+  - {t_s: 0, type: grappe_coincee}
+  - {t_s: 30, type: breche_vapeur, gv: 1, diametre_cm: 30.0}
+objectifs:
+  - "IS sur pression enceinte (> 0,24 bar rel), puis ISOLEMENT VAPEUR (débit haut + pression vapeur basse)."
+  - "Suivre la réactivité (onglet Cœur) : elle remonte avec le refroidissement — l'injection de bore (BIT) la fait redescendre."
+  - "Le GV1 ne peut pas être isolé côté vapeur (brèche en amont de la VIV) : couper son ASG (ASG1 en manuel à 0 %)."
+  - "Pression enceinte > 2,07 bar rel : aspersion EAS + phase B (RRI coupé des pompes primaires)."
+  - "Stabiliser la température avec les GV sains, puis arrêter l'injection avant que le PZR soit plein."

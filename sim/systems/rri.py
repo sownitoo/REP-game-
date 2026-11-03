@@ -16,12 +16,15 @@ from sim.systems.rra import efficacite_contre_courant
 from sim.units import KJ_PAR_MJ, KW_PAR_MW, S_PAR_H
 
 
+PANNE_PERMANENTE_S = 1.0e9       # panne sans réparation prévue (valeur finie : l'état reste du JSON valide)
+
 @dataclass
 class EtatRri:
     t_c: float
     q_utilisateurs_kw: float = 0.0
     q_sec_kw: float = 0.0
     sans_rri_s: float = 0.0          # durée écoulée sans RRI avec des pompes primaires en marche
+    panne_jusqua_s: float = -1.0     # panne (fuite du circuit) : pompes indisponibles jusqu'à cet instant
 
 
 class RRI:

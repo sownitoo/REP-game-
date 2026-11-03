@@ -121,6 +121,19 @@ class CircuitPrimaire:
         return sum(self.tmoy_boucle_c(i) for i in range(len(self.boucles))) / len(self.boucles)
 
     @property
+    def noeud_chaud(self) -> str:
+        return max(self.etat.t_c, key=self.etat.t_c.__getitem__)
+
+    @property
+    def t_chaud_c(self) -> float:
+        """Température de l'eau la plus chaude (elle fixe la pression quand le primaire est saturé)."""
+        return self.etat.t_c[self.noeud_chaud]
+
+    @property
+    def volume_total_m3(self) -> float:
+        return sum(self.volumes.values())
+
+    @property
     def t_moderateur_c(self) -> float:
         """Température moyenne du modérateur dans le cœur (entrée + sortie) / 2."""
         return 0.5 * (self.t(DESCENTE) + self.t(COEUR))
@@ -167,7 +180,7 @@ class CircuitPrimaire:
     # ------------------------------------------------------------------ thermique
     def avancer(self, dt: float, q_coeur_kw: float, gvs: list[GenerateurVapeur],
                 apports_externes: list[tuple[str, float, float]], qm_sorties_kg_s: float, qm_aspersion_kg_s: float,
-                hf_pzr_kj_kg: float, q_rra_kw: float) -> None:
+                hf_pzr_kj_kg: float, q_rra_kw: float, q_vide_kw: float = 0.0) -> None:
         """Bilans d'énergie des nœuds puis débit d'expansion vers le pressuriseur.
         apports_externes : (nœud, débit entrant kg/s, enthalpie kJ/kg) ; qm_sorties : décharge (à la température du nœud)."""
         e, tab, cfg = self.etat, self.table, self.cfg
@@ -202,6 +215,7 @@ class CircuitPrimaire:
                 ecoulement(PLENUM, DESCENTE, w)
         q[DESCENTE] -= q_rra_kw
         q[COEUR] += q_coeur_kw
+        q[self.noeud_chaud] += q_vide_kw          # V4 : vaporisation (< 0) ou condensation dans le vide primaire
         qm_apports = 0.0
         for noeud, debit, h_entree in apports_externes:
             q[noeud] += debit * (h_entree - h[noeud])

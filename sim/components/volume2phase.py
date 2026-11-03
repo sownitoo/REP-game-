@@ -3,10 +3,13 @@
 Variables d'état conservées : masse totale m et énergie interne totale U.
 La pression et le titre se déduisent de (v = V/m, u = U/m) par un « flash » sur
 les tables de saturation : la conservation de la masse et de l'énergie est exacte.
+Pas de vapeur surchauffée : un volume asséché (titre > 1, GV vidé par une brèche) est ramené à de la
+vapeur saturée sèche de même volume massique (la surchauffe est perdue).
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from sim.config import FlashCfg
@@ -48,9 +51,25 @@ class Volume2Phase:
     def mettre_a_jour(self) -> None:
         """Recalcule P et le titre à partir de (m, U)."""
         p, x = self._flash(self.etat.m_kg, self.etat.u_kj)
+        if x > 1.0:                                   # asséché : vapeur saturée sèche à v = vg(P)
+            p = self._p_vapeur_seche(self.v_m3 / self.etat.m_kg)
+            self.etat.u_kj = self.etat.m_kg * self.table.sat(p).ug_kj_kg
+            x = 1.0
         self.etat.p_bar = p
         self.x = min(max(x, 0.0), 1.0)
         self.sat = self.table.sat(p)
+
+    def _p_vapeur_seche(self, v_m3_kg: float) -> float:
+        """Pression où le volume massique de la vapeur saturée vaut v (bissection sur ln P)."""
+        tab = self.table
+        lo, hi = math.log(tab.p_min_bar), math.log(tab.p_max_bar)
+        for _ in range(self.flash.iterations_max):
+            mi = 0.5 * (lo + hi)
+            if tab.sat(math.exp(mi)).vg_m3_kg > v_m3_kg:
+                lo = mi
+            else:
+                hi = mi
+        return math.exp(0.5 * (lo + hi))
 
     # --- grandeurs dérivées ---
     @property
