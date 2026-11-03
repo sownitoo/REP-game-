@@ -29,7 +29,7 @@ const RESUME_CLES = ["en_marche", "defaut", "position_pct", "auto", "vitesse_pct
                      "position_pas", "arret_insere_pct", "rho_pcm", "p_bar", "niveau_pct", "consigne", "mode",
                      "declenchee", "couplee", "p_elec_mw", "au"];
 const RESUME_MAX = 5;
-const SYNOPTIQUES = [["synoptique-primaire", "construirePrimaire"], ["synoptique-secondaire", "construireSecondaire"],
+const SYNOPTIQUES = [["synoptique-ensemble", "construireEnsemble"], ["synoptique-primaire", "construirePrimaire"], ["synoptique-secondaire", "construireSecondaire"],
                      ["synoptique-asg", "construireASG"], ["synoptique-rcv", "construireRCV"],
                      ["synoptique-rra", "construireRRA"], ["synoptique-coeur", "construireVueCoeur"],
                      ["synoptique-elec", "construireElec"]];
@@ -117,6 +117,7 @@ function initialiser(msg) {
         `Erreur d'affichage de ce schéma : ${err.message}`;
       return;
     }
+    preparerDescriptions(svg);
     Zoom.activer(svg);
     svg.addEventListener("click", ev => {
       const lien = ev.target.closest("[data-lien-onglet]");
@@ -287,6 +288,13 @@ function majSynoptiques(e) {
                                                    "": "LG HORS TENSION" }[comp.RESEAU.source_normale];
   const alt = document.querySelector(".synoptique [data-alternateur]");
   if (alt) alt.classList.toggle("couple", !!comp.TURBINE.couplee);
+  if (document.getElementById("onglet-ensemble").classList.contains("actif")) {
+    const etats = etatsEnsemble(e);
+    document.querySelectorAll("#synoptique-ensemble [data-bloc]").forEach(g => {
+      const st = etats[g.dataset.bloc] || "ok";
+      ["ok", "arret", "alerte", "defaut"].forEach(k => g.classList.toggle(`etat-${k}`, k === st));
+    });
+  }
   const rea = document.querySelector(".synoptique [data-rea-mode]");
   if (rea && comp.REA) rea.textContent = `mode ${comp.REA.mode}` + (comp.REA.appoint_auto ? " · appoint" : "");
   const mode = document.querySelector(".synoptique [data-gct-mode]");
@@ -392,6 +400,7 @@ function selectionner(id) {
   document.getElementById("panneau-equipement").hidden = false;
   document.querySelector("main").classList.remove("sans-panneau");
   document.getElementById("eq-titre").textContent = id;
+  document.getElementById("eq-fiche").innerHTML = Glossaire.html(id);
   document.getElementById("eq-message").textContent = "";
   document.getElementById("eq-commandes").innerHTML = "";
   majPanneauEtat();
@@ -534,6 +543,75 @@ document.addEventListener("keydown", ev => {
   if (ev.key === " ") { ev.preventDefault(); envoyer({ type: "pause", valeur: !(etat.dernier && etat.dernier.pause) }); }
   if (ev.key === "Escape") deselectionner();
 });
+
+// ============================================================================ descriptions (glossaire)
+// Après construction d'un synoptique : les équipements décrits perdent leur infobulle native (remplacée
+// par une fiche riche), et chaque texte qui contient un sigle connu devient survolable.
+function preparerDescriptions(svg) {
+  svg.querySelectorAll("[data-id] > title").forEach(t => {
+    if (Glossaire.fiche(t.parentNode.dataset.id)) t.remove();
+  });
+  svg.querySelectorAll("text").forEach(t => {
+    if (t.closest("[data-id], [data-sigle]") || t.dataset.mesure) return;
+    const sigles = Glossaire.sigles(t.textContent);
+    if (sigles.length) { t.dataset.sigle = sigles.join(" "); t.classList.add("texte-sigle"); }
+  });
+}
+
+function contenuInfobulle(cible) {
+  const id = cible.dataset.id;
+  if (id && Glossaire.fiche(id)) {
+    const c = etat.dernier && etat.dernier.composants[id];
+    let etatTxt = "";
+    if (c && c.en_marche !== undefined) etatTxt = c.en_marche ? "en marche" : (c.defaut ? `arrêtée (${c.defaut})` : "à l'arrêt");
+    else if (c && c.position_pct !== undefined) etatTxt = `ouverte à ${fmt(c.position_pct, 0)} %` + (c.regulee ? (c.auto ? " · auto" : " · manuel") : "");
+    return Glossaire.html(id, ` <span class="discret">(${id})</span>`)
+      + (etatTxt ? `<div class="fiche-etat">${etatTxt}</div>` : "") + `<div class="discret petit">clic : commandes</div>`;
+  }
+  const sigles = (cible.dataset.sigle || "").split(" ").filter(Boolean);
+  const html = sigles.map(sg => Glossaire.htmlSigle(sg)).join("");
+  return html + (cible.dataset.lienOnglet ? `<div class="discret petit">clic : ouvrir l'onglet</div>` : "");
+}
+
+const infobulle = document.getElementById("infobulle");
+document.addEventListener("mousemove", ev => {
+  const cible = ev.target.closest && ev.target.closest(".synoptique [data-id], .synoptique [data-sigle]");
+  const html = cible && !ev.buttons ? contenuInfobulle(cible) : "";
+  if (!html) { infobulle.hidden = true; return; }
+  if (infobulle.dataset.cle !== (cible.dataset.id || cible.dataset.sigle)) {
+    infobulle.innerHTML = html;
+    infobulle.dataset.cle = cible.dataset.id || cible.dataset.sigle;
+  }
+  infobulle.hidden = false;
+  const l = infobulle.offsetWidth, h = infobulle.offsetHeight;
+  infobulle.style.left = `${Math.min(ev.clientX + 16, window.innerWidth - l - 8)}px`;
+  infobulle.style.top = `${Math.min(ev.clientY + 16, window.innerHeight - h - 8)}px`;
+});
+
+// onglets : décomposition des sigles en infobulle
+document.querySelectorAll("#onglets [data-onglet]").forEach(b => {
+  const sigles = Glossaire.sigles(b.textContent);
+  if (sigles.length) b.title = sigles.map(sg => `${sg} : ${Glossaire.SIGLES[sg].d.map(([l, s]) => `${l} = ${s}`).join(", ")}`).join("\n");
+});
+
+// glossaire complet
+function afficherGlossaire() {
+  const f = document.getElementById("filtre-glossaire").value.toLowerCase();
+  const lignes = Object.entries(Glossaire.SIGLES)
+    .filter(([k, s]) => !f || `${k} ${s.nom} ${s.role}`.toLowerCase().includes(f))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, s]) => `<tr><td class="sigle-cle">${k}</td><td>${Glossaire.decomposition(k)}<div class="fiche-role">${s.nom} — ${s.role}</div></td></tr>`);
+  document.getElementById("liste-glossaire").innerHTML = `<table class="table-glossaire">${lignes.join("")}</table>`;
+}
+document.getElementById("btn-glossaire").onclick = () => {
+  document.getElementById("menu-contenu").hidden = true;
+  document.getElementById("vue-glossaire").hidden = false;
+  afficherGlossaire();
+  document.getElementById("filtre-glossaire").focus();
+};
+document.getElementById("filtre-glossaire").oninput = afficherGlossaire;
+document.getElementById("btn-fermer-glossaire").onclick = () => { document.getElementById("vue-glossaire").hidden = true; };
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") document.getElementById("vue-glossaire").hidden = true; });
 
 // double-clic sur un équipement : la cuve ouvre la vue du cœur, les autres équipements sont zoomés
 function ouvrirDetail(svg, g) {

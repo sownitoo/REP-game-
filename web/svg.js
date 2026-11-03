@@ -20,6 +20,9 @@ const Sym = {
     const m = svgEl("marker", { id: "fleche", viewBox: "0 0 10 10", refX: "8", refY: "5",
       markerWidth: "6", markerHeight: "6", orient: "auto-start-reverse" }, defs);
     svgEl("path", { d: "M0,0 L10,5 L0,10 z", fill: "#8392a3" }, m);
+    const f = svgEl("marker", { id: "fleche-flux", viewBox: "0 0 10 10", refX: "7", refY: "5",
+      markerWidth: "11", markerHeight: "11", orient: "auto-start-reverse", markerUnits: "userSpaceOnUse" }, defs);
+    svgEl("path", { d: "M0,1 L9,5 L0,9 z", fill: "#aab6c2", class: "pointe-flux" }, f);
   },
 
   // Tuyau : liste de points [[x,y],…], classe = eau | vapeur | mer | purge ; débit animé si |mesure| > seuil

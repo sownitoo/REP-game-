@@ -174,7 +174,7 @@ function construirePrimaire(svg) {
     return g;
   };
   lien(700, 790, "rcv", "RCV · REA", [["primaire.bore_ppm", "ppm", 0, "bore "], ["rcv.charge_m3h", "m³/h", 1, "charge "]]);
-  lien(130, 800, "rra", "RRA · RRI", [["rra.q_mw", "MW", 1, "RRA "], ["rri.t_c", "°C", 1, "RRI "]]);
+  lien(130, 765, "rra", "RRA · RRI", [["rra.q_mw", "MW", 1, "RRA "], ["rri.t_c", "°C", 1, "RRI "]]);
 
   D(Sym.texte(svg, 20, 885, "Molette : zoom · glisser : se déplacer · clic : piloter · rouge = chaud, bleu = froid",
               "atm", "start"));

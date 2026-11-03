@@ -24,13 +24,16 @@ Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles 
 | Clic sur un équipement | panneau de commande (conditions ✓/✗ seulement si une action est bloquée) |
 | **Double-clic sur la cuve** | **vue du cœur** (onglet Cœur) |
 | Badge d'état en haut | état standard + check-list pour passer à l'état suivant |
-| ☰ | scénarios (avec fiche de conduite), sauvegarde, chargement |
+| Survol d'un équipement | **fiche** : nom, type, circuit, rôle (aussi en tête du panneau au clic) |
+| Survol d'un sigle | **décomposition** (RCV = R Réacteur · CV Contrôle chimique et Volumétrique) et rôle |
+| ☰ | scénarios (avec fiche de conduite), sauvegarde, chargement, **glossaire des sigles** |
 | Espace / Échap | pause / fermer le panneau |
 
 ## Version actuelle : V3
 
 | Onglet | Contenu |
 |---|---|
+| **Vue d'ensemble** | toute la centrale en un schéma, rangée par bâtiment (réacteur, auxiliaires nucléaires, salle des machines, électricité, mer) ; flux reliés ; bordure = état du circuit ; **clic = onglet détaillé** |
 | **Primaire** | vue de dessus : cuve au centre (carte des 193 assemblages + grappes), 4 boucles en étoile, PZR, renvois RCV / RRA |
 | **Cœur** | carte du cœur (nappe de puissance illustrative), vue axiale des groupes R / G / S, bilan de réactivité, pilotage des grappes et du bore, **vue neutronique** (⚛) |
 | Secondaire · ASG | vapeur, turbine, condenseur, poste d'eau ; alimentation de secours |

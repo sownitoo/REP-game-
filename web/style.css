@@ -307,3 +307,55 @@ table.lecture td.froid, .froid { color: #a9cdf5; }
 .diesel.defaut .corps { fill: var(--rouge); }
 .alternateur-elec.couple { fill: var(--vert); }
 .batterie { fill: #1d2833; }
+
+/* ---------------- vue d'ensemble ---------------- */
+.zone-batiment { fill: #121a22; stroke: #2a3746; stroke-width: 1.5; }
+.zone-batiment.zone-br { fill: #151b26; stroke: #3a4a63; stroke-dasharray: 8 5; }
+.zone-mer { fill: #0d2a2e; stroke: #2f9e9a; stroke-width: 1.5; }
+.titre-zone { fill: #6f8297; font-size: 13px; font-weight: 700; letter-spacing: .08em; }
+.bloc-ensemble { cursor: pointer; }
+.corps-bloc { fill: #1a2430; stroke: #4b5a6a; stroke-width: 2; }
+.bloc-ensemble:hover .corps-bloc { fill: #22303f; stroke: var(--bleu); }
+.bloc-ensemble.etat-ok .corps-bloc { stroke: var(--vert); }
+.bloc-ensemble.etat-arret .corps-bloc { stroke: #5b6775; stroke-dasharray: 5 4; }
+.bloc-ensemble.etat-alerte .corps-bloc { stroke: var(--orange); }
+.bloc-ensemble.etat-defaut .corps-bloc { stroke: var(--rouge); stroke-width: 3; }
+.titre-bloc { fill: #f0f4f8; font-size: 15px; font-weight: 700; letter-spacing: .04em; }
+.fleche-onglet { fill: var(--bleu); font-size: 18px; font-weight: 700; }
+.pastille-etat { fill: #1a2430; stroke-width: 2; }
+.pastille-etat.ok { stroke: var(--vert); } .pastille-etat.arret { stroke: #5b6775; stroke-dasharray: 3 2; }
+.pastille-etat.alerte { stroke: var(--orange); } .pastille-etat.defaut { stroke: var(--rouge); }
+.tuyau.flux { stroke-width: 4; opacity: .5; }
+.tuyau.flux.circule { opacity: 1; }
+.tuyau.flux.primaire-chaud, .tuyau.flux.primaire-froid { stroke-width: 6; }
+.tuyau.arbre { stroke: #9aa6b2; stroke-width: 6; stroke-dasharray: none; }
+.tuyau.elec { stroke: #e8d24a; }
+.tuyau.chaleur { stroke: #f0a030; }
+.tuyau.secours { stroke-dasharray: 6 4; }
+
+/* ---------------- infobulles et glossaire ---------------- */
+#infobulle { position: fixed; z-index: 40; max-width: 380px; pointer-events: none; padding: 8px 10px;
+  background: #0b1118f2; border: 1px solid #3a4a63; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+  font-size: 12px; line-height: 1.45; }
+#infobulle[hidden] { display: none; }
+.fiche { display: flex; flex-direction: column; gap: 2px; }
+.fiche + .fiche { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--trait); }
+.fiche-nom { font-weight: 700; color: #f0f4f8; font-size: 13px; }
+.fiche-role { color: #c3cfdb; margin-top: 2px; }
+.fiche-etat { color: var(--vert); margin-top: 4px; font-weight: 600; }
+.sigle-chip { display: inline-block; padding: 0 5px; border-radius: 4px; background: #24364a; color: #9fd3ff;
+  font-weight: 700; font-size: 11px; }
+#eq-fiche { margin-bottom: 10px; padding: 8px; border-radius: 6px; background: var(--fond-3); border: 1px solid var(--trait);
+  font-size: 12px; }
+#eq-fiche:empty { display: none; }
+.texte-sigle { cursor: help; }
+.voile { position: fixed; inset: 0; z-index: 35; background: rgba(5, 9, 14, .88); display: flex; align-items: center;
+  justify-content: center; padding: 16px; }
+.voile[hidden] { display: none; }
+.cadre-glossaire { width: min(900px, 100%); height: min(860px, 100%); background: var(--fond-2); border: 1px solid var(--trait);
+  border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; }
+#filtre-glossaire { flex: 1; max-width: 340px; }
+#liste-glossaire { overflow: auto; padding: 8px 14px; }
+.table-glossaire { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table-glossaire td { padding: 6px 6px; border-bottom: 1px solid var(--trait); vertical-align: top; }
+.sigle-cle { font-weight: 800; color: #9fd3ff; width: 70px; font-size: 14px; }

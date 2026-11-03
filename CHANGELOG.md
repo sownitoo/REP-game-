@@ -1,5 +1,14 @@
 # Changelog
 
+## V3.1 — 2026-11-03 — Vue d'ensemble, glossaire, fiches équipements
+- **Vue d'ensemble** (premier onglet) : un bloc par circuit (RCP, GV, RCV, REA, RRA, RRI, SEC, PTR, RIS, RPR, VVP,
+  turbine, alternateur, ARE, GCT-c, poste d'eau, condenseur, CRF, ASG, réseau, tableaux, diesels, batteries, air),
+  rangés par bâtiment et reliés par les flux (chaleur, eau primaire, vapeur, eau alimentaire, eau de mer, électricité),
+  animés quand ils circulent. Bordure : en service / à l'arrêt / sollicité / en défaut. Clic : onglet détaillé.
+- **Glossaire** : ~60 sigles décomposés (lettre par lettre) avec leur rôle ; fenêtre de recherche dans le menu ☰.
+- **Fiches** des 177 équipements (nom, type, circuit, rôle) : infobulle au survol + en tête du panneau au clic.
+  Chaque texte des synoptiques qui contient un sigle connu est survolable. Onglets : sigles en infobulle.
+
 ## V3 — 2026-11-03 — Électricité, diesels, séquenceurs, batteries, air comprimé, joints des PP
 
 ### Ajouté
