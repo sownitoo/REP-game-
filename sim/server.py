@@ -41,6 +41,16 @@ class Diffuseur:
                 self.clients.discard(ws)
 
 
+class FichiersSansCache(StaticFiles):
+    """Fichiers de l'interface toujours revalidés : après une mise à jour, le navigateur ne garde pas
+    une ancienne version de app.js (sinon des onglets restent vides)."""
+
+    async def get_response(self, path: str, scope):  # type: ignore[no-untyped-def]
+        reponse = await super().get_response(path, scope)
+        reponse.headers["Cache-Control"] = "no-cache"
+        return reponse
+
+
 def creer_app() -> FastAPI:
     simulateur = creer_simulateur()
     diffuseur = Diffuseur()
@@ -69,7 +79,8 @@ def creer_app() -> FastAPI:
     @app.get("/mode.js")
     def mode() -> Response:
         """En mode serveur, la page dialogue par WebSocket (le fichier statique web/mode.js dit « navigateur »)."""
-        return Response('window.REP_MODE = "serveur";\n', media_type="text/javascript")
+        return Response('window.REP_MODE = "serveur";\n', media_type="text/javascript",
+                        headers={"Cache-Control": "no-cache"})
 
     @app.get("/api/historique")
     def historique(vars: str = "") -> dict[str, list[float]]:
@@ -108,7 +119,7 @@ def creer_app() -> FastAPI:
         except WebSocketDisconnect:
             diffuseur.clients.discard(socket)
 
-    app.mount("/", StaticFiles(directory=DOSSIER_WEB, html=True), name="web")
+    app.mount("/", FichiersSansCache(directory=DOSSIER_WEB, html=True), name="web")
     return app
 
 

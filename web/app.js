@@ -35,6 +35,7 @@ const SYNOPTIQUES = [["synoptique-primaire", "construirePrimaire"], ["synoptique
                      ["synoptique-elec", "construireElec"]];
 function construireVueCoeur(svg) { VueCoeur.construire(svg); }
 
+const VERSION_UI = "V3";     // doit correspondre à meta.version de plant.yaml
 const etat = { transport: null, dernier: null, selection: null, minuterieConditions: null, seuils: {} };
 
 // ============================================================================ utilitaires
@@ -101,10 +102,21 @@ function initialiser(msg) {
   sel.onchange = info;
   info();
   etat.seuils = msg.seuils;
+  if (msg.meta.version !== VERSION_UI) {
+    surStatut(`Interface (${VERSION_UI}) et simulateur (${msg.meta.version}) différents : recharger la page sans cache `
+              + "(Ctrl + F5, ou Cmd + Maj + R sur Mac).");
+  }
   SYNOPTIQUES.forEach(([id, fonction]) => {
     const svg = document.getElementById(id);
     if (svg.childElementCount) return;
-    window[fonction](svg);
+    try {
+      window[fonction](svg);
+    } catch (err) {                        // un schéma en erreur ne doit pas empêcher les autres de s'afficher
+      console.error(err);
+      svgEl("text", { x: 40, y: 80, class: "lib-fort", fill: "#e5484d" }, svg).textContent =
+        `Erreur d'affichage de ce schéma : ${err.message}`;
+      return;
+    }
     Zoom.activer(svg);
     svg.addEventListener("click", ev => {
       const lien = ev.target.closest("[data-lien-onglet]");
