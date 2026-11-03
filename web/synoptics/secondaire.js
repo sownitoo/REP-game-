@@ -4,6 +4,7 @@
 
 function construireSecondaire(svg) {
   Sym.defs(svg);
+  const D = el => Sym.detail(el);
   const GV_X = [110, 290, 470, 650];
   const Y_COLLECTEUR = 70, Y_HAUT_GV = 230, Y_BAS_GV = 430, Y_ARE = 640, Y_POSTE = 720;
 
@@ -53,26 +54,26 @@ function construireSecondaire(svg) {
     const b = i + 1;
     Sym.gv(svg, x - 28, Y_HAUT_GV, 56, Y_BAS_GV - Y_HAUT_GV, `GV${b}`);
     Sym.texte(svg, x - 36, 290, `GV${b}`, "lib-fort", "end");
-    Sym.valeur(svg, x - 36, 306, `GV${b}.p_bar`, "bar", 2, "val", "end");
+    D(Sym.valeur(svg, x - 36, 306, `GV${b}.p_bar`, "bar", 2, "val", "end"));
     Sym.valeur(svg, x - 36, 320, `GV${b}.niveau_pct`, "% GE", 1, "val", "end");
-    Sym.valeur(svg, x - 36, 334, `GV${b}.q_mw`, "MW", 0, "val", "end", "Q ");
-    Sym.valeur(svg, x + 6, 60, `GV${b}.qm_vapeur_kg_s`, "kg/s", 0, "val", "start");
+    D(Sym.valeur(svg, x - 36, 334, `GV${b}.q_mw`, "MW", 0, "val", "end", "Q "));
+    D(Sym.valeur(svg, x + 6, 60, `GV${b}.qm_vapeur_kg_s`, "kg/s", 0, "val", "start"));
     Sym.vanne(svg, x, 150, `VIV${b}`, { orient: "v", label: `VIV${b}`, cote: "gauche" });
-    Sym.vanne(svg, x + 32, 150, `VIV${b}_BP`, { orient: "v", label: "by-pass", cote: "droite" });
-    Sym.vanne(svg, x - 50, 170, `VDA${b}`, { orient: "v", reg: true, label: `VDA${b}`, cote: "gauche" });
-    Sym.texte(svg, x - 50, 118, "atm ↑", "atm");
+    Sym.vanne(svg, x + 32, 150, `VIV${b}_BP`, { orient: "v", label: "by-pass", cote: "droite", detail: true });
+    Sym.vanne(svg, x - 50, 170, `VDA${b}`, { orient: "v", reg: true, label: `VDA${b}`, cote: "gauche", detail: true });
+    D(Sym.texte(svg, x - 50, 118, "atm ↑", "atm"));
     for (let n = 1; n <= 5; n++) Sym.soupape(svg, x - 64 + (n - 1) * 11, 95, `SOUP${b}_${n}`);
     // alimentation
-    Sym.vanne(svg, x, 615, `ARE${b}_ISOL`, { orient: "v", label: "isol", cote: "gauche" });
-    Sym.vanne(svg, x - 16, 545, `ARE${b}_GD`, { orient: "v", reg: true, label: "GD", cote: "bas" });
-    Sym.vanne(svg, x + 16, 545, `ARE${b}_PD`, { orient: "v", reg: true, label: "PD", cote: "bas" });
+    Sym.vanne(svg, x, 615, `ARE${b}_ISOL`, { orient: "v", label: "isol", cote: "gauche", detail: true });
+    Sym.vanne(svg, x - 16, 545, `ARE${b}_GD`, { orient: "v", reg: true, label: "GD", cote: "bas", detail: true });
+    Sym.vanne(svg, x + 16, 545, `ARE${b}_PD`, { orient: "v", reg: true, label: "PD", cote: "bas", detail: true });
     Sym.clapet(svg, x, 470, `ARE${b}_CLAPET`, "v");
-    Sym.valeur(svg, x + 8, 632, `GV${b}.qm_alim_kg_s`, "kg/s", 0, "val", "start");
+    D(Sym.valeur(svg, x + 8, 632, `GV${b}.qm_alim_kg_s`, "kg/s", 0, "val", "start"));
     Sym.texte(svg, x - 22, 660, `ARE${b}`, "lib", "middle");
   });
   Sym.valeur(svg, 560, 40, "collecteur.p_bar", "bar", 2, "val-fort", "middle", "Collecteur vapeur ");
-  Sym.texte(svg, 20, 20, "▲ soupapes VVP (5 par ligne, 82 → 86 bar)   ⊠ vanne régulée   M = en manuel   contour orange = ordre automatique", "atm", "start");
-  Sym.valeur(svg, 370, 660, "N_ARE.p_bar", "bar", 1, "val", "middle", "P refoul. ARE ");
+  D(Sym.texte(svg, 20, 20, "▲ soupapes VVP (5 par ligne, 82 → 86 bar)   ⊠ vanne régulée   M = en manuel   contour orange = ordre automatique", "atm", "start"));
+  D(Sym.valeur(svg, 370, 660, "N_ARE.p_bar", "bar", 1, "val", "middle", "P refoul. ARE "));
 
   // ------------------------------------------------------------------ rappel du primaire
   const prim = Sym._groupe(svg, "GRAPPES", "source", "Primaire (détail dans l'onglet Primaire)");
@@ -81,7 +82,7 @@ function construireSecondaire(svg) {
   Sym.valeur(prim, 805, 276, "coeur.puissance_pct", "%", 1, "val-fort");
   Sym.valeur(prim, 805, 294, "primaire.tmoy_c", "°C", 1, "val", "middle", "Tmoy ");
   Sym.valeur(prim, 805, 310, "pzr.p_bar", "bar", 1, "val", "middle", "P PZR ");
-  Sym.texte(prim, 805, 328, "chaleur → 4 GV", "atm");
+  D(Sym.texte(prim, 805, 328, "chaleur → 4 GV", "atm"));
   Sym.fleche(svg, 735, 300, 684, 330);
 
   // ------------------------------------------------------------------ contournement
@@ -91,7 +92,7 @@ function construireSecondaire(svg) {
   svgEl("rect", { x: 830, y: 225, width: 100, height: 22, rx: 4, class: "corps" }, regGct);
   Sym.texte(regGct, 880, 240, "GCT-c", "lib");
   svgEl("text", { x: 880, y: 222, class: "val", "text-anchor": "middle", "data-gct-mode": "1" }, svg).textContent = "—";
-  Sym.valeur(svg, 890, 270, "gctc.qm_kg_s", "kg/s", 0, "val", "start");
+  D(Sym.valeur(svg, 890, 270, "gctc.qm_kg_s", "kg/s", 0, "val", "start"));
 
   // ------------------------------------------------------------------ turbine + alternateur
   const tu = Sym._groupe(svg, "TURBINE", "turbine", "Groupe turbo-alternateur");
@@ -110,8 +111,8 @@ function construireSecondaire(svg) {
   svgEl("line", { x1: 1346, y1: 70, x2: 1440, y2: 70, stroke: "#c8d2dc", "stroke-width": 3, "data-couplage": "1" }, svg);
   Sym.texte(svg, 1465, 74, "400 kV", "lib", "middle");
   Sym.valeur(svg, 1320, 118, "turbine.p_elec_mw", "MWe", 0, "val-fort");
-  Sym.valeur(svg, 1320, 134, "turbine.vitesse_tr_min", "tr/min", 0, "val");
-  Sym.valeur(svg, 1170, 145, "turbine.charge_pct", "%", 1, "val", "start", "charge ");
+  D(Sym.valeur(svg, 1320, 134, "turbine.vitesse_tr_min", "tr/min", 0, "val"));
+  D(Sym.valeur(svg, 1170, 145, "turbine.charge_pct", "%", 1, "val", "start", "charge "));
 
   // ------------------------------------------------------------------ RPR (protection)
   const rpr = Sym._groupe(svg, "RPR", "regulation", "Protection réacteur : AU, réarmements");
@@ -124,12 +125,12 @@ function construireSecondaire(svg) {
   svgEl("rect", { x: 1040, y: 330, width: 260, height: 110, rx: 8, class: "corps" }, cd);
   Sym.texte(cd, 1105, 352, "CONDENSEUR", "lib-fort");
   Sym.valeur(svg, 1230, 352, "condenseur.p_bar", "bar", 3, "val-fort");
-  Sym.valeur(svg, 1230, 370, "condenseur.t_c", "°C", 1, "val");
-  Sym.valeur(svg, 1105, 370, "condenseur.q_mw", "MW", 0, "val", "middle", "Q ");
+  D(Sym.valeur(svg, 1230, 370, "condenseur.t_c", "°C", 1, "val"));
+  D(Sym.valeur(svg, 1105, 370, "condenseur.q_mw", "MW", 0, "val", "middle", "Q "));
   Sym.pompe(svg, 1390, 345, "CRF1", { sens: "gauche", cote: "droite", label: "CRF1" });
   Sym.pompe(svg, 1390, 395, "CRF2", { sens: "gauche", cote: "droite", label: "CRF2" });
-  Sym.valeur(svg, 1465, 335, "crf.debit_m3s", "m³/s", 1, "val");
-  Sym.texte(svg, 1470, 420, "→ mer", "atm");
+  D(Sym.valeur(svg, 1465, 335, "crf.debit_m3s", "m³/s", 1, "val"));
+  D(Sym.texte(svg, 1470, 420, "→ mer", "atm"));
   Sym.bache(svg, 1100, 440, 140, 60, "PUITS", "puits.niveau_pct", "Puits");
   Sym.valeur(svg, 1170, 476, "puits.niveau_pct", "%", 1, "val-fort", "middle", "puits ");
   const regPuits = Sym._groupe(svg, "REG_PUITS", "regulation", "Régulation niveau puits (consigne)");
@@ -139,7 +140,7 @@ function construireSecondaire(svg) {
   Sym.pompe(svg, 1210, 560, "CEX2", { sens: "bas", cote: "droite" });
   Sym.clapet(svg, 1130, 605, "CEX1_CLAPET", "v");
   Sym.clapet(svg, 1210, 605, "CEX2_CLAPET", "v");
-  Sym.valeur(svg, 1180, 700, "cex.q_m3h", "m³/h", 0, "val", "start", "CEX ");
+  D(Sym.valeur(svg, 1180, 700, "cex.q_m3h", "m³/h", 0, "val", "start", "CEX "));
   Sym.vanne(svg, 1060, 600, "CEX_RECIRC", { orient: "v", label: "recirc.", cote: "gauche" });
   Sym.bache(svg, 1380, 600, 90, 180, "CST", "cst.niveau_pct", "CST");
   Sym.texte(svg, 1425, 620, "CST", "lib-fort");
@@ -149,20 +150,20 @@ function construireSecondaire(svg) {
 
   // ------------------------------------------------------------------ poste d'eau
   Sym.echangeur(svg, 980, Y_POSTE - 15, 60, 30, "ABP", "ABP (réch. BP)");
-  Sym.valeur(svg, 1010, Y_POSTE + 46, "abp.t_c", "°C", 0, "val");
+  D(Sym.valeur(svg, 1010, Y_POSTE + 46, "abp.t_c", "°C", 0, "val"));
   Sym.pompe(svg, 895, 790, "REP1", { sens: "haut", cote: "gauche" });
   Sym.pompe(svg, 945, 790, "REP2", { sens: "haut", cote: "droite" });
-  Sym.texte(svg, 920, 838, "reprise des purges", "atm");
-  Sym.valeur(svg, 912, 745, "reprise.qm_kg_s", "kg/s", 0, "val", "end");
+  D(Sym.texte(svg, 920, 838, "reprise des purges", "atm"));
+  D(Sym.valeur(svg, 912, 745, "reprise.qm_kg_s", "kg/s", 0, "val", "end"));
   Sym.pompe(svg, 830, 680, "APP1", { sens: "gauche", cote: "droite" });
   Sym.pompe(svg, 830, Y_POSTE, "APP2", { sens: "gauche", cote: "droite" });
   Sym.pompe(svg, 830, 770, "APD", { sens: "gauche", cote: "droite" });
   Sym.clapet(svg, 800, 680, "APP1_CLAPET");
   Sym.clapet(svg, 800, Y_POSTE, "APP2_CLAPET");
   Sym.clapet(svg, 800, 770, "APD_CLAPET");
-  Sym.valeur(svg, 830, 662, "APP1.vitesse_pct", "%", 0, "val");
-  Sym.valeur(svg, 830, 822, "N_ABP.p_bar", "bar", 1, "val", "middle", "aspi ");
+  D(Sym.valeur(svg, 830, 662, "APP1.vitesse_pct", "%", 0, "val"));
+  D(Sym.valeur(svg, 830, 822, "N_ABP.p_bar", "bar", 1, "val", "middle", "aspi "));
   Sym.echangeur(svg, 700, Y_POSTE - 15, 60, 30, "AHP", "AHP (réch. HP)");
   Sym.valeur(svg, 730, Y_POSTE + 46, "alim.t_c", "°C", 0, "val", "middle", "T alim ");
-  Sym.valeur(svg, 740, 690, "alim.dp_bar", "bar", 1, "val", "middle", "ΔP ");
+  D(Sym.valeur(svg, 740, 690, "alim.dp_bar", "bar", 1, "val", "middle", "ΔP "));
 }

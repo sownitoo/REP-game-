@@ -36,7 +36,7 @@ const Sym = {
   },
 
   // Vanne papillon (deux triangles) ; orient = "h" ou "v" ; reg = vanne régulée (actionneur)
-  vanne(svg, x, y, id, { orient = "h", label = id, reg = false, cote = "bas" } = {}) {
+  vanne(svg, x, y, id, { orient = "h", label = id, reg = false, cote = "bas", detail = false } = {}) {
     const g = this._groupe(svg, id, "vanne", id);
     const t = orient === "h"
       ? [`${x - 10},${y - 7} ${x - 10},${y + 7} ${x},${y}`, `${x + 10},${y - 7} ${x + 10},${y + 7} ${x},${y}`]
@@ -51,7 +51,7 @@ const Sym = {
     if (label) {
       const pos = { bas: [x, y + 22, "middle"], haut: [x, y - 14, "middle"], droite: [x + 14, y + 4, "start"],
                     gauche: [x - 14, y + 4, "end"] }[cote];
-      svgEl("text", { x: pos[0], y: pos[1], class: "lib", "text-anchor": pos[2] }, g).textContent = label;
+      svgEl("text", { x: pos[0], y: pos[1], class: detail ? "lib detail" : "lib", "text-anchor": pos[2] }, g).textContent = label;
     }
     return g;
   },
@@ -67,16 +67,27 @@ const Sym = {
     return g;
   },
 
-  pompe(svg, x, y, id, { label = id, sens = "droite", cote = "bas" } = {}) {
-    const g = this._groupe(svg, id, "pompe", id);
-    svgEl("circle", { cx: x, cy: y, r: 13, class: "corps" }, g);
-    const f = { droite: `${x - 6},${y - 7} ${x - 6},${y + 7} ${x + 8},${y}`,
-                gauche: `${x + 6},${y - 7} ${x + 6},${y + 7} ${x - 8},${y}`,
-                haut: `${x - 7},${y + 6} ${x + 7},${y + 6} ${x},${y - 8}`,
-                bas: `${x - 7},${y - 6} ${x + 7},${y - 6} ${x},${y + 8}` }[sens];
-    svgEl("polygon", { points: f, class: "fleche" }, g);
-    const pos = cote === "bas" ? [x, y + 27, "middle"] : cote === "droite" ? [x + 18, y + 4, "start"] : [x - 18, y + 4, "end"];
-    svgEl("text", { x: pos[0], y: pos[1], class: "lib", "text-anchor": pos[2] }, g).textContent = label;
+  pompe(svg, x, y, id, { label = id, sens = "droite", cote = "bas", rayon = 13, titre = id } = {}) {
+    const g = this._groupe(svg, id, "pompe", titre);
+    svgEl("circle", { cx: x, cy: y, r: rayon, class: "corps" }, g);
+    const k = rayon / 13;
+    const f = { droite: [[-6, -7], [-6, 7], [8, 0]], gauche: [[6, -7], [6, 7], [-8, 0]],
+                haut: [[-7, 6], [7, 6], [0, -8]], bas: [[-7, -6], [7, -6], [0, 8]] }[sens];
+    svgEl("polygon", { points: f.map(([a, b]) => `${x + a * k},${y + b * k}`).join(" "), class: "fleche" }, g);
+    if (cote !== "aucun") {
+      const pos = cote === "bas" ? [x, y + rayon + 14, "middle"] : cote === "droite" ? [x + rayon + 5, y + 4, "start"]
+                                                                 : [x - rayon - 5, y + 4, "end"];
+      svgEl("text", { x: pos[0], y: pos[1], class: "lib", "text-anchor": pos[2] }, g).textContent = label;
+    }
+    return g;
+  },
+
+  // Jauge verticale de niveau (mesure en %), centrée en (x, y), hauteur h
+  jauge(svg, x, y, h, mesureNiveau) {
+    const g = svgEl("g", { class: "jauge" }, svg);
+    svgEl("rect", { x: x - 4, y: y - h / 2, width: 8, height: h, rx: 2, class: "jauge-fond" }, g);
+    svgEl("rect", { x: x - 3, y: y + h / 2 - 1, width: 6, height: 0, class: "eau",
+                    "data-niveau": mesureNiveau, "data-bas": y + h / 2 - 1, "data-haut": h - 2 }, g);
     return g;
   },
 
@@ -129,6 +140,9 @@ const Sym = {
     t.textContent = "—";
     return t;
   },
+
+  // marque un élément comme « détail » : visible seulement en zoomant
+  detail(el) { el.classList.add("detail"); return el; },
 
   fleche(svg, x1, y1, x2, y2) {
     return svgEl("line", { x1, y1, x2, y2, stroke: "#8392a3", "stroke-width": 1.5, "marker-end": "url(#fleche)" }, svg);

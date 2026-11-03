@@ -1,119 +1,178 @@
-// Synoptique « Primaire » : cuve + 4 boucles (BC → GV → pompe → BF), pressuriseur, charge/décharge.
-// Repère 1500 × 880. Chaque data-id = repère côté serveur.
+// Synoptique « Primaire » en étoile (vue de dessus) : la cuve au centre, les 4 boucles en araignée.
+// Chaque boucle : cuve → branche chaude → GV → branche en U → pompe primaire → branche froide → cuve.
+// Repère 1400 × 900. Les éléments .detail n'apparaissent qu'en zoomant.
 "use strict";
 
 function construirePrimaire(svg) {
   Sym.defs(svg);
-  const Y = [150, 310, 470, 630];             // branche chaude de chaque boucle
-  const X_CUVE = 290, X_GV = 520, X_POMPE = 760;
+  const C = { x: 700, y: 450 };
+  const R_CUVE = 118, R_GV = 50, R_PP = 22;
+  // boucle 1 en haut à gauche, puis sens horaire ; (sx, sy) = sens de la diagonale
+  const BOUCLES = [[1, -1, -1], [2, 1, -1], [3, 1, 1], [4, -1, 1]];
+  // repère local d'un quart de plan (x vers l'extérieur, y vers le haut ou le bas selon la boucle)
+  const GEO = { gv: [370, 215], pompe: [165, 305], angleChaud: 22, angleFroid: 62 };
+  const D = el => { el.classList.add("detail"); return el; };
 
-  // ------------------------------------------------------------------ ligne d'expansion, aspersion, décharges PZR
-  Sym.tuyau(svg, [[440, Y[1]], [440, 282], [1090, 282], [1090, 262]], "primaire-chaud", "pzr.expansion_kg_s", 0.3);
-  Sym.tuyau(svg, [[X_POMPE, Y[1] + 95], [1180, Y[1] + 95]], "primaire-froid", "pzr.aspersion_kg_s", 0.5);
-  Sym.tuyau(svg, [[X_POMPE, Y[2] + 95], [1180, Y[2] + 95], [1180, 58], [1115, 58], [1115, 72]], "primaire-froid",
-            "pzr.aspersion_kg_s", 0.5);
-  Sym.tuyau(svg, [[1065, 72], [1065, 12], [900, 12]], "vapeur", "pzr.porv_qm_kg_s", 0.1);
-  Sym.tuyau(svg, [[1065, 30], [900, 30]], "vapeur", "pzr.porv_qm_kg_s", 0.1);
-  Sym.tuyau(svg, [[1065, 48], [975, 48]], "vapeur");
-  Sym.texte(svg, 892, 25, "PRT (V2) ←", "atm", "end");
+  const vers = (a, b, r) => {                       // point à distance r de a sur le segment a → b
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy);
+    return [a[0] + dx * r / l, a[1] + dy * r / l];
+  };
+  const milieu = (a, b, decalage = 0) => {          // milieu d'un segment, décalé perpendiculairement
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy);
+    return [(a[0] + b[0]) / 2 - dy / l * decalage, (a[1] + b[1]) / 2 + dx / l * decalage];
+  };
+  // valeur posée à côté du milieu d'un segment, du côté opposé au point « loin » (ne chevauche pas le trait)
+  const etiquette = (a, b, loin, mesure, unite, dec, cls, prefixe = "") => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy);
+    let n = [-dy / l, dx / l];
+    const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    if (n[0] * (loin[0] - m[0]) + n[1] * (loin[1] - m[1]) > 0) n = [-n[0], -n[1]];
+    const ancre = n[0] > 0.3 ? "start" : n[0] < -0.3 ? "end" : "middle";
+    return Sym.valeur(svg, m[0] + n[0] * 12, m[1] + n[1] * 12 + (n[1] > 0 ? 9 : 0), mesure, unite, dec, cls, ancre, prefixe);
+  };
 
   // ------------------------------------------------------------------ boucles
-  Y.forEach((y, i) => {
-    const b = i + 1;
-    Sym.tuyau(svg, [[X_CUVE, y], [X_GV, y]], "primaire-chaud", `B${b}.debit_pct`, 1);
-    Sym.tuyau(svg, [[X_GV + 120, y + 60], [X_POMPE - 13, y + 60]], "primaire-froid", `B${b}.debit_pct`, 1);
-    Sym.tuyau(svg, [[X_POMPE, y + 73], [X_POMPE, y + 95], [X_CUVE, y + 95]], "primaire-froid", `B${b}.debit_pct`, 1);
-    const gv = Sym._groupe(svg, `GV${b}`, "echangeur", `Générateur de vapeur ${b} (côté primaire)`);
-    svgEl("rect", { x: X_GV, y: y - 45, width: 120, height: 120, rx: 10, class: "corps" }, gv);
-    svgEl("path", { d: `M${X_GV} ${y} H${X_GV + 30} V${y - 30} Q${X_GV + 60} ${y - 55} ${X_GV + 90} ${y - 30} V${y + 60} H${X_GV + 120}`,
-                    fill: "none", stroke: "#e07a4f", "stroke-width": 2 }, gv);
-    Sym.texte(gv, X_GV + 60, y + 30, `GV${b}`, "lib-fort");
-    Sym.valeur(gv, X_GV + 60, y + 48, `GV${b}.q_mw`, "MW", 0, "val");
-    Sym.valeur(gv, X_GV + 60, y + 64, `GV${b}.p_bar`, "bar", 1, "val");
-    Sym.pompe(svg, X_POMPE, y + 60, `PP${b}`, { sens: "bas", cote: "droite", label: `PP${b}` });
-    Sym.pompe(svg, X_POMPE + 75, y + 20, `PSH${b}`, { sens: "droite", cote: "droite", label: "huile" });
-    Sym.valeur(svg, 405, y - 7, `B${b}.t_bc_c`, "°C", 1, "val", "middle", "BC ");
-    Sym.valeur(svg, 405, y + 88, `B${b}.t_bf_c`, "°C", 1, "val", "middle", "BF ");
-    Sym.valeur(svg, 405, y + 48, `B${b}.dt_c`, "°C", 1, "val", "middle", "ΔT ");
-    Sym.valeur(svg, X_POMPE + 25, y + 90, `B${b}.debit_pct`, "%", 1, "val", "start", "débit ");
-    Sym.texte(svg, X_CUVE + 12, y - 8, `B${b}`, "lib-fort", "start");
+  const points = {};
+  BOUCLES.forEach(([b, sx, sy]) => {
+    const P = ([x, y]) => [C.x + sx * x, C.y + sy * y];
+    const rad = d => d * Math.PI / 180;
+    const buseChaude = P([R_CUVE * Math.cos(rad(GEO.angleChaud)), R_CUVE * Math.sin(rad(GEO.angleChaud))]);
+    const buseFroide = P([R_CUVE * Math.cos(rad(GEO.angleFroid)), R_CUVE * Math.sin(rad(GEO.angleFroid))]);
+    const gv = P(GEO.gv), pompe = P(GEO.pompe);
+    const chaudFin = vers(gv, buseChaude, R_GV);
+    const uDebut = vers(gv, pompe, R_GV), uFin = vers(pompe, gv, R_PP);
+    const froidDebut = vers(pompe, buseFroide, R_PP);
+    points[b] = { buseChaude, gv, pompe, chaudFin };
+    const debit = `B${b}.debit_pct`;
+    Sym.tuyau(svg, [buseChaude, chaudFin], "primaire-chaud", debit, 1).dataset.nominal = 100;
+    Sym.tuyau(svg, [uDebut, uFin], "primaire-froid", debit, 1).dataset.nominal = 100;
+    Sym.tuyau(svg, [froidDebut, buseFroide], "primaire-froid", debit, 1).dataset.nominal = 100;
+
+    // GV (vue de dessus) + jauge de niveau côté extérieur
+    const g = Sym._groupe(svg, `GV${b}`, "gv", `Générateur de vapeur ${b}`);
+    svgEl("circle", { cx: gv[0], cy: gv[1], r: R_GV, class: "contour" }, g);
+    svgEl("circle", { cx: gv[0], cy: gv[1], r: R_GV - 9, class: "faisceau" }, g);
+    Sym.texte(g, gv[0], gv[1] - 4, `GV${b}`, "lib-fort");
+    Sym.valeur(g, gv[0], gv[1] + 13, `GV${b}.q_mw`, "MW", 0, "val");
+    const xj = gv[0] + sx * (R_GV + 14);
+    Sym.jauge(svg, xj, gv[1], 70, `GV${b}.niveau_vrai_pct`);
+    D(Sym.valeur(svg, xj + sx * 10, gv[1] - 26, `GV${b}.niveau_pct`, "%", 0, "val", sx > 0 ? "start" : "end"));
+    D(Sym.valeur(svg, gv[0], gv[1] + sy * (R_GV + 16) + (sy > 0 ? 4 : 0), `GV${b}.p_bar`, "bar", 1, "val"));
+
+    // pompe primaire + pompe de soulèvement d'huile
+    const sensPompe = sy < 0 ? "bas" : "haut";
+    Sym.pompe(svg, pompe[0], pompe[1], `PP${b}`, { sens: sensPompe, cote: "aucun", rayon: R_PP });
+    const lib = [pompe[0] - sx * 34, pompe[1] + sy * 4];
+    Sym.texte(svg, lib[0], lib[1], `PP${b}`, "lib-fort", sx > 0 ? "end" : "start");
+    Sym.valeur(svg, lib[0], lib[1] + 15, debit, "%", 0, "val", sx > 0 ? "end" : "start");
+    const huile = [pompe[0] + sx * 34, pompe[1] + sy * 26];
+    Sym.pompe(svg, huile[0], huile[1], `PSH${b}`, { sens: "droite", cote: "aucun", rayon: 8, titre: `PSH${b} : soulèvement d'huile de PP${b}` });
+    D(Sym.texte(svg, huile[0] + sx * 13, huile[1] + 4, "huile", "atm", sx > 0 ? "start" : "end"));
+
+    // températures : branche chaude côté extérieur, branche froide côté extérieur, ΔT à l'intérieur (détail)
+    etiquette(buseChaude, chaudFin, pompe, `B${b}.t_bc_c`, "°C", 1, "val chaud");
+    etiquette(froidDebut, buseFroide, gv, `B${b}.t_bf_c`, "°C", 1, "val froid");
+    D(etiquette(buseChaude, chaudFin, P([600, -600]), `B${b}.dt_c`, "°C", 1, "val", "ΔT "));
+    Sym.texte(svg, C.x + sx * 520, C.y + sy * 400, `BOUCLE ${b}`, "titre-boucle", sx > 0 ? "end" : "start");
   });
 
-  // ------------------------------------------------------------------ cuve + cœur + grappes
-  const cuve = Sym._groupe(svg, "GRAPPES", "cuve", "Cuve, cœur et grappes (cliquer pour piloter les grappes)");
-  svgEl("rect", { x: 130, y: 80, width: 160, height: 690, rx: 70, class: "corps" }, cuve);
-  svgEl("rect", { x: 160, y: 440, width: 100, height: 220, rx: 6, class: "coeur" }, cuve);
-  Sym.texte(cuve, 210, 560, "CŒUR", "lib-fort");
-  // grappes : barres dont la hauteur insérée suit la position
-  svgEl("rect", { x: 178, y: 300, width: 14, height: 0, class: "grappe", "data-grappe": "grappes.position_pas",
-                  "data-bas": 440, "data-haut": 140, "data-max": 228, "data-inverse": "1" }, cuve);
-  svgEl("rect", { x: 228, y: 300, width: 14, height: 0, class: "grappe arret", "data-grappe": "grappes.arret_insere_pct",
-                  "data-bas": 440, "data-haut": 140, "data-max": 100 }, cuve);
-  Sym.texte(cuve, 185, 292, "rég.", "atm");
-  Sym.texte(cuve, 235, 292, "arrêt", "atm");
-  Sym.valeur(cuve, 210, 590, "coeur.puissance_pct", "%", 1, "val-fort");
-  Sym.valeur(cuve, 210, 608, "coeur.rho_pcm", "pcm", 0, "val");
-  Sym.valeur(cuve, 210, 430, "cuve.t_sortie_c", "°C", 1, "val", "middle", "sortie ");
-  Sym.valeur(cuve, 210, 690, "cuve.t_entree_c", "°C", 1, "val", "middle", "entrée ");
-  Sym.valeur(cuve, 210, 110, "grappes.position_pas", "pas", 0, "val");
+  // ------------------------------------------------------------------ cuve + carte du cœur
+  const cuve = Sym._groupe(svg, "GRAPPES", "cuve", "Cuve et cœur — clic : grappes ; double-clic : vue du cœur");
+  svgEl("circle", { cx: C.x, cy: C.y, r: R_CUVE, class: "corps" }, cuve);
+  svgEl("circle", { cx: C.x, cy: C.y, r: R_CUVE - 12, class: "enveloppe" }, cuve);
+  const PAS = 9.2, taille = PAS - 1.2;
+  const assemblages = svgEl("g", { class: "assemblages", "data-chaleur": "coeur.puissance_pct" }, cuve);
+  CoeurGeo.assemblages.forEach(a => svgEl("rect", { x: C.x + a.dx * PAS - taille / 2, y: C.y + a.dy * PAS - taille / 2,
+                                                     width: taille, height: taille, rx: 1 }, assemblages));
+  CoeurGeo.grappes.forEach(gr => svgEl("circle", { cx: C.x + gr.dx * PAS, cy: C.y + gr.dy * PAS, r: 2.8,
+                                                   class: `grappe-pt groupe-${gr.groupe}`, "data-grappe-groupe": gr.groupe }, cuve));
+  Sym.valeur(svg, C.x, C.y + R_CUVE + 30, "coeur.puissance_pct", "%", 1, "val-geant");
+  Sym.valeur(svg, C.x, C.y + R_CUVE + 50, "coeur.p_thermique_mw", "MWth", 0, "val");
+  D(Sym.valeur(svg, C.x, C.y - R_CUVE - 54, "cuve.t_sortie_c", "°C", 1, "val chaud", "middle", "sortie "));
+  D(Sym.valeur(svg, C.x, C.y - R_CUVE - 38, "cuve.t_entree_c", "°C", 1, "val froid", "middle", "entrée "));
+  Sym.texte(svg, C.x, C.y - R_CUVE - 12, "CUVE", "lib-fort");
+  D(Sym.texte(svg, C.x, C.y + R_CUVE + 68, "double-clic sur la cuve : vue du cœur", "atm"));
 
-  // ------------------------------------------------------------------ pressuriseur
-  const pzr = Sym._groupe(svg, "PZR", "gv", "Pressuriseur");
-  svgEl("rect", { x: 1050, y: 72, width: 80, height: 190, rx: 36, class: "contour" }, pzr);
-  svgEl("rect", { x: 1053, y: 250, width: 74, height: 0, class: "eau", "data-niveau": "pzr.niveau_pct",
-                  "data-bas": 258, "data-haut": 182 }, pzr);
-  Sym.texte(pzr, 1090, 100, "PZR", "lib-fort");
+  // ------------------------------------------------------------------ pressuriseur (ligne d'expansion sur la branche chaude B3)
+  const pz = { x: 1255, y: 425, l: 74, h: 170 };
+  const haut = pz.y - pz.h / 2, bas = pz.y + pz.h / 2;
+  const piquage = milieu(points[3].buseChaude, points[3].chaudFin, 0);
+  Sym.tuyau(svg, [piquage, [pz.x, piquage[1]], [pz.x, bas]],
+            "primaire-chaud", "pzr.expansion_kg_s", 0.3).classList.add("fin");
+  D(Sym.texte(svg, 1100, piquage[1] - 8, "ligne d'expansion", "atm"));
+  const groupePzr = Sym._groupe(svg, "PZR", "gv", "Pressuriseur");
+  svgEl("rect", { x: pz.x - pz.l / 2, y: haut, width: pz.l, height: pz.h, rx: 34, class: "contour" }, groupePzr);
+  svgEl("rect", { x: pz.x - pz.l / 2 + 3, y: bas - 8, width: pz.l - 6, height: 0, class: "eau",
+                  "data-niveau": "pzr.niveau_pct", "data-bas": bas - 8, "data-haut": pz.h - 30 }, groupePzr);
+  Sym.texte(groupePzr, pz.x, haut + 30, "PZR", "lib-fort");
   const chP = Sym._groupe(svg, "PZR_CHAUF_P", "chaufferette", "Chaufferettes proportionnelles");
-  svgEl("rect", { x: 1055, y: 266, width: 32, height: 12, rx: 2, class: "corps" }, chP);
+  svgEl("rect", { x: pz.x - 34, y: bas + 6, width: 30, height: 10, rx: 2, class: "corps" }, chP);
   const chT = Sym._groupe(svg, "PZR_CHAUF_T", "chaufferette", "Chaufferettes tout-ou-rien");
-  svgEl("rect", { x: 1093, y: 266, width: 32, height: 12, rx: 2, class: "corps" }, chT);
-  Sym.texte(svg, 1090, 300, "chaufferettes P / TOR", "atm");
-  Sym.vanne(svg, 1000, Y[1] + 95, "PZR_ASP2", { reg: true, label: "aspersion B2", cote: "bas" });
-  Sym.vanne(svg, 1000, Y[2] + 95, "PZR_ASP3", { reg: true, label: "aspersion B3", cote: "bas" });
-  Sym.vanne(svg, 1010, 12, "PZR_ISOL1", { label: "" });
-  Sym.vanne(svg, 950, 12, "PZR_PORV1", { label: "" });
-  Sym.vanne(svg, 1010, 30, "PZR_ISOL2", { label: "" });
-  Sym.vanne(svg, 950, 30, "PZR_PORV2", { label: "" });
-  Sym.texte(svg, 1010, 78, "isolement", "atm");
-  Sym.texte(svg, 940, 78, "PORV 1 / 2", "atm");
-  [1040, 1015, 990].forEach((x, k) => Sym.soupape(svg, x, 48, `PZR_SOUP${k + 1}`));
-  Sym.texte(svg, 980, 64, "soupapes", "atm", "end");
-  Sym.valeur(svg, 1145, 120, "pzr.p_bar", "bar", 2, "val-fort", "start", "P ");
-  Sym.valeur(svg, 1145, 138, "pzr.niveau_pct", "%", 1, "val", "start", "niveau ");
-  Sym.valeur(svg, 1145, 154, "pzr.niveau_programme_pct", "%", 1, "val", "start", "programme ");
-  Sym.valeur(svg, 1145, 170, "pzr.chauffe_kw", "kW", 0, "val", "start", "chauffe ");
-  Sym.valeur(svg, 1145, 186, "pzr.aspersion_kg_s", "kg/s", 1, "val", "start", "aspersion ");
-  Sym.valeur(svg, 1145, 202, "pzr.expansion_kg_s", "kg/s", 1, "val", "start", "expansion ");
+  svgEl("rect", { x: pz.x + 4, y: bas + 6, width: 30, height: 10, rx: 2, class: "corps" }, chT);
+  D(Sym.texte(svg, pz.x + 42, bas + 15, "chaufferettes", "atm", "start"));
+  Sym.valeur(svg, pz.x + 48, pz.y - 18, "pzr.p_bar", "bar", 1, "val-fort", "start");
+  Sym.valeur(svg, pz.x + 48, pz.y, "pzr.niveau_pct", "%", 1, "val", "start", "niveau ");
+  D(Sym.valeur(svg, pz.x + 48, pz.y + 16, "pzr.niveau_programme_pct", "%", 1, "val", "start", "progr. "));
+  D(Sym.valeur(svg, pz.x + 48, pz.y + 30, "pzr.chauffe_kw", "kW", 0, "val", "start", "chauffe "));
+  D(Sym.valeur(svg, pz.x + 48, pz.y + 44, "pzr.aspersion_kg_s", "kg/s", 1, "val", "start", "asp. "));
   const regP = Sym._groupe(svg, "REG_P_PZR", "regulation", "Régulation de pression PZR (consigne)");
-  svgEl("rect", { x: 1145, y: 214, width: 105, height: 20, rx: 4, class: "corps" }, regP);
-  Sym.texte(regP, 1197, 228, "consigne pression", "lib");
+  svgEl("rect", { x: pz.x + 46, y: pz.y + 54, width: 92, height: 20, rx: 4, class: "corps" }, regP);
+  Sym.texte(regP, pz.x + 92, pz.y + 68, "consigne P", "lib");
 
-  // ------------------------------------------------------------------ charge / décharge (RCV simplifié)
-  Sym.texte(svg, 300, Y[0] + 112, "← charge (RCV)", "atm", "start");
-  Sym.texte(svg, 300, Y[2] + 112, "→ décharge (RCV)", "atm", "start");
-  Sym.texte(svg, 330, 806, "RCV simplifié (V1)", "lib-fort", "start");
-  Sym.vanne(svg, 360, 835, "RCV_CHARGE", { reg: true, label: "charge", cote: "bas" });
-  Sym.vanne(svg, 500, 835, "RCV_DECHARGE", { label: "décharge", cote: "bas" });
-  Sym.valeur(svg, 380, 840, "rcv.charge_kg_s", "kg/s", 1, "val", "start");
-  Sym.valeur(svg, 520, 840, "rcv.decharge_kg_s", "kg/s", 1, "val", "start");
+  // aspersion (depuis les branches froides B2 et B3, par renvoi)
+  const yAsp = haut - 30;
+  Sym.tuyau(svg, [[1120, yAsp], [pz.x - 16, yAsp], [pz.x - 16, haut + 4]], "primaire-froid", "pzr.aspersion_kg_s", 0.5)
+    .classList.add("fin");
+  Sym.tuyau(svg, [[1120, yAsp + 26], [1195, yAsp + 26], [1195, yAsp]], "primaire-froid", "pzr.aspersion_kg_s", 0.5)
+    .classList.add("fin");
+  Sym.vanne(svg, 1160, yAsp, "PZR_ASP2", { reg: true, label: "" });
+  Sym.vanne(svg, 1160, yAsp + 26, "PZR_ASP3", { reg: true, label: "" });
+  Sym.texte(svg, 1116, yAsp + 4, "BF2 →", "atm", "end");
+  Sym.texte(svg, 1116, yAsp + 30, "BF3 →", "atm", "end");
+  D(Sym.texte(svg, 1160, yAsp - 22, "aspersion", "atm"));
 
-  // ------------------------------------------------------------------ synthèse cœur + protections
-  const x0 = 1265;
-  Sym.texte(svg, x0, 330, "CŒUR ET PROTECTIONS", "lib-fort", "start");
-  [["coeur.puissance_pct", "puissance neutronique", "%", 1], ["coeur.p_thermique_mw", "puissance thermique", "MW", 0],
-   ["coeur.rho_pcm", "réactivité", "pcm", 0], ["coeur.t_comb_c", "T combustible", "°C", 0],
-   ["grappes.position_pas", "groupe de régulation", "pas", 1], ["grappes.arret_insere_pct", "groupes d'arrêt insérés", "%", 0],
-   ["primaire.tmoy_c", "Tmoy", "°C", 2], ["primaire.tref_c", "Tref", "°C", 2],
-   ["cuve.marge_saturation_c", "marge à la saturation", "°C", 1], ["otdt.marge_pct", "marge ΔT surtempérature", "%", 1],
-   ["opdt.marge_pct", "marge ΔT surpuissance", "%", 1], ["primaire.q_pompes_mw", "chaleur des pompes", "MW", 1]]
-    .forEach(([m, lib, u, d], k) => {
-      Sym.texte(svg, x0, 356 + k * 22, lib, "lib", "start");
-      Sym.valeur(svg, 1490, 356 + k * 22, m, u, d, "val", "end");
+  // décharges : 2 PORV (avec isolement) + 3 soupapes → PRT
+  const yDech = haut - 70, xD = pz.x + 16;
+  Sym.tuyau(svg, [[xD, haut + 4], [xD, yDech - 40], [1385, yDech - 40]], "vapeur");
+  Sym.tuyau(svg, [[xD, yDech], [1385, yDech]], "vapeur", "pzr.porv_qm_kg_s", 0.1);
+  Sym.tuyau(svg, [[xD, yDech + 22], [1385, yDech + 22]], "vapeur", "pzr.porv_qm_kg_s", 0.1);
+  Sym.vanne(svg, xD + 34, yDech, "PZR_ISOL1", { label: "" });
+  Sym.vanne(svg, xD + 74, yDech, "PZR_PORV1", { label: "" });
+  Sym.vanne(svg, xD + 34, yDech + 22, "PZR_ISOL2", { label: "" });
+  Sym.vanne(svg, xD + 74, yDech + 22, "PZR_PORV2", { label: "" });
+  [0, 1, 2].forEach(k => Sym.soupape(svg, xD + 30 + k * 26, yDech - 46, `PZR_SOUP${k + 1}`));
+  D(Sym.texte(svg, xD + 34, yDech + 46, "isol.", "atm"));
+  D(Sym.texte(svg, xD + 74, yDech + 46, "PORV", "atm"));
+  D(Sym.texte(svg, xD + 56, yDech - 66, "soupapes", "atm"));
+  Sym.texte(svg, 1390, yDech + 12, "PRT", "atm", "end");
+
+  // ------------------------------------------------------------------ carte cœur + RPR (à gauche)
+  const x0 = 24, y0 = 360;
+  Sym.texte(svg, x0, y0, "CŒUR", "lib-fort", "start");
+  [["coeur.rho_pcm", "réactivité", "pcm", 0, false], ["grappes.position_pas", "groupe R", "pas", 0, false],
+   ["grappes.arret_insere_pct", "arrêt insérés", "%", 0, false], ["primaire.tmoy_c", "Tmoy", "°C", 1, false],
+   ["primaire.tref_c", "Tref", "°C", 1, true], ["cuve.marge_saturation_c", "marge saturation", "°C", 1, true],
+   ["otdt.marge_pct", "marge ΔT surtemp.", "%", 1, true], ["opdt.marge_pct", "marge ΔT surpuiss.", "%", 1, true]]
+    .forEach(([m, lib, u, d, det], k) => {
+      const y = y0 + 22 + k * 19;
+      const t = Sym.texte(svg, x0, y, lib, "lib", "start");
+      const v = Sym.valeur(svg, x0 + 210, y, m, u, d, "val", "end");
+      if (det) { D(t); D(v); }
     });
   const rpr = Sym._groupe(svg, "RPR", "regulation", "Protection réacteur : AU, réarmements, blocages");
-  svgEl("rect", { x: 1265, y: 640, width: 225, height: 46, rx: 6, class: "corps" }, rpr);
-  Sym.texte(rpr, 1377, 660, "RPR — AU, blocages", "lib-fort");
-  Sym.texte(rpr, 1377, 677, "déclencher / réarmer / bloquer", "atm");
-  Sym.texte(svg, 20, 878, "Cliquer sur la cuve pour piloter les grappes ; sur RPR pour l'AU. Couleurs : rouge = chaud, bleu = froid.",
-            "atm", "start");
+  svgEl("rect", { x: x0, y: y0 + 182, width: 210, height: 34, rx: 6, class: "corps" }, rpr);
+  Sym.texte(rpr, x0 + 105, y0 + 204, "RPR — arrêt automatique", "lib-fort");
+
+  // ------------------------------------------------------------------ RCV simplifié (renvois vers B1 et B3)
+  const xr = 700, yr = 800;
+  Sym.texte(svg, xr, yr - 26, "RCV", "lib-fort");
+  Sym.vanne(svg, xr - 60, yr, "RCV_CHARGE", { reg: true, label: "charge", cote: "bas" });
+  Sym.vanne(svg, xr + 60, yr, "RCV_DECHARGE", { label: "décharge", cote: "bas" });
+  Sym.valeur(svg, xr - 60, yr + 40, "rcv.charge_kg_s", "kg/s", 1, "val");
+  Sym.valeur(svg, xr + 60, yr + 40, "rcv.decharge_kg_s", "kg/s", 1, "val");
+  D(Sym.texte(svg, xr - 60, yr - 14, "→ BF1", "atm"));
+  D(Sym.texte(svg, xr + 60, yr - 14, "← branche en U B3", "atm"));
+
+  D(Sym.texte(svg, 20, 885, "Molette : zoom · glisser : se déplacer · clic : piloter · rouge = chaud, bleu = froid",
+              "atm", "start"));
 }

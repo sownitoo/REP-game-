@@ -26,7 +26,7 @@ function construireASG(svg) {
   Sym.clapet(svg, 480, Y_POMPES[1], "ASG_MP2_CLAPET");
   Sym.clapet(svg, 480, Y_POMPES[2], "ASG_TP_CLAPET");
   Sym.vanne(svg, 380, 600, "ASG_TP_VAP", { orient: "v", label: "prise vapeur", cote: "droite" });
-  Sym.texte(svg, 380, 660, "vapeur GV1 / GV2 ↑ (échappement à l'atmosphère)", "atm");
+  Sym.detail(Sym.texte(svg, 380, 660, "vapeur GV1 / GV2 ↑ (échappement à l'atmosphère)", "atm"));
   Sym.valeur(svg, 380, Y_POMPES[2] - 22, "ASG_TP.vitesse_pct", "%", 0, "val", "middle", "vitesse ");
   Sym.valeur(svg, 610, 330, "asg.p_refoulement_bar", "bar", 1, "val", "start", "refoulement ");
   Sym.valeur(svg, 610, 360, "asg.qm_kg_s", "kg/s", 1, "val-fort", "start", "total ");
@@ -42,6 +42,6 @@ function construireASG(svg) {
     Sym.valeur(svg, 1225, y, `GV${b}.niveau_pct`, "% GE", 1, "val", "start");
     Sym.valeur(svg, 1225, y + 18, `GV${b}.p_bar`, "bar", 1, "val", "start");
   });
-  Sym.texte(svg, 20, 690, "Démarrage automatique : niveau GV très bas (2 MP + TP) ou perte des 2 APP (2 MP). "
-            + "Vannes ASG régulées sur le niveau GV (consigne sous celle de l'ARE).", "atm", "start");
+  Sym.detail(Sym.texte(svg, 20, 690, "Démarrage automatique : niveau GV très bas (2 MP + TP) ou perte des 2 APP (2 MP). "
+            + "Vannes ASG régulées sur le niveau GV (consigne sous celle de l'ARE).", "atm", "start"));
 }

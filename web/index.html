@@ -13,49 +13,57 @@
     <div class="carte-chargement">
       <strong>Mini-Centrale REP</strong>
       <p id="chargement-texte">Démarrage du simulateur…</p>
-      <p class="discret">En mode navigateur, Python (Pyodide, ~10 Mo) se télécharge au premier lancement.</p>
     </div>
   </div>
 
   <!-- ======================= barre du haut ======================= -->
   <header id="barre">
-    <div class="bloc titre">
+    <div class="bloc titre" title="">
       <strong>Mini-Centrale REP</strong>
       <span id="version" class="discret"></span>
     </div>
-    <div class="bloc">
-      <span class="etiq">Temps</span>
+    <div class="bloc temps">
       <span id="temps" class="valeur gros">00:00:00</span>
+      <div class="segment" id="accelerations">
+        <button data-pause="1" title="Pause (espace)">⏸</button>
+      </div>
+      <span id="accel-reelle" class="discret petit" title="Accélération réellement tenue par le calcul"></span>
     </div>
-    <div class="bloc" id="accelerations">
-      <button data-pause="1" title="Pause">⏸</button>
-    </div>
-    <div class="bloc"><span class="etiq">Accél. tenue</span><span id="accel-reelle" class="valeur">×0</span></div>
-    <div class="bloc"><span class="etiq">État</span><span id="etat-standard" class="valeur"></span></div>
+    <div class="bloc"><span id="etat-standard" class="badge-etat"></span></div>
     <div class="bloc mesures-barre" id="mesures-barre"></div>
     <div class="bloc voyants" id="voyants"></div>
     <div class="bloc actions">
-      <select id="choix-scenario" title="Scénario"></select>
-      <button id="btn-scenario" title="Charger le scénario">▶ Scénario</button>
-      <button id="btn-sauver" title="Télécharger l'état complet (JSON)">💾 Sauver</button>
-      <button id="btn-charger" title="Recharger un état sauvegardé">📂 Charger</button>
-      <input type="file" id="fichier" accept=".json" hidden>
+      <div class="menu">
+        <button id="btn-menu" title="Scénarios, sauvegarde, aide">☰</button>
+        <div id="menu-contenu" class="menu-contenu" hidden>
+          <label class="discret">Scénario</label>
+          <select id="choix-scenario"></select>
+          <button id="btn-scenario">▶ Charger le scénario</button>
+          <hr>
+          <button id="btn-sauver">💾 Sauver l'état (JSON)</button>
+          <button id="btn-charger">📂 Charger un état</button>
+          <input type="file" id="fichier" accept=".json" hidden>
+          <hr>
+          <p class="discret petit">Molette : zoom · glisser : se déplacer · double-clic : zoom ×2<br>
+            Clavier : + − 0 et flèches · espace : pause<br>Plus on zoome, plus il y a de détails.</p>
+        </div>
+      </div>
     </div>
   </header>
 
   <main>
     <section id="zone-principale">
       <nav id="onglets">
-        <button data-onglet="primaire" class="actif">Primaire (RCP · PZR · cœur)</button>
-        <button data-onglet="secondaire">Secondaire (VVP · GRE · CEX · APP · ARE)</button>
+        <button data-onglet="primaire" class="actif">Primaire</button>
+        <button data-onglet="secondaire">Secondaire</button>
         <button data-onglet="asg">ASG</button>
         <button data-onglet="logique">Logique</button>
         <button data-onglet="courbes">Courbes</button>
         <button data-onglet="journal">Journal</button>
-        <span class="discret onglets-futurs">RCV · RRA · RIS · RRI/SEC · Électricité : versions suivantes</span>
+        <button id="btn-panneau" class="droite" title="Afficher / masquer le panneau des alarmes">🔔 <span id="nb-alarmes">0</span></button>
       </nav>
       <div id="onglet-primaire" class="onglet actif">
-        <svg id="synoptique-primaire" class="synoptique" viewBox="0 0 1500 880" preserveAspectRatio="xMidYMid meet"></svg>
+        <svg id="synoptique-primaire" class="synoptique" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
       <div id="onglet-secondaire" class="onglet">
         <svg id="synoptique-secondaire" class="synoptique" viewBox="0 0 1500 880" preserveAspectRatio="xMidYMid meet"></svg>
@@ -63,8 +71,8 @@
       <div id="onglet-asg" class="onglet">
         <svg id="synoptique-asg" class="synoptique" viewBox="0 0 1500 700" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
-      <div id="onglet-logique" class="onglet"><div id="logique"></div></div>
-      <div id="onglet-courbes" class="onglet">
+      <div id="onglet-logique" class="onglet defile"><div id="logique"></div></div>
+      <div id="onglet-courbes" class="onglet defile">
         <div id="courbes-outils">
           <input id="filtre-variables" placeholder="Filtrer les variables…">
           <select id="fenetre-courbes">
@@ -79,16 +87,16 @@
           <div id="graphes"></div>
         </div>
       </div>
-      <div id="onglet-journal" class="onglet"><table id="journal"></table></div>
+      <div id="onglet-journal" class="onglet defile"><table id="journal"></table></div>
     </section>
 
     <aside id="panneau-droit">
-      <section id="panneau-equipement">
-        <h2 id="eq-titre">Équipement</h2>
-        <p class="discret" id="eq-aide">Cliquer sur un équipement d'un synoptique.</p>
-        <div id="eq-etat"></div>
+      <section id="panneau-equipement" hidden>
+        <h2><span id="eq-titre">Équipement</span><button id="btn-fermer-eq" class="discret-btn" title="Fermer">✕</button></h2>
+        <div id="eq-resume"></div>
         <div id="eq-commandes"></div>
         <div id="eq-message"></div>
+        <details id="eq-details"><summary class="discret">État détaillé</summary><div id="eq-etat"></div></details>
       </section>
       <section id="panneau-alarmes">
         <h2>Alarmes <button id="btn-acquitter-tout" title="Acquitter toutes les alarmes">Acquitter tout</button></h2>
@@ -98,6 +106,8 @@
   </main>
 
   <script src="svg.js"></script>
+  <script src="zoom.js"></script>
+  <script src="coeur_geo.js"></script>
   <script src="synoptics/primaire.js"></script>
   <script src="synoptics/secondaire.js"></script>
   <script src="synoptics/asg.js"></script>

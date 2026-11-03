@@ -15,11 +15,14 @@ const LIBELLES_ACTIONS = {
 const ACTIONS_AVEC_VALEUR = new Set(["position", "vitesse", "consigne_vitesse", "consigne_mw", "consigne", "puissance"]);
 const MESURES_BARRE = [
   ["coeur.puissance_pct", "Puissance", "%", 1], ["primaire.tmoy_c", "Tmoy", "°C", 1],
-  ["pzr.p_bar", "P PZR", "bar", 1], ["pzr.niveau_pct", "N PZR", "%", 1],
-  ["collecteur.p_bar", "P vapeur", "bar", 1], ["GV1.niveau_pct", "N GV1", "%", 0],
-  ["GV2.niveau_pct", "N GV2", "%", 0], ["GV3.niveau_pct", "N GV3", "%", 0], ["GV4.niveau_pct", "N GV4", "%", 0],
-  ["turbine.p_elec_mw", "P élec", "MWe", 0], ["condenseur.p_bar", "P cond", "bar", 3],
+  ["pzr.p_bar", "P PZR", "bar", 1], ["pzr.niveau_pct", "Niv. PZR", "%", 0],
+  ["collecteur.p_bar", "P vapeur", "bar", 1], ["turbine.p_elec_mw", "P élec", "MWe", 0],
 ];
+// champs montrés en tête du panneau équipement (le reste est dans « État détaillé »)
+const RESUME_CLES = ["en_marche", "defaut", "position_pct", "auto", "vitesse_pct", "ouverte", "ouvert", "puissance_pct",
+                     "position_pas", "arret_insere_pct", "rho_pcm", "p_bar", "niveau_pct", "consigne", "mode",
+                     "declenchee", "couplee", "p_elec_mw", "au"];
+const RESUME_MAX = 5;
 const SYNOPTIQUES = [["synoptique-primaire", "construirePrimaire"], ["synoptique-secondaire", "construireSecondaire"],
                      ["synoptique-asg", "construireASG"]];
 
@@ -30,7 +33,11 @@ function formatTemps(s) {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
   return [h, m, sec].map(x => String(x).padStart(2, "0")).join(":");
 }
-function fmt(v, dec) { return (typeof v === "number" && isFinite(v)) ? v.toFixed(dec) : "—"; }
+function fmt(v, dec) {
+  if (typeof v !== "number" || !isFinite(v)) return "—";
+  const t = v.toFixed(dec);
+  return /^-0(\.0*)?$/.test(t) ? t.slice(1) : t;          // pas de « -0 »
+}
 function el(tag, attrs = {}, texte) {
   const e = document.createElement(tag);
   Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
@@ -81,9 +88,14 @@ function initialiser(msg) {
     const svg = document.getElementById(id);
     if (svg.childElementCount) return;
     window[fonction](svg);
+    Zoom.activer(svg);
     svg.addEventListener("click", ev => {
       const g = ev.target.closest("[data-id]");
       if (g) selectionner(g.dataset.id);
+    });
+    svg.addEventListener("dblclick", ev => {
+      const g = ev.target.closest("[data-id]");
+      if (g) ouvrirDetail(svg, g);
     });
   });
   const barre = document.getElementById("mesures-barre");
@@ -102,7 +114,8 @@ function majEtat(e) {
   etat.dernier = e;
   const m = e.mesures;
   document.getElementById("temps").textContent = formatTemps(e.t_s);
-  document.getElementById("accel-reelle").textContent = e.pause ? "pause" : `×${fmt(e.acceleration_reelle, 0)}`;
+  const tenue = e.acceleration_reelle, freine = !e.pause && tenue < 0.9 * e.acceleration;
+  document.getElementById("accel-reelle").textContent = e.pause ? "en pause" : freine ? `tenue ×${fmt(tenue, 0)}` : "";
   document.querySelectorAll("#accelerations button[data-acc]").forEach(b =>
     b.classList.toggle("actif", !e.pause && Number(b.dataset.acc) === e.acceleration));
   document.querySelector("#accelerations [data-pause]").classList.toggle("actif", e.pause);
@@ -119,21 +132,22 @@ function majEtat(e) {
   if (etat.selection) majPanneauEtat();
 }
 
+// seuls les signaux importants et présents sont affichés (le détail est dans l'onglet Logique)
 function majVoyants(e) {
   const lg = e.logique, t = e.composants.TURBINE;
   const v = [
-    ["AU", lg.au, "on-rouge"], ["Turbine décl.", t.declenchee, "on-rouge"], ["P-7", lg.p7, "on-vert"],
-    ["P-10", lg.p10, "on-vert"], ["P-12", lg.p12, "on-orange"], ["P-14", lg.p14, "on-rouge"],
-    ["C-3/C-4", lg.c3 || lg.c4, "on-rouge"], ["C-7", lg.c7, "on-orange"], ["C-8", lg.c8, "on-orange"],
-    ["C-9", lg.c9, "on-vert"], ["Isol. ARE", lg.isolement_are_au || lg.isolement_are_complet, "on-orange"],
-    ["ASG", e.mesures["asg.qm_kg_s"] > 1, "on-orange"], ["Couplé", t.couplee, "on-vert"],
-  ];
+    ["AU", lg.au, "on-rouge", lg.au_causes.join(", ")], ["Turbine déclenchée", t.declenchee, "on-rouge", t.cause],
+    ["P-14", lg.p14, "on-rouge", "niveau GV très haut"], ["Runback", lg.c3 || lg.c4, "on-rouge", "C-3 / C-4"],
+    ["Isolement ARE", lg.isolement_are_au || lg.isolement_are_complet, "on-orange", ""],
+    ["ASG", e.mesures["asg.qm_kg_s"] > 1, "on-orange", "alimentation de secours des GV en service"],
+    ["Contournement", e.mesures["gctc.qm_kg_s"] > 1, "on-orange", "GCT-c ouvert"],
+  ].filter(x => x[1]);
   const zone = document.getElementById("voyants");
+  const cle = v.map(x => x[0]).join("|");
+  if (zone.dataset.cle === cle) return;
+  zone.dataset.cle = cle;
   zone.innerHTML = "";
-  v.forEach(([lib, actif, cls]) => zone.appendChild(el("span", { class: `voyant ${actif ? cls : ""}` }, lib)));
-  ["IS", "Phase A", "Phase B"].forEach(lib =>
-    zone.appendChild(el("span", { class: "voyant futur", title: "Signaux de sauvegarde : V4" }, lib)));
-  zone.appendChild(el("span", { class: "voyant on-vert", title: "Électricité modélisée en V3 : tableaux supposés sous tension" }, "6,6 kV ✓"));
+  v.forEach(([lib, , cls, titre]) => zone.appendChild(el("span", { class: `voyant ${cls}`, title: titre || "" }, lib)));
 }
 
 function majSynoptiques(e) {
@@ -155,8 +169,20 @@ function majSynoptiques(e) {
     r.setAttribute("y", Number(r.dataset.bas) - Number(r.dataset.haut));
     r.setAttribute("height", h);
   });
-  document.querySelectorAll(".synoptique [data-debit]").forEach(p =>
-    p.classList.toggle("circule", Math.abs(m[p.dataset.debit] ?? 0) > Number(p.dataset.seuil)));
+  document.querySelectorAll(".synoptique [data-debit]").forEach(p => {
+    const q = m[p.dataset.debit] ?? 0, actif = Math.abs(q) > Number(p.dataset.seuil);
+    p.classList.toggle("circule", actif);
+    p.classList.toggle("inverse", actif && q < 0);
+    if (actif && p.dataset.nominal) {           // vitesse de l'animation ∝ débit
+      const duree = Math.min(6, 0.8 * Number(p.dataset.nominal) / Math.abs(q));
+      p.style.animationDuration = `${duree.toFixed(2)}s`;
+    }
+  });
+  document.querySelectorAll(".synoptique [data-chaleur]").forEach(g =>
+    g.style.fillOpacity = (0.12 + 0.75 * Math.max(0, Math.min(1, (m[g.dataset.chaleur] ?? 0) / 100))).toFixed(2));
+  const inseree = { R: 1 - (m["grappes.position_pas"] ?? 0) / 228, S: (m["grappes.arret_insere_pct"] ?? 0) / 100, G: 0 };
+  document.querySelectorAll(".synoptique [data-grappe-groupe]").forEach(c =>
+    c.style.fillOpacity = (0.15 + 0.85 * Math.max(0, Math.min(1, inseree[c.dataset.grappeGroupe]))).toFixed(2));
   document.querySelectorAll(".synoptique .equip[data-id]").forEach(g => {
     const c = comp[g.dataset.id];
     g.classList.toggle("selection", g.dataset.id === etat.selection);
@@ -195,6 +221,10 @@ function classerVanne(g, pct) {
 }
 
 function majAlarmes(alarmes) {
+  const nonAcq = alarmes.filter(a => !a.acquittee).length;
+  const nb = document.getElementById("nb-alarmes");
+  nb.textContent = alarmes.length;
+  document.getElementById("btn-panneau").classList.toggle("alerte", nonAcq > 0);
   const ul = document.getElementById("alarmes");
   ul.innerHTML = "";
   if (!alarmes.length) { ul.appendChild(el("li", { class: "discret" }, "Aucune alarme")); return; }
@@ -271,8 +301,9 @@ function majJournal(journal) {
 // ============================================================================ panneau équipement
 function selectionner(id) {
   etat.selection = id;
+  document.getElementById("panneau-equipement").hidden = false;
+  document.querySelector("main").classList.remove("sans-panneau");
   document.getElementById("eq-titre").textContent = id;
-  document.getElementById("eq-aide").style.display = "none";
   document.getElementById("eq-message").textContent = "";
   document.getElementById("eq-commandes").innerHTML = "";
   majPanneauEtat();
@@ -301,10 +332,27 @@ const LIBELLES_ETAT = {
 const ETAT_CACHE = new Set(["regulee", "vitesse_variable", "ordre", "niveau_voies", "mini", "maxi", "consigne_vitesse_tr_min",
                             "proportionnel", "voies_pression", "voies_niveau"]);
 
+function deselectionner() {
+  etat.selection = null;
+  clearInterval(etat.minuterieConditions);
+  document.getElementById("panneau-equipement").hidden = true;
+  if (etat.dernier) majSynoptiques(etat.dernier);
+}
+
+function valeurLisible(v) {
+  return typeof v === "number" ? fmt(v, Math.abs(v) >= 100 ? 0 : 1) : v === true ? "oui" : v === false ? "non" : v;
+}
+
 function majPanneauEtat() {
   const c = etat.dernier && etat.dernier.composants[etat.selection];
   const div = document.getElementById("eq-etat");
-  if (!c) { div.innerHTML = ""; return; }
+  const resume = document.getElementById("eq-resume");
+  if (!c) { div.innerHTML = ""; resume.innerHTML = ""; return; }
+  const cles = RESUME_CLES.filter(k => c[k] !== undefined && c[k] !== null && c[k] !== ""
+                                       && !(k === "defaut" && !c[k])).slice(0, RESUME_MAX);
+  resume.innerHTML = `<div class="sous-titre discret">${[c.type, c.systeme].filter(Boolean).join(" · ")}</div>`
+    + cles.map(k => `<div class="pastille"><span class="discret">${LIBELLES_ETAT[k] || k}</span>`
+                    + `<b>${valeurLisible(c[k])}</b></div>`).join("");
   const lignes = Object.entries(c)
     .filter(([k, v]) => !ETAT_CACHE.has(k) && v !== null && v !== "" && !(typeof v === "object"))
     .map(([k, v]) => `<tr><td>${LIBELLES_ETAT[k] || k}</td><td class="valeur">${typeof v === "number" ? fmt(v, 2) : v === true ? "oui" : v === false ? "non" : v}</td></tr>`);
@@ -336,10 +384,17 @@ function afficherCommandes(msg) {
     if (!cmd.possible) bouton.disabled = true;
     ligne.prepend(bouton);
     bloc.appendChild(ligne);
+    // conditions : détaillées seulement si l'une d'elles bloque (sinon une coche discrète)
     if (cmd.conditions.length) {
-      const ul = el("ul");
-      cmd.conditions.forEach(c => ul.appendChild(el("li", { class: c.ok ? "ok" : "ko" }, c.texte)));
-      bloc.appendChild(ul);
+      const bloquee = cmd.conditions.some(c => !c.ok);
+      if (bloquee) {
+        const ul = el("ul");
+        cmd.conditions.forEach(c => ul.appendChild(el("li", { class: c.ok ? "ok" : "ko" }, c.texte)));
+        bloc.appendChild(ul);
+      } else {
+        bouton.title = cmd.conditions.map(c => `✓ ${c.texte}`).join("\n");
+        ligne.appendChild(el("span", { class: "coche", title: bouton.title }, "✓"));
+      }
     }
     zone.appendChild(bloc);
   });
@@ -365,6 +420,27 @@ setInterval(() => {
 }, 1000);
 
 document.getElementById("btn-acquitter-tout").onclick = () => envoyer({ type: "acquitter", id: null });
+document.getElementById("btn-fermer-eq").onclick = deselectionner;
+document.getElementById("btn-panneau").onclick = () => document.querySelector("main").classList.toggle("sans-panneau");
+document.getElementById("btn-menu").onclick = ev => {
+  ev.stopPropagation();
+  const m = document.getElementById("menu-contenu");
+  m.hidden = !m.hidden;
+};
+document.addEventListener("click", ev => {
+  if (!ev.target.closest(".menu")) document.getElementById("menu-contenu").hidden = true;
+});
+document.addEventListener("keydown", ev => {
+  if (ev.target.closest("input, select, textarea")) return;
+  if (ev.key === " ") { ev.preventDefault(); envoyer({ type: "pause", valeur: !(etat.dernier && etat.dernier.pause) }); }
+  if (ev.key === "Escape") deselectionner();
+});
+
+// double-clic sur un équipement : zoom dessus (la cuve ouvrira la vue du cœur)
+function ouvrirDetail(svg, g) {
+  const b = g.getBBox();
+  Zoom.centrer(svg, b.x + b.width / 2, b.y + b.height / 2, 2.5);
+}
 document.getElementById("btn-sauver").onclick = () => envoyer({ type: "exporter" });
 document.getElementById("btn-charger").onclick = () => document.getElementById("fichier").click();
 document.getElementById("fichier").onchange = async ev => {

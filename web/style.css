@@ -37,14 +37,28 @@ h2 { font-size: 14px; margin: 0 0 8px; display: flex; justify-content: space-bet
 
 /* ---------------- barre du haut ---------------- */
 #barre {
-  display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center;
+  display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center;
   padding: 6px 12px; background: var(--fond-2); border-bottom: 1px solid var(--trait);
 }
+.petit { font-size: 11px; }
+.segment { display: flex; }
+.segment button { border-radius: 0; margin-left: -1px; padding: 3px 9px; }
+.segment button:first-child { border-radius: 4px 0 0 4px; }
+.segment button:last-child { border-radius: 0 4px 4px 0; }
+.badge-etat { padding: 3px 10px; border-radius: 12px; background: var(--fond-3); border: 1px solid var(--trait);
+  font-weight: 600; white-space: nowrap; }
+.menu { position: relative; }
+.menu-contenu { position: absolute; right: 0; top: 32px; z-index: 20; width: 270px; display: flex; flex-direction: column;
+  gap: 6px; padding: 12px; background: var(--fond-2); border: 1px solid var(--trait); border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .5); }
+.menu-contenu[hidden] { display: none; }
+.menu-contenu hr { border: 0; border-top: 1px solid var(--trait); width: 100%; margin: 4px 0; }
+.menu-contenu p { margin: 0; line-height: 1.5; }
 .bloc { display: flex; align-items: center; gap: 6px; }
 .etiq { color: var(--discret); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
 .valeur { font-variant-numeric: tabular-nums; font-weight: 600; }
 .gros { font-size: 16px; }
-.mesures-barre { gap: 12px; flex-wrap: wrap; }
+.mesures-barre { gap: 16px; flex-wrap: wrap; }
 .mesures-barre .m { display: flex; flex-direction: column; line-height: 1.1; }
 .mesures-barre .m span:first-child { color: var(--discret); font-size: 10px; }
 .voyants { gap: 4px; flex-wrap: wrap; }
@@ -55,23 +69,44 @@ h2 { font-size: 14px; margin: 0 0 8px; display: flex; justify-content: space-bet
 .voyant.on-rouge { background: var(--rouge); color: #fff; border-color: var(--rouge); }
 .voyant.on-orange { background: var(--orange); color: #1b1203; border-color: var(--orange); }
 .voyant.on-vert { background: var(--vert); color: #06210f; border-color: var(--vert); }
-.voyant.futur { opacity: .35; }
 .actions { margin-left: auto; }
 
 /* ---------------- mise en page ---------------- */
 main { flex: 1; display: flex; min-height: 0; }
 #zone-principale { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 #onglets { display: flex; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--trait); align-items: center; flex-wrap: wrap; }
-.onglets-futurs { margin-left: 8px; font-size: 11px; }
-.onglet { display: none; flex: 1; min-height: 0; overflow: auto; padding: 8px; }
+#onglets [data-onglet] { border-color: transparent; background: transparent; padding: 4px 12px; }
+#onglets [data-onglet].actif { background: var(--fond-3); color: var(--texte); border-color: var(--trait);
+  box-shadow: inset 0 -2px 0 var(--bleu); }
+#onglets .droite { margin-left: auto; }
+#btn-panneau.alerte { border-color: var(--rouge); color: #ffd0d2; }
+.onglet { display: none; flex: 1; min-height: 0; padding: 0; position: relative; }
+.onglet.defile { overflow: auto; padding: 8px; }
 .onglet.actif { display: flex; flex-direction: column; }
-.synoptique { width: 100%; height: 100%; min-height: 420px; background: #0d1217; border-radius: 6px; }
+.synoptique { width: 100%; height: 100%; min-height: 380px; background: #0d1217; touch-action: none;
+  cursor: grab; user-select: none; -webkit-user-select: none; }
+.synoptique.glisse { cursor: grabbing; }
+.synoptique:not(.zoom-detail) .detail { display: none; }
+.zoom-outils { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 4px; align-items: center;
+  background: rgba(24, 32, 41, .85); border: 1px solid var(--trait); border-radius: 8px; padding: 4px; }
+.zoom-outils button { width: 30px; height: 28px; padding: 0; font-size: 16px; }
+.zoom-indicateur { color: var(--discret); font-size: 11px; min-width: 42px; text-align: center; }
 #panneau-droit {
-  width: 360px; flex-shrink: 0; border-left: 1px solid var(--trait); background: var(--fond-2);
+  width: 330px; flex-shrink: 0; border-left: 1px solid var(--trait); background: var(--fond-2);
   display: flex; flex-direction: column; min-height: 0;
 }
-#panneau-equipement { padding: 10px; border-bottom: 1px solid var(--trait); overflow: auto; flex: 1 1 55%; }
-#panneau-alarmes { padding: 10px; overflow: auto; flex: 1 1 45%; }
+main.sans-panneau #panneau-droit { display: none; }
+#panneau-equipement { padding: 10px; border-bottom: 1px solid var(--trait); overflow: auto; flex: 1 1 60%; }
+#panneau-equipement[hidden] { display: none; }
+#panneau-alarmes { padding: 10px; overflow: auto; flex: 1 1 40%; }
+.discret-btn { background: transparent; border-color: transparent; color: var(--discret); }
+#eq-resume { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+#eq-resume .sous-titre { width: 100%; font-size: 11px; }
+.pastille { display: flex; flex-direction: column; padding: 4px 8px; border-radius: 6px; background: var(--fond-3);
+  border: 1px solid var(--trait); min-width: 70px; }
+.pastille span { font-size: 10px; }
+#eq-details summary { cursor: pointer; margin: 6px 0; }
+.coche { color: var(--vert); font-weight: 700; margin-left: auto; cursor: help; }
 
 /* ---------------- panneau équipement ---------------- */
 #eq-etat table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
@@ -90,6 +125,7 @@ main { flex: 1; display: flex; min-height: 0; }
 
 /* ---------------- alarmes ---------------- */
 #alarmes { list-style: none; margin: 0; padding: 0; }
+#alarmes li.discret { display: block; border-left-color: transparent; background: transparent; }
 #alarmes li {
   display: grid; grid-template-columns: 58px 1fr auto; gap: 6px; align-items: center;
   padding: 4px 6px; margin-bottom: 3px; border-radius: 4px; border-left: 4px solid var(--discret); background: var(--fond-3);
@@ -136,6 +172,9 @@ main { flex: 1; display: flex; min-height: 0; }
 .tuyau.primaire-chaud { stroke: #e5664d; stroke-width: 5; }
 .tuyau.primaire-froid { stroke: #4e8fd6; stroke-width: 5; }
 .tuyau.circule { opacity: 1; stroke-dasharray: 10 6; animation: flux 0.8s linear infinite; }
+.tuyau.circule.inverse { animation-direction: reverse; }
+.tuyau.primaire-chaud, .tuyau.primaire-froid { stroke-width: 7; }
+.tuyau.fin { stroke-width: 3.5; }
 @keyframes flux { to { stroke-dashoffset: -16; } }
 .equip { cursor: pointer; }
 .equip:hover .corps { stroke: var(--bleu); stroke-width: 2.5; }
@@ -164,7 +203,17 @@ main { flex: 1; display: flex; min-height: 0; }
 .turbine.declenchee .corps { fill: #4a2326; stroke: var(--rouge); }
 .alternateur.couple .corps { fill: var(--vert); }
 .source .corps { fill: #2d1a14; stroke: var(--orange); }
-.cuve .corps { fill: #141b22; stroke: #c8d2dc; stroke-width: 2; }
+.cuve .corps { fill: #141b22; stroke: #c8d2dc; stroke-width: 2.5; }
+.cuve .enveloppe { fill: none; stroke: #33414f; stroke-width: 1; }
+.cuve .assemblages rect { fill: #f0a030; }
+.grappe-pt { stroke-width: 1; }
+.grappe-pt.groupe-R { fill: #4ea1ff; stroke: #9fd3ff; }
+.grappe-pt.groupe-S { fill: #c58af9; stroke: #e2c6ff; }
+.grappe-pt.groupe-G { fill: #3fbf6a; stroke: #bff0cf; }
+.gv .faisceau { fill: none; stroke: #e07a4f; stroke-width: 1; stroke-dasharray: 3 3; opacity: .6; }
+.jauge-fond { fill: #0d1217; stroke: #556372; stroke-width: 1; }
+.jauge .eau { fill: var(--eau); }
+.titre-boucle { fill: #556372; font-size: 13px; font-weight: 700; letter-spacing: .12em; }
 .cuve .coeur { fill: #4a2a1a; stroke: #f0a030; stroke-width: 1.5; }
 .cuve .grappe { fill: #9aa6b2; }
 .cuve .grappe.arret { fill: #c58af9; }
@@ -177,10 +226,14 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 .carte-chargement { background: var(--fond-2); border: 1px solid var(--trait); border-radius: 8px; padding: 20px 28px;
   max-width: 420px; text-align: center; }
+.synoptique text { paint-order: stroke; stroke: #0d1217; stroke-width: 3px; stroke-linejoin: round; }
 .lib { fill: var(--discret); font-size: 11px; }
 .lib-fort { fill: var(--texte); font-size: 12px; font-weight: 600; }
 .val { fill: #9fd3ff; font-size: 11px; font-variant-numeric: tabular-nums; }
 .val-fort { fill: #e8f4ff; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.val-geant { fill: #fff3dd; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.val.chaud { fill: #ffb4a3; }
+.val.froid { fill: #a9cdf5; }
 .atm { fill: var(--discret); font-size: 10px; }
 
 @media (max-width: 900px) {
