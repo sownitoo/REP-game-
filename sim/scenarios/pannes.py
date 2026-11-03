@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from sim.core.events import PRIORITE_HAUTE
+from sim.units import S_PAR_MIN
 
 if TYPE_CHECKING:
     from sim.plant import Centrale
@@ -28,7 +29,7 @@ def appliquer(c: Centrale, panne: dict[str, Any]) -> None:
         d.etat.reparation_t_s = c.t_s + panne["reparation_s"] if "reparation_s" in panne else None
         if d.en_service:
             d.arreter("panne")
-        texte = f"{d.id} indisponible" + (f" (réparé dans {panne['reparation_s'] / 60:.0f} min)"
+        texte = f"{d.id} indisponible" + (f" (réparé dans {panne['reparation_s'] / S_PAR_MIN:.0f} min)"
                                           if "reparation_s" in panne else "")
     elif genre == "rupture_air":
         c.air.etat.fuite = c.cfg.air_comprime.fuite_rupture

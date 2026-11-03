@@ -28,7 +28,7 @@ def test_d1_situation_normale(rp100: Centrale) -> None:
 @pytest.mark.lent
 def test_d2_s5_perte_alimentations_externes() -> None:
     c = centrale_scenario("s5_perte_alimentations_externes")
-    c.avancer(30.0)
+    c.avancer(30.5)                                          # panne programmée à t = 30 s
     assert c.elec.etat.reseau_ok is False
     r = serie(c, 15.0, 0.5, "logique.au", "elec.LHA.tension_pct", "elec.LHB.tension_pct")
     assert c.logique.etat.au and any("sous-tension" in x or "turbine" in x for x in c.logique.etat.au_causes)

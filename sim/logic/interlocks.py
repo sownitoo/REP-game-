@@ -16,7 +16,7 @@ from sim.electrical.reseau import Diesel, TableauSecouru
 from sim.logic.regulations import ConsigneReglable
 from sim.systems.gct import Contournement
 from sim.systems.pzr import GroupeChaufferettes
-from sim.units import POURCENT
+from sim.units import POURCENT, S_PAR_MIN
 
 if TYPE_CHECKING:
     from sim.plant import Centrale
@@ -237,7 +237,7 @@ def conditions_diesel(c: Centrale, d: Diesel, action: str) -> list[Condition]:
         return [Condition("Diesel couplé", e.etat == "couple")]
     if action == "rearmer":
         repare = e.reparation_t_s is not None and c.t_s >= e.reparation_t_s
-        reste = "" if e.reparation_t_s is None else f" ({max(0.0, e.reparation_t_s - c.t_s) / 60:.0f} min)"
+        reste = "" if e.reparation_t_s is None else f" ({max(0.0, e.reparation_t_s - c.t_s) / S_PAR_MIN:.0f} min)"
         return [Condition("Diesel en panne ou en échec", e.refus or e.etat == "echec"),
                 Condition("Panne réparée" + reste, repare or not e.refus)]
     return []

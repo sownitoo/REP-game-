@@ -23,6 +23,7 @@
 - **Interface** : onglet *Électricité · Air* (schéma unifilaire, trait vert = sous tension, disjoncteurs, diesels,
   charges, séquenceur, batteries, air), voyants Réseau perdu / Diesels / Batteries / Air perdu / Simulation figée.
 - Scénarios **S5**, **S6**, **S12** avec leur fiche de conduite.
+- 101 tests (`pytest`, ≈ 6 min).
 
 ### Résultats des tests d'acceptation (mesurés)
 
