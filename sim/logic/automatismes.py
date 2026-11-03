@@ -1,5 +1,7 @@
-"""Automatismes V0 : déclenchements (turbine, APP, CEX), isolement eau alimentaire,
-blocage du contournement sans C-9, recirculation débit mini des CEX.
+"""Automatismes : déclenchements (turbine, APP, CEX), isolement eau alimentaire,
+contournement (C-9, P-12, armements C-7/C-8), démarrage ASG, isolement de la décharge
+et coupure des chaufferettes sur niveau PZR bas, runback turbine (C-3/C-4),
+recirculation débit mini des CEX.
 
 Les ordres sont posés sur les vannes (`fixer_ordre`) : ils priment sur l'opérateur
 et la régulation, et la raison est affichée dans l'interface.
@@ -48,7 +50,7 @@ def appliquer_automatismes(c: Centrale, e: EtatLogique, dt: float) -> None:
     if e.p14 and not e.isolement_are_complet:
         e.isolement_are_complet = True
         journal.ajouter(t, "automatisme", "Isolement ARE complet (P-14)", PRIORITE_HAUTE)
-    au_tmoy_bas = e.au and c.source.etat.tmoy_c < lg.isolement_are_au.tmoy_max_c
+    au_tmoy_bas = e.au and c.primaire.tmoy_c < lg.isolement_are_au.tmoy_max_c
     if au_tmoy_bas and not e.isolement_are_au:
         journal.ajouter(t, "automatisme", "Isolement ARE grand débit (P-4 et Tmoy basse)", PRIORITE_MOYENNE)
     e.isolement_are_au = au_tmoy_bas
@@ -95,9 +97,48 @@ def appliquer_automatismes(c: Centrale, e: EtatLogique, dt: float) -> None:
             journal.ajouter(t, "automatisme", f"Déclenchement {cex.id} : niveau puits très bas", PRIORITE_HAUTE)
         e.cex_declenchee = e.cex_declenchee or bool(cex.etat.defaut)
 
-    # --- contournement : interdit sans C-9 ---
-    for v in c.gct.groupes:
-        v.fixer_ordre(None if e.c9 else FERMEE, "" if e.c9 else "C-9 absent (condenseur indisponible)")
+    # --- contournement : interdit sans C-9 ; sous P-12, seul le groupe « refroidissement » ---
+    c.gct.mettre_a_jour_armements(dt, c.turbine.charge_pct, c.turbine.etat.declenchee)
+    autorises = c.cfg.gct_c.p12.groupes_autorises
+    for i, v in enumerate(c.gct.groupes):
+        if not e.c9:
+            v.fixer_ordre(FERMEE, "C-9 absent (condenseur indisponible)")
+        elif e.p12 and i >= autorises:
+            v.fixer_ordre(FERMEE, "P-12 : Tmoy très basse")
+        else:
+            v.fixer_ordre(None)
+
+    # --- ASG : démarrage sur niveau GV très bas ou perte des 2 APP ---
+    app_en_service = any(a.etat.en_marche for a in c.apps)
+    perte_app = e.app_en_service and not app_en_service
+    e.app_en_service = app_en_service
+    niveau_tres_bas = any(e.niveau_tres_bas_gv)
+    if niveau_tres_bas or perte_app:
+        cause = "niveau GV très bas" if niveau_tres_bas else "perte des 2 APP"
+        for p in c.asg.motopompes:
+            if not p.etat.en_marche:
+                p.demarrer()
+                journal.ajouter(t, "automatisme", f"Démarrage {p.id} ({cause})", PRIORITE_MOYENNE)
+        if niveau_tres_bas and not c.asg.turbopompe.etat.en_marche:
+            c.asg.vanne_vapeur.demander(OUVERTE)
+            c.asg.turbopompe.demarrer()
+            journal.ajouter(t, "automatisme", f"Démarrage ASG_TP ({cause})", PRIORITE_MOYENNE)
+
+    # --- PZR : niveau bas → isolement de la décharge + chaufferettes coupées (spec : 17 %) ---
+    niveau_bas = c.pzr.capteur_niveau.mediane < c.cfg.pressuriseur.niveau_bas_pct
+    if niveau_bas and not e.decharge_isolee:
+        journal.ajouter(t, "automatisme", "Niveau PZR bas : décharge isolée, chaufferettes coupées", PRIORITE_HAUTE)
+    e.decharge_isolee = niveau_bas
+    c.vannes["RCV_DECHARGE"].fixer_ordre(FERMEE if niveau_bas else None, "niveau PZR bas")
+    for ch in (c.pzr.chauffe_prop, c.pzr.chauffe_tor):
+        ch.etat.coupe = "niveau PZR bas" if niveau_bas else ""
+
+    # --- préalarmes ΔT (C-3 / C-4) : runback turbine ---
+    m_ot, m_op = c.logique.marges_dt_pct()
+    e.c3 = m_ot < lg.otdt.prealarme_pct
+    e.c4 = m_op < lg.opdt.prealarme_pct
+    if (e.c3 or e.c4) and not c.turbine.etat.declenchee:
+        c.turbine.runback(dt)
 
     # --- recirculation débit mini CEX ---
     rc = c.cfg.regulations.cex_recirculation

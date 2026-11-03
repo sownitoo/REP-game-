@@ -7,9 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-from sim.config import RACINE
+from sim.config import RACINE, lire_yaml_ou_json
 from sim.core.events import PRIORITE_INFO
 from sim.plant import Centrale
 
@@ -39,12 +37,12 @@ def centrale_depuis_etat(nom: str = "rp100") -> Centrale:
 
 
 def lire_scenario(id_scenario: str) -> Scenario:
-    with open(DOSSIER_SCENARIOS / f"{id_scenario}.yaml", encoding="utf-8") as f:
-        return Scenario(**yaml.safe_load(f))
+    return Scenario(**lire_yaml_ou_json(DOSSIER_SCENARIOS / f"{id_scenario}.yaml"))
 
 
 def lister_scenarios() -> list[Scenario]:
-    return [lire_scenario(p.stem) for p in sorted(DOSSIER_SCENARIOS.glob("*.yaml"))]
+    fichiers = sorted(DOSSIER_SCENARIOS.glob("*.yaml")) or sorted(DOSSIER_SCENARIOS.glob("*.json"))
+    return [lire_scenario(p.stem) for p in fichiers]
 
 
 def centrale_scenario(id_scenario: str) -> Centrale:

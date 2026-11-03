@@ -23,7 +23,7 @@ from sim.components.sensor import Capteur
 from sim.components.volume2phase import Volume2Phase
 from sim.config import FlashCfg, GVCfg
 from sim.thermo.tables import TableEau
-from sim.units import KG_PAR_T, KW_PAR_MW, POURCENT
+from sim.units import KG_PAR_T, POURCENT
 
 
 @dataclass
@@ -87,10 +87,10 @@ class GenerateurVapeur(Composant):
         v = self.vol.v_liq_m3 + n.k_bulles * self.etat.v_bulles_m3
         return POURCENT * (v - n.v_bas_m3) / n.v_plage_m3
 
-    def ua_kw_c(self) -> float:
-        """UA réduit si les tubes se découvrent (masse d'eau faible)."""
+    def facteur_mouillage(self) -> float:
+        """Réduction de l'échange si les tubes se découvrent (masse d'eau faible)."""
         m_seuil = self.cfg.masse_assechement_t * KG_PAR_T
-        return self.cfg.ua_mw_c * KW_PAR_MW * min(1.0, self.vol.m_liq_kg / m_seuil)
+        return min(1.0, self.vol.m_liq_kg / m_seuil)
 
     # --- dynamique ---
     def avancer(self, dt: float, q_kw: float, qm_alim_kg_s: float, h_alim_kj_kg: float,

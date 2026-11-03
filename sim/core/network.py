@@ -16,11 +16,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
-import numpy as np
-
-from sim.config import ReseauNumCfg
+from sim.config import ReseauCfg, ReseauNumCfg
 from sim.units import RHO_REF_KG_M3, S_PAR_H
 
 
@@ -52,6 +50,7 @@ class Branche:
     _r: float = 0.0
     _anti_retour: bool = False
     _fermee: bool = False
+    _r_inverse: float = 0.0         # résistance supplémentaire en débit inverse (antidévireur)
 
 
 @dataclass
@@ -111,7 +110,7 @@ class Reseau:
     def _caracteriser(self, b: Branche) -> None:
         """Calcule ΔP0 des pompes, la résistance totale R, clapet, fermeture."""
         d = b.rho_kg_m3 / RHO_REF_KG_M3
-        dp0, r, anti_retour, fermee = 0.0, 0.0, False, False
+        dp0, r, anti_retour, fermee, r_inv = 0.0, 0.0, False, False, 0.0
         for el in b.elements:
             if isinstance(el, list):
                 kv = sum(v.kv() for v in el)
@@ -119,6 +118,8 @@ class Reseau:
                 p0, k = el.hydraulique(b.rho_kg_m3)  # type: ignore[union-attr]
                 dp0 += p0
                 r += k
+                if hasattr(el, "r_inverse_bar"):
+                    r_inv += el.r_inverse_bar(b.rho_kg_m3)  # type: ignore[union-attr]
                 continue
             else:
                 kv = el.kv()  # type: ignore[union-attr]
@@ -127,7 +128,7 @@ class Reseau:
                 fermee = True
             else:
                 r += d / (kv * kv)
-        b._dp0_bar, b._r, b._anti_retour, b._fermee = dp0, r, anti_retour, fermee
+        b._dp0_bar, b._r, b._anti_retour, b._fermee, b._r_inverse = dp0, r, anti_retour, fermee, r_inv
 
     def _debit(self, b: Branche, dp_bar: float) -> tuple[float, float]:
         """Débit massique (kg/s) et dérivée d(qm)/d(ΔP) pour ΔP = P_de − P_vers."""
@@ -141,26 +142,27 @@ class Reseau:
         a = abs(moteur)
         eps = self.num.zone_lineaire_bar
         conv = b.rho_kg_m3 / S_PAR_H                     # m³/h → kg/s
+        r = b._r + b._r_inverse if moteur < 0.0 else b._r
         if a > eps:
-            q = math.sqrt(a / b._r)
+            q = math.sqrt(a / r)
             dq = q / (2.0 * a)
         else:                                            # zone linéaire (régularisation)
-            c = math.sqrt(eps * b._r)
+            c = math.sqrt(eps * r)
             q, dq = a / c, 1.0 / c
         return math.copysign(q, moteur) * conv, dq * conv
 
     # ------------------------------------------------------------------ résolution
-    def _bilan(self, p: dict[str, float], avec_jacobien: bool) -> tuple[np.ndarray, np.ndarray | None]:
+    def _bilan(self, p: dict[str, float], avec_jacobien: bool) -> tuple[list[float], list[list[float]]]:
         """Résidu f (Σ débits entrants par nœud, kg/s) et jacobien ∂f/∂P ; met à jour les débits."""
         n = len(self.noeuds)
-        f = np.zeros(n)
-        jac = np.zeros((n, n)) if avec_jacobien else None
+        f = [0.0] * n
+        jac = [[0.0] * n for _ in range(n)] if avec_jacobien else []
         for nom, inj in self.injections.items():
             k = self._index[nom]
             inj.qm_kg_s, d_inj = inj.debit(p[nom])
             f[k] += inj.qm_kg_s
-            if jac is not None:
-                jac[k, k] += d_inj
+            if jac:
+                jac[k][k] += d_inj
         for b in self.branches:
             qm, g = self._debit(b, p[b.de] - p[b.vers])
             b.qm_kg_s = qm
@@ -169,15 +171,15 @@ class Reseau:
                 f[i] -= qm
             if j is not None:
                 f[j] += qm
-            if jac is not None:
+            if jac:
                 if i is not None:
-                    jac[i, i] -= g
+                    jac[i][i] -= g
                     if j is not None:
-                        jac[i, j] += g
+                        jac[i][j] += g
                 if j is not None:
-                    jac[j, j] -= g
+                    jac[j][j] -= g
                     if i is not None:
-                        jac[j, i] += g
+                        jac[j][i] += g
         return f, jac
 
     def resoudre(self) -> None:
@@ -189,26 +191,57 @@ class Reseau:
         num = self.num
         p = self.etat.p_bar
         f, jac = self._bilan(p, avec_jacobien=True)
-        residu = float(np.max(np.abs(f))) if len(f) else 0.0
+        residu = max((abs(x) for x in f), default=0.0)
         iteration = 0
         for iteration in range(1, num.iterations_max + 1):
-            if residu < num.tolerance_kg_s or jac is None:
+            if residu < num.tolerance_kg_s:
                 break
-            jac -= num.regularisation_jacobien * np.eye(len(f))
-            delta = np.linalg.solve(jac, -f)
-            pas_max = float(np.max(np.abs(delta)))
+            for k in range(len(f)):
+                jac[k][k] -= num.regularisation_jacobien
+            delta = resoudre_lineaire(jac, [-x for x in f])
+            pas_max = max(abs(x) for x in delta)
             if pas_max > num.pas_max_bar:
-                delta *= num.pas_max_bar / pas_max
+                delta = [x * num.pas_max_bar / pas_max for x in delta]
             depart = {nom: p[nom] for nom in self._index}
             lam = 1.0
             for _ in range(num.recherche_lineaire_max):
                 for nom, k in self._index.items():
-                    p[nom] = depart[nom] + lam * float(delta[k])
+                    p[nom] = depart[nom] + lam * delta[k]
                 f_essai, _ = self._bilan(p, avec_jacobien=False)
-                if float(np.max(np.abs(f_essai))) < residu:
+                if max(abs(x) for x in f_essai) < residu:
                     break
                 lam /= 2.0
             f, jac = self._bilan(p, avec_jacobien=True)
-            residu = float(np.max(np.abs(f)))
+            residu = max(abs(x) for x in f)
         self.etat.iterations = iteration
         self.etat.residu_kg_s = residu
+
+
+def resoudre_lineaire(a: list[list[float]], b: list[float]) -> list[float]:
+    """Résout a·x = b (petit système dense) par élimination de Gauss avec pivot partiel."""
+    n = len(b)
+    m = [ligne[:] + [b[i]] for i, ligne in enumerate(a)]
+    for col in range(n):
+        pivot = max(range(col, n), key=lambda r: abs(m[r][col]))
+        m[col], m[pivot] = m[pivot], m[col]
+        diag = m[col][col]
+        for r in range(col + 1, n):
+            facteur = m[r][col] / diag
+            if facteur:
+                for c in range(col, n + 1):
+                    m[r][c] -= facteur * m[col][c]
+    x = [0.0] * n
+    for r in range(n - 1, -1, -1):
+        x[r] = (m[r][n] - sum(m[r][c] * x[c] for c in range(r + 1, n))) / m[r][r]
+    return x
+
+
+def construire_reseau(id: str, cfg: ReseauCfg, composants: dict[str, Any], num: ReseauNumCfg,
+                      rho_kg_m3: float, p_initiale_bar: float) -> Reseau:
+    """Construit un réseau à partir de sa description YAML (repères → composants)."""
+    branches = []
+    for b in cfg.branches:
+        elements: list[Any] = [[composants[x] for x in el] if isinstance(el, list) else composants[el]
+                               for el in b.elements]
+        branches.append(Branche(b.id, b.de, b.vers, elements, rho_kg_m3))
+    return Reseau(id, cfg.frontieres, cfg.noeuds, branches, cfg.injections, num, p_initiale_bar)

@@ -16,7 +16,7 @@ from sim.components.base import Composant
 from sim.components.pump import Pompe
 from sim.components.valve import Clapet
 from sim.config import NumeriqueCfg, PosteEauCfg, ReseauCfg
-from sim.core.network import Branche, Reseau
+from sim.core.network import construire_reseau
 from sim.thermo.tables import TableEau
 from sim.units import POURCENT, interp_table, kg_s_vers_m3h, m3h_vers_kg_s
 
@@ -46,13 +46,9 @@ class PosteEau:
         self.composants = composants
         self.reprise: list[Pompe] = [composants[r] for r in cfg.reprise.pompes]  # type: ignore[misc]
         self.capacite_pompe_reprise_kg_s = cfg.reprise.capacite_pompe_pct / POURCENT * debit_purges_nom_kg_s
-        branches = []
-        for b in reseau_cfg.branches:
-            elements: list[Any] = [[composants[x] for x in el] if isinstance(el, list) else composants[el]
-                                   for el in b.elements]
-            branches.append(Branche(b.id, b.de, b.vers, elements, table.rho_liq_kg_m3(t_initiale_c)))
-        self.reseau = Reseau("eau_alimentaire", reseau_cfg.frontieres, reseau_cfg.noeuds, branches,
-                             reseau_cfg.injections, num.reseau, p_initiale_bar)
+        self.reseau = construire_reseau("eau_alimentaire", reseau_cfg, composants, num.reseau,
+                                        table.rho_liq_kg_m3(t_initiale_c), p_initiale_bar)
+        branches = self.reseau.branches
         self.clapets = [(br, el) for br in branches for el in br.elements if isinstance(el, Clapet)]
         self.etat = EtatPosteEau(t_abp_c=t_initiale_c, t_ahp_c=t_initiale_c, qm_purges_kg_s=0.0,
                                  qm_reprise_kg_s=0.0, qm_branches_kg_s={b.id: 0.0 for b in branches})

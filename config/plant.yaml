@@ -10,7 +10,7 @@
 # =============================================================================
 
 meta:
-  version: V0
+  version: V1
   nom: "Mini-Centrale REP 4 boucles (générique)"
 
 simulation:
@@ -29,6 +29,7 @@ numerique:
   table_p_max_bar: 215.0
   table_nb_points: 2000
   table_t_pas_c: 0.25
+  table_p_liquide_bar: 155.0        # pression de référence de l'eau du primaire (liquide comprimé)
   flash: {tolerance_lnp: 1.0e-10, pas_derivee_lnp: 1.0e-6, iterations_max: 40}
   reseau:
     tolerance_kg_s: 1.0e-5
@@ -41,44 +42,108 @@ numerique:
     regularisation_jacobien: 1.0e-12
   collecteur: {tolerance_kg_s: 1.0e-4, iterations_max: 80}
   alarmes_hysteresis_pct: 1.0       # HYPOTHESE
+  alarmes_temporisation_s: 2.0      # HYPOTHESE confirmation d'apparition / disparition (anti-papillotement)
   iterations_initialisation: 20     # allers-retours régulations ↔ hydraulique à l'initialisation
   duree_stabilisation_s: 3600.0     # durée de stabilisation de l'état initial RP 100 %
 
 # --- Point de fonctionnement nominal 100 % (initialisation et recalage) -------
 point_nominal:
-  p_source_mw: 3411                 # spec (Trojan)
+  p_coeur_mw: 3411                  # spec (Trojan)
   tmoy_c: 307.0                     # spec §4.1
+  p_primaire_bar: 155.0             # spec §4.1
+  niveau_pzr_pct: 60.0              # spec : ≈ 60 % d'eau à pleine puissance
   p_gv_bar: 63.0                    # spec §4.1
   niveau_gv_pct: 50.0               # HYPOTHESE
-  qm_vapeur_kg_s: 1876              # 3 411 000 kW / (2 781 − 963) kJ/kg (CoolProp)
+  qm_vapeur_kg_s: 1885              # (3 411 + 18 MW pompes) / (2 781 − 963) kJ/kg (CoolProp)
   t_alim_c: 224.0                   # spec : 221–227 °C
   p_collecteur_bar: 60.0            # HYPOTHESE (perte de charge lignes 3 bar)
 
-# --- Cœur : données utilisées par la source V0 pour l'AU, puis par le cœur V1 -
+# --- Cœur « boîte noire » (§4.16) ---------------------------------------------
 coeur:
-  beta_pcm: 650
-  lambda_s: 0.08                    # constante de décroissance des précurseurs (1 groupe)
-  rho_au_pcm: -5000                 # anti-réactivité des grappes à l'AU
-  residuelle: {a: 0.0622, b: 0.2, t_fonctionnement_s: 3.0e+7}   # Way-Wigner ; t_fonct HYPOTHESE (~1 an)
-
-# --- V0 uniquement : source de chaleur imposée (remplacée par primaire + cœur en V1)
-source_v0:
   p_nom_mw: 3411
-  capacite_thermique_mj_c: 1600     # HYPOTHESE eau primaire (~250 t) + métal
-  tref_programme_c: [[0, 292.0], [100, 307.0]]   # charge turbine % → Tref
-  mode_initial: auto                # auto = suit Tref (fait office de grappes) | manu
-  kp_mw_c: 100.0                    # HYPOTHESE (≈ contre-réaction modérateur)
-  ti_s: 120.0                       # HYPOTHESE
-  vitesse_max_pct_min: 20.0         # HYPOTHESE (grappes + contre-réaction modérateur)
-  p_max_pct: 105.0                  # HYPOTHESE
+  beta_pcm: 650                     # spec
+  lambda_s: 0.08                    # spec (1 groupe de neutrons retardés)
+  rho_max_fraction_beta: 0.9        # borne numérique : pas de surcriticité prompte (approximation du saut prompt)
+  source_neutrons: 1.0e-9           # HYPOTHESE source intrinsèque (n ≈ S/|ρ| en sous-critique)
+  alpha_mod_pcm_c: -20.0            # spec
+  alpha_doppler_pcm_c: -2.5         # spec
+  alpha_bore_pcm_ppm: -10.0         # spec
+  bore_ppm: 1000.0                  # HYPOTHESE (constant en V1 : la REA arrive en V2)
+  t_mod_ref_c: 307.0                # température modérateur de référence (ρ = 0 au nominal)
+  combustible:
+    t_nom_c: 620.0                  # HYPOTHESE T moyenne du combustible à 100 %
+    capacite_mj_c: 45.0             # HYPOTHESE (constante de temps ≈ 4 s)
+  residuelle:                       # groupes ajustés sur Way-Wigner (t_fonct ≈ 1 an), écart < 3 % de 1 s à 1 jour
+    fractions: [0.03091, 0.01964, 0.01268, 0.007368, 0.005708, 0.001858, 0.004137]
+    constantes_s: [1.0, 10.0, 100.0, 1000.0, 1.0e+4, 1.0e+5, 1.0e+6]
+  grappes:
+    pas_max: 228                    # spec (C-11 à 223 pas)
+    regulation_pcm: -2000.0         # HYPOTHESE poids des groupes de régulation (lissés en un groupe)
+    arret_pcm: -3000.0              # HYPOTHESE : régulation + arrêt = −5 000 pcm (spec)
+    position_nom_pas: 180.0         # HYPOTHESE position à 100 %
+    temps_chute_s: 2.0              # spec
+    vitesse_manu_pas_min: 48.0      # HYPOTHESE
+    vitesse_arret_pas_min: 64.0     # HYPOTHESE extraction des groupes d'arrêt
+    regulation_tmoy:                # HYPOTHESE (programme de vitesse en fonction de l'écart Tmoy − Tref)
+      tref_programme_c: [[0, 292.0], [100, 307.0]]   # spec : 292 → 307 °C
+      bande_morte_c: 0.8
+      ecart_plein_c: 2.8
+      vitesse_min_pas_min: 8.0
+      vitesse_max_pas_min: 72.0
+      desequilibre_gain_c_par_pct: 0.6      # HYPOTHESE (calé sur l'échelon −10 %) voie « déséquilibre de puissance » (anticipation)
+      desequilibre_constante_s: 60.0        # HYPOTHESE filtre passe-haut de cette voie
+
+# --- Circuit primaire (RCP) ---------------------------------------------------
+primaire:
+  volumes_m3: {descente: 45.0, coeur: 25.0, plenum: 45.0, branche_chaude: 4.0, gv: 30.0, branche_froide: 8.0}   # HYPOTHESE (≈ 283 m³ hors PZR)
+  capacites_metal_mj_c: {descente: 120.0, coeur: 20.0, plenum: 80.0, branche_chaude: 10.0, gv: 60.0, branche_froide: 20.0}   # HYPOTHESE
+  hauteur_thermique_m: 10.0         # spec (Δz GV / cœur, circulation naturelle)
+  boucle_expansion: 2               # spec : ligne d'expansion sur la branche chaude B2
+  boucles_aspersion: [2, 3]         # spec
+  boucle_charge: 1                  # spec
+  boucle_decharge: 3                # spec
+  gv_ua_mw_c: 37.6                  # recalé (ε-NTU, cp moyen) pour P GV = 63 bar au nominal
+  gv_exposant_debit: 0.8            # spec (option UA ∝ débit^0,8)
+  gv_fraction_ua_min: 0.3           # HYPOTHESE (convection naturelle à faible débit)
+  chaleur_pompe_mw: 4.5             # spec (puissance moteur à chaud, dissipée dans l'eau)
+  debit_nom_boucle_kg_s: 4133       # calé : débit au point nominal (≈ 19 900 m³/h à 289 °C)
+  p_min_demarrage_pompe_bar: 29.0   # spec : ΔP joint n°1 ≥ 19 bar
+  soulevement_huile_s: 120.0        # HYPOTHESE durée mini de la pompe de soulèvement d'huile avant démarrage
+
+# --- Pressuriseur (PZR) --------------------------------------------------------
+pressuriseur:
+  volume_m3: 51.0                   # spec
+  programme_niveau_pct: [[292.0, 25.0], [307.0, 60.0]]   # spec (indicatif) : Tmoy → niveau
+  niveau_bas_pct: 17.0              # spec : isolement décharge + chaufferettes coupées
+  pertes_thermiques_kw: 60.0        # HYPOTHESE
+  chaufferettes: {proportionnelles_kw: 414.0, tor_kw: 1380.0}   # spec
+  gamme_pression_bar: 200.0         # HYPOTHESE gamme des capteurs de pression
+  aspersion: {debit_vanne_m3h: 95.0, debit_permanent_m3h: 0.23}   # spec
+  porv: {capacite_kg_s: 26.5, p_ref_bar: 162.0}                     # spec
+  soupapes: {tarages_bar: [172.0, 172.0, 172.0], capacite_kg_s: 53.0, fermeture_pct: 3.0}   # spec ; blowdown HYPOTHESE
+  voies_pression: 4
+  voies_niveau: 3
+  retard_mesure_s: 0.5              # HYPOTHESE
+
+# --- Charge / décharge simplifiées (V1 ; RCV complet en V2) ---------------------
+rcv_v1:
+  decharge_m3h: 17.0                # spec (débit de décharge nominal)
+  charge_max_m3h: 34.0              # spec (pompe de charge)
+  t_vct_c: 46.0                     # HYPOTHESE température dans la VCT (masse volumique des débits)
+  t_charge_c: 260.0                 # spec (sortie de l'échangeur régénérateur)
+
+# --- Alimentation de secours des GV (ASG) ---------------------------------------
+asg:
+  prises_vapeur_tps: [1, 2]         # HYPOTHESE GV alimentant la turbopompe
+  p_vapeur_min_bar: 7.0             # HYPOTHESE pression mini pour entraîner la turbopompe
+  vapeur_tps_kg_s: 8.0              # HYPOTHESE consommation à pleine vitesse
 
 # --- Générateurs de vapeur (côté secondaire) --------------------------------
 generateurs_vapeur:
   boucles: [1, 2, 3, 4]
-  ua_mw_c: 30.2                     # recalé : 852,75 MW / (307 − 278,8) °C
   masse_assechement_t: 8.0          # HYPOTHESE : en dessous, UA réduit (tubes découverts)
   v_secondaire_m3: 165              # HYPOTHESE
-  debit_vapeur_nom_kg_s: 469        # 1 876 / 4
+  debit_vapeur_nom_kg_s: 471        # 1 885 / 4
   niveau_ge:
     v_bas_m3: 46.7                  # HYPOTHESE → ~42 t d'eau à 100 % et 50 % GE
     v_plage_m3: 40.0                # HYPOTHESE (≈ 11 m² × 3,6 m)
@@ -97,14 +162,14 @@ generateurs_vapeur:
 # --- Vapeur principale (VVP) -------------------------------------------------
 vapeur:
   ligne:
-    qm_nom_kg_s: 469
+    qm_nom_kg_s: 471
     dp_nom_bar: 3.0                 # HYPOTHESE perte de charge GV → collecteur à 100 %
     p_nom_bar: 63.0
     limiteur_kg_s: 1220             # venturi (spec)
     fraction_bypass_viv: 0.02       # HYPOTHESE capacité du by-pass de VIV
   soupapes:
     tarages_bar: [82.0, 83.0, 84.0, 85.0, 86.0]
-    capacite_kg_s: 102              # 109 % × 1 876 kg/s / 20 soupapes
+    capacite_kg_s: 103              # 109 % × 1 885 kg/s / 20 soupapes
     fermeture_pct: 4.0              # HYPOTHESE (blowdown)
   vda:
     capacite_kg_s: 47               # 10 % du débit nominal d'un GV
@@ -112,14 +177,15 @@ vapeur:
 
 # --- Turbine + alternateur (GRE) --------------------------------------------
 turbine:
-  debit_nom_kg_s: 1876
+  debit_nom_kg_s: 1885
   p_admission_nom_bar: 60.0
   ouverture_nom: 0.85               # HYPOTHESE ouverture des vannes de réglage à 100 %
-  eta_isentropique: 0.835           # HYPOTHESE calée : 1 130 MWe pour 1 876 kg/s
+  eta_isentropique: 0.835           # HYPOTHESE calée : ≈ 1 135 MWe pour 1 885 kg/s
   fraction_soutirage: 0.333         # spec : reprise des purges ≈ 1/3 du débit
   part_travail_soutirage: 0.5       # HYPOTHESE : un soutirage fait en moyenne la moitié de la détente
   rendement_alternateur: 0.985      # HYPOTHESE
-  p_elec_nom_mw: 1130               # HYPOTHESE (résultat du calage)
+  p_elec_nom_mw: 1135               # HYPOTHESE (résultat du calage)
+  consigne_max_pct: 105.0           # HYPOTHESE
   vitesse_nom_tr_min: 1500          # 4 pôles, 50 Hz
   constante_inertie_s: 4.0          # HYPOTHESE H (énergie cinétique / puissance apparente)
   puissance_apparente_mva: 1280
@@ -128,7 +194,7 @@ turbine:
   temps_fermeture_arret_s: 0.3      # HYPOTHESE
   temps_ouverture_arret_s: 10.0     # HYPOTHESE
   temps_course_reglage_s: 2.0       # HYPOTHESE
-  regulation_charge: {rampe_pct_min: 5.0, echelon_max_pct: 10.0, kp: 0.5, ti_s: 5.0}   # rampe/échelon : spec ; PI HYPOTHESE
+  regulation_charge: {rampe_pct_min: 5.0, echelon_max_pct: 10.0, kp: 0.5, ti_s: 5.0, runback_pct_min: 20.0}   # rampe/échelon : spec ; PI, runback HYPOTHESE
   regulation_vitesse: {rampe_pct_min: 20.0, kp: 5.0, ti_s: 10.0}                      # HYPOTHESE
   couplage: {ecart_vitesse_max_pct: 0.5}                                                # HYPOTHESE
 
@@ -139,6 +205,14 @@ gct_c:
   p_ref_bar: 76.0
   temps_course_s: 3.0               # HYPOTHESE
   regulation: {consigne_bar: 76.0, bande_bar: 3.0}   # mode pression ; HYPOTHESE
+  mode_initial: tmoy                # tmoy (C-7 / C-8) | pression
+  tmoy:                             # HYPOTHESE (ordres de grandeur Westinghouse)
+    t_vide_c: 292.0                 # Tmoy à puissance nulle
+    bande_morte_c: 1.7              # régulateur « perte de charge »
+    bande_perte_charge_c: 12.0
+    bande_declenchement_c: 16.7     # régulateur « déclenchement turbine »
+  c7: {echelon_pct: 10.0, constante_s: 120.0}   # spec : > 10 % en échelon ou > 5 %/min (10 % sur 2 min)
+  p12: {tmoy_c: 289.0, groupes_autorises: 1}    # spec : seul le groupe « refroidissement » reste disponible
 
 # --- Condenseur, circulation (CRF), puits, bâche de stockage (CST) -----------
 condenseur:
@@ -201,6 +275,29 @@ gabarits:
     q_nom_m3h: 86600                # HYPOTHESE 2 × 50 % (48 m³/s au total)
     temps_demarrage_s: 30.0         # HYPOTHESE
     temps_ralentissement_s: 60.0    # HYPOTHESE
+  pompe_primaire:
+    type: Pump
+    systeme: RCP
+    q_nom_m3h: 20100                # spec
+    h_nom_m: 84                     # spec
+    h0_m: 105                       # HYPOTHESE
+    temps_demarrage_s: 20.0         # HYPOTHESE
+    temps_ralentissement_s: 25.0    # spec : volant d'inertie, 22 à 30 s
+    hauteur_rotor_bloque_m: 900     # HYPOTHESE antidévireur : débit inverse ≈ 15 % dans une boucle arrêtée
+  pompe_huile:
+    type: Pump
+    systeme: RCP
+    q_nom_m3h: 1.0                  # pompe de soulèvement d'huile (débit sans importance)
+    temps_demarrage_s: 2.0
+    temps_ralentissement_s: 2.0
+  pompe_asg_mp:
+    type: Pump
+    systeme: ASG
+    q_nom_m3h: 100                  # HYPOTHESE
+    h_nom_m: 850                    # HYPOTHESE (injecte dans un GV à ~80 bar)
+    h0_m: 1050                      # HYPOTHESE
+    temps_demarrage_s: 5.0
+    temps_ralentissement_s: 5.0
   pompe_reprise:
     type: Pump
     systeme: ABP
@@ -259,6 +356,15 @@ gabarits:
     temps_course_s: 10.0            # HYPOTHESE
     position_repli: fermee
     reserve_air_min: 30.0           # HYPOTHESE (secours azote, spec)
+  vanne_asg:
+    type: ControlValve
+    systeme: ASG
+    actionneur: AOV
+    air: SAR
+    kv_max: 30                      # HYPOTHESE (≈ 100 m³/h sous 11 bar)
+    temps_course_s: 10.0
+    position_repli: ouverte         # HYPOTHESE (sécurité : alimenter les GV)
+    reserve_air_min: 0.0
   vanne_gctc:
     type: ControlValve
     systeme: GCT
@@ -306,6 +412,40 @@ composants:
   GCTC_G2: {gabarit: vanne_gctc}
   GCTC_G3: {gabarit: vanne_gctc}
   GCTC_G4: {gabarit: vanne_gctc}
+  # primaire
+  PP1: {gabarit: pompe_primaire, alim: LGA}
+  PP2: {gabarit: pompe_primaire, alim: LGB}
+  PP3: {gabarit: pompe_primaire, alim: LGA}
+  PP4: {gabarit: pompe_primaire, alim: LGB}
+  PSH{b}: {gabarit: pompe_huile, alim: LHA}
+  R_BOUCLE{b}: {type: Resistance, systeme: RCP, dp_nom_bar: 3.76, q_nom_m3h: 20100, rho_nom_kg_m3: 748}   # HYPOTHESE 60 % de la hauteur pompe
+  R_CUVE: {type: Resistance, systeme: RCP, dp_nom_bar: 2.40, q_nom_m3h: 80400, rho_nom_kg_m3: 712}       # HYPOTHESE 40 % (cœur + plénums)
+  PZR_ASP2: {type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, temps_course_s: 5.0,   # HYPOTHESE course
+             position_repli: fermee, reserve_air_min: 0.0}
+  PZR_ASP3: {type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, temps_course_s: 5.0,
+             position_repli: fermee, reserve_air_min: 0.0}
+  PZR_PORV1: {type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, capacite_kg_s: 26.5, p_ref_bar: 162.0,
+              temps_course_s: 1.0, position_repli: fermee, reserve_air_min: 10.0}   # spec : réserve d'air 10 min
+  PZR_PORV2: {type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, capacite_kg_s: 26.5, p_ref_bar: 162.0,
+              temps_course_s: 1.0, position_repli: fermee, reserve_air_min: 10.0}
+  PZR_ISOL1: {type: Valve, systeme: RCP, actionneur: MOV, alim: LHA, temps_course_s: 10.0}   # vanne d'isolement amont PORV ; course HYPOTHESE
+  PZR_ISOL2: {type: Valve, systeme: RCP, actionneur: MOV, alim: LHB, temps_course_s: 10.0}
+  RCV_CHARGE: {type: ControlValve, systeme: RCV, actionneur: AOV, air: SAR, temps_course_s: 10.0,   # FCV-121 (V1 simplifiée)
+               position_repli: ouverte, reserve_air_min: 0.0}
+  RCV_DECHARGE: {type: Valve, systeme: RCV, actionneur: AOV, air: SAR, temps_course_s: 5.0,       # LCV-459/460 (V1 simplifiée)
+                 position_repli: fermee, reserve_air_min: 0.0}
+  # ASG
+  ASG_MP1: {gabarit: pompe_asg_mp, alim: LHA}
+  ASG_MP2: {gabarit: pompe_asg_mp, alim: LHB}
+  ASG_TP: {type: Pump, systeme: ASG, entrainement: turbine_vapeur, q_nom_m3h: 200, h_nom_m: 850, h0_m: 1050,   # HYPOTHESE
+           vitesse_variable: true, vitesse_min: 0.0, vitesse_max: 1.0, temps_demarrage_s: 15.0, temps_ralentissement_s: 10.0}
+  ASG_TP_VAP: {type: Valve, systeme: ASG, actionneur: AOV, air: SAR, temps_course_s: 3.0,   # spec : s'ouvre si perte d'énergie
+               position_repli: ouverte, reserve_air_min: 0.0}
+  ASG_MP1_CLAPET: {gabarit: clapet, systeme: ASG, kv_max: 500}
+  ASG_MP2_CLAPET: {gabarit: clapet, systeme: ASG, kv_max: 500}
+  ASG_TP_CLAPET: {gabarit: clapet, systeme: ASG, kv_max: 1000}
+  ASG{b}: {gabarit: vanne_asg}
+  ASG{b}_CLAPET: {gabarit: clapet, systeme: ASG, kv_max: 500}
 
 # --- Réseaux liquides (liaisons) ---------------------------------------------
 # frontieres : pression imposée par un volume ; noeuds : jonctions sans stockage.
@@ -328,11 +468,28 @@ reseaux:
       - {id: L_AHP, de: N_APP, vers: N_ARE, elements: [AHP]}
       - {id: "L_ARE{b}", de: N_ARE, vers: "GV{b}", elements: ["ARE{b}_ISOL", ["ARE{b}_GD", "ARE{b}_PD"], "ARE{b}_CLAPET"]}
 
+  primaire:                           # boucles : plénum → BC → GV → pompe → BF → descente ; retour par la cuve
+    frontieres: [PLENUM]
+    noeuds: [DESCENTE]
+    injections: []
+    branches:
+      - {id: "L_BOUCLE{b}", de: PLENUM, vers: DESCENTE, elements: ["PP{b}", "R_BOUCLE{b}"]}
+      - {id: L_CUVE, de: DESCENTE, vers: PLENUM, elements: [R_CUVE]}
+  asg:
+    frontieres: [CST, GV1, GV2, GV3, GV4]
+    noeuds: [N_ASG]
+    injections: []
+    branches:
+      - {id: L_ASG_MP1, de: CST, vers: N_ASG, elements: [ASG_MP1, ASG_MP1_CLAPET]}
+      - {id: L_ASG_MP2, de: CST, vers: N_ASG, elements: [ASG_MP2, ASG_MP2_CLAPET]}
+      - {id: L_ASG_TP, de: CST, vers: N_ASG, elements: [ASG_TP, ASG_TP_CLAPET]}
+      - {id: "L_ASG{b}", de: N_ASG, vers: "GV{b}", elements: ["ASG{b}", "ASG{b}_CLAPET"]}
+
 # --- Régulations ---------------------------------------------------------------
 regulations:
   niveau_gv:                        # 3 éléments : niveau + débit vapeur + débit eau ; réglages HYPOTHESE
     kp_debit_pct_par_pct: 2.0
-    ti_s: 120.0
+    ti_s: 300.0                     # calé : dépassement après déclenchement turbine ≈ 58 % (P-14 à 69 %)
     integrale_max_pct: 50.0
     trim_kp: 0.5
     trim_ti_s: 5.0
@@ -345,10 +502,59 @@ regulations:
   vda: {consigne_bar: 79.0, bande_bar: 2.0}         # tarage spec ; bande HYPOTHESE
   puits: {consigne_pct: 50.0, kp_par_pct: 0.1, ti_s: 600.0}   # HYPOTHESE
   cex_recirculation: {ouvre_m3h: 795, ferme_m3h: 1590}       # spec
+  pression_pzr:                     # spec : TOR à consigne − 1,7 bar, aspersion au-dessus de consigne + 1,7 bar, PORV 162 bar
+    consigne_bar: 155.0
+    ti_s: 600.0                     # HYPOTHESE (régulateur maître PI, sortie en bar équivalents)
+    proportionnelles_pleines_bar: -1.0   # HYPOTHESE
+    proportionnelles_nulles_bar: 1.0     # HYPOTHESE
+    tor_marche_bar: -1.7
+    tor_arret_bar: -1.0             # HYPOTHESE (hystérésis)
+    aspersion_debut_bar: 1.7
+    aspersion_pleine_bar: 5.2       # HYPOTHESE
+    porv_ouverture_bar: 162.0
+    porv_fermeture_bar: 160.5       # HYPOTHESE (hystérésis)
+  niveau_pzr: {kp_kg_s_par_pct: 0.4, ti_s: 300.0}   # HYPOTHESE (débit de charge)
+  niveau_asg: {consigne_pct: 40.0, kp_par_pct: 0.05, ti_s: 300.0}   # HYPOTHESE : sous la consigne ARE pour ne pas la contrer
 
-# --- Logique de protection et automatismes (V0) --------------------------------
+# --- Logique de protection et automatismes ----------------------------------------
 logique:
-  p7: {puissance_max_pct: 10.0, charge_turbine_max_pct: 10.0}
+  p7: {puissance_max_pct: 10.0, charge_turbine_max_pct: 10.0}   # P-7 = non P-10 ET P-13
+  p8_puissance_pct: 39.0            # spec
+  p9_puissance_pct: 50.0            # spec
+  p10_puissance_pct: 10.0           # spec (2/4)
+  p12_tmoy_c: 289.0                 # spec
+  c2_puissance_pct: 103.0           # spec : interdit le retrait des grappes
+  c5_charge_pct: 15.0               # spec : interdit le retrait automatique
+  c11_pas: 223.0                    # spec : stoppe le retrait automatique
+  au:
+    flux_haut_pct: 109.0            # spec, 2/4, jamais bloqué
+    flux_bas_pct: 25.0              # spec, 2/4, bloquable au-dessus de P-10
+    variation_flux_pct: 5.0         # spec, 2/4
+    variation_flux_constante_s: 2.0 # spec
+    p_pzr_basse_bar: 129.6          # spec, 2/4, au-dessus de P-7
+    p_pzr_haute_bar: 165.5          # spec, 2/4
+    niveau_pzr_haut_pct: 92.0       # spec, 2/3, au-dessus de P-7
+    debit_bas_pct: 90.0             # spec, 2/3 par boucle
+    ecart_vapeur_eau_pct: 40.0      # HYPOTHESE (débit eau insuffisant)
+    niveau_gv_bas_pct: 25.5         # spec (débit eau insuffisant)
+    votes: {flux: "2/4", dt: "2/4", p_pzr: "2/4", niveau_pzr: "2/3", debit: "2/3", pompes: "2/4"}
+  otdt:                             # ΔT surtempérature : K1 réglé pour un seuil à ~117 % du ΔT nominal (spec)
+    k1: 1.17
+    k2_par_c: 0.04                  # HYPOTHESE
+    k3_par_bar: 0.013               # HYPOTHESE
+    tau1_s: 30.0                    # HYPOTHESE (avance)
+    tau2_s: 4.0                     # HYPOTHESE (retard)
+    t_ref_c: 307.0                  # spec T'
+    p_ref_bar: 155.0                # spec P'
+    dt0_c: 36.2                     # ΔT nominal (calé sur le point nominal)
+    prealarme_pct: 3.0              # spec : C-3 à 3 % du seuil
+  opdt:                             # ΔT surpuissance ; HYPOTHESE (ordres de grandeur Westinghouse)
+    k4: 1.09
+    k5_par_c: 0.036
+    tau3_s: 10.0
+    k6_par_c: 0.0022
+    t_ref_c: 307.0
+    prealarme_pct: 3.0              # spec : C-4
   c9: {p_cond_max_bar: 0.17, p_cond_perte_bar: 0.26, crf_mini: 1}
   isolement_are_au: {tmoy_max_c: 296.0}
   declenchement_app: {p_aspiration_min_bar: 14.5, p_refoulement_max_bar: 128.0, temporisation_s: 2.0}   # tempo HYPOTHESE
@@ -357,16 +563,16 @@ logique:
   ouverture_viv: {dp_max_bar: 5.0}       # HYPOTHESE : équilibrer par le by-pass avant d'ouvrir une VIV
 
 # --- Alarmes (mesure → seuil) -------------------------------------------------
-# Seuils « process » = HYPOTHESE ; alarmes logiques : actives quand le signal vaut 1.
+# Seuils « process » = HYPOTHESE ; alarmes logiques : actives quand le signal vaut 1 (sans temporisation).
 alarmes:
-  - {id: AU, mesure: logique.au, haut: 0.5, priorite: 1, libelle: "Arrêt automatique réacteur"}
-  - {id: TURBINE_DECL, mesure: logique.turbine_declenchee, haut: 0.5, priorite: 1, libelle: "Turbine déclenchée"}
-  - {id: P14, mesure: logique.p14, haut: 0.5, priorite: 1, libelle: "P-14 niveau GV très haut"}
-  - {id: ISOL_ARE, mesure: logique.isolement_are, haut: 0.5, priorite: 2, libelle: "Isolement eau alimentaire"}
-  - {id: C9_ABSENT, mesure: logique.c9, bas: 0.5, priorite: 2, libelle: "C-9 : condenseur indisponible"}
-  - {id: APP_DECL, mesure: logique.app_declenchee, haut: 0.5, priorite: 1, libelle: "Pompe alimentaire déclenchée"}
-  - {id: CEX_DECL, mesure: logique.cex_declenchee, haut: 0.5, priorite: 1, libelle: "Pompe CEX déclenchée"}
-  - {id: SOUPAPES_VVP, mesure: vapeur.soupapes_ouvertes, haut: 0.5, priorite: 1, libelle: "Soupape VVP ouverte"}
+  - {id: AU, mesure: logique.au, haut: 0.5, priorite: 1, libelle: "Arrêt automatique réacteur", temporisation_s: 0.0}
+  - {id: TURBINE_DECL, mesure: logique.turbine_declenchee, haut: 0.5, priorite: 1, libelle: "Turbine déclenchée", temporisation_s: 0.0}
+  - {id: P14, mesure: logique.p14, haut: 0.5, priorite: 1, libelle: "P-14 niveau GV très haut", temporisation_s: 0.0}
+  - {id: ISOL_ARE, mesure: logique.isolement_are, haut: 0.5, priorite: 2, libelle: "Isolement eau alimentaire", temporisation_s: 0.0}
+  - {id: C9_ABSENT, mesure: logique.c9, bas: 0.5, priorite: 2, libelle: "C-9 : condenseur indisponible", temporisation_s: 0.0}
+  - {id: APP_DECL, mesure: logique.app_declenchee, haut: 0.5, priorite: 1, libelle: "Pompe alimentaire déclenchée", temporisation_s: 0.0}
+  - {id: CEX_DECL, mesure: logique.cex_declenchee, haut: 0.5, priorite: 1, libelle: "Pompe CEX déclenchée", temporisation_s: 0.0}
+  - {id: SOUPAPES_VVP, mesure: vapeur.soupapes_ouvertes, haut: 0.5, priorite: 1, libelle: "Soupape VVP ouverte", temporisation_s: 0.0}
   - {id: VDA_OUVERTE, mesure: vapeur.vda_ouvertes, haut: 0.5, priorite: 3, libelle: "Vanne de décharge atmosphère ouverte"}
   - {id: GCTC_OUVERT, mesure: gctc.ouverture_pct, haut: 1.0, priorite: 3, libelle: "Contournement condenseur ouvert"}
   - {id: "GV{b}_NIV_BAS", mesure: "GV{b}.niveau_pct", bas: 40.0, priorite: 2, libelle: "Niveau GV{b} bas"}
@@ -376,4 +582,15 @@ alarmes:
   - {id: PUITS_NIV_BAS, mesure: puits.niveau_pct, bas: 30.0, priorite: 2, libelle: "Niveau puits condenseur bas"}
   - {id: PUITS_NIV_HAUT, mesure: puits.niveau_pct, haut: 70.0, priorite: 2, libelle: "Niveau puits condenseur haut"}
   - {id: CST_BAS, mesure: cst.volume_m3, bas: 905.0, priorite: 1, libelle: "Volume bâche CST sous le minimum"}
-  - {id: TMOY_ECART, mesure: source.ecart_tref_abs_c, haut: 3.0, priorite: 3, libelle: "Écart Tmoy − Tref"}
+  - {id: TMOY_ECART, mesure: primaire.ecart_tref_abs_c, haut: 3.0, priorite: 3, libelle: "Écart Tmoy − Tref"}
+  - {id: P_PZR_BASSE, mesure: pzr.p_bar, bas: 150.0, priorite: 2, libelle: "Pression pressuriseur basse"}
+  - {id: P_PZR_HAUTE, mesure: pzr.p_bar, haut: 160.0, priorite: 2, libelle: "Pression pressuriseur haute"}
+  - {id: N_PZR_BAS, mesure: pzr.ecart_niveau_pct, bas: -5.0, priorite: 2, libelle: "Niveau pressuriseur bas (/ programme)"}
+  - {id: N_PZR_HAUT, mesure: pzr.ecart_niveau_pct, haut: 5.0, priorite: 2, libelle: "Niveau pressuriseur haut (/ programme)"}
+  - {id: PORV_OUVERTE, mesure: pzr.porv_qm_kg_s, haut: 0.5, priorite: 1, libelle: "Vanne de décharge pressuriseur ouverte", temporisation_s: 0.0}
+  - {id: SOUPAPES_PZR, mesure: pzr.soupapes_ouvertes, haut: 0.5, priorite: 1, libelle: "Soupape pressuriseur ouverte", temporisation_s: 0.0}
+  - {id: DEBIT_PRIMAIRE_BAS, mesure: primaire.debit_min_pct, bas: 92.0, priorite: 2, libelle: "Débit primaire bas sur une boucle"}
+  - {id: MARGE_SAT, mesure: cuve.marge_saturation_c, bas: 15.0, priorite: 1, libelle: "Marge à la saturation sortie cœur faible"}
+  - {id: C3_C4, mesure: logique.c3_c4, haut: 0.5, priorite: 1, libelle: "Préalarme ΔT (C-3/C-4) : runback", temporisation_s: 0.0}
+  - {id: ASG_EN_SERVICE, mesure: asg.qm_kg_s, haut: 1.0, priorite: 2, libelle: "ASG en service"}
+  - {id: P12, mesure: logique.p12, haut: 0.5, priorite: 3, libelle: "P-12 : Tmoy très basse", temporisation_s: 0.0}

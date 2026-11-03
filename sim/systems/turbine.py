@@ -115,6 +115,13 @@ class Turbine(Composant):
             if abs(valeur - e.consigne_eff_mw) <= echelon:
                 e.consigne_eff_mw = valeur
 
+    def runback(self, dt: float) -> None:
+        """Baisse de charge rapide demandée par la protection (C-3 / C-4)."""
+        c, e = self.cfg, self.etat
+        pas = c.regulation_charge.runback_pct_min / POURCENT * c.p_elec_nom_mw * dt / S_PAR_MIN
+        e.consigne_eff_mw = max(0.0, e.consigne_eff_mw - pas)
+        e.consigne_mw = min(e.consigne_mw, e.consigne_eff_mw)
+
     # ------------------------------------------------------------------ régulation + vannes
     def reguler(self, dt: float, p_collecteur_bar: float) -> None:
         """Calcule la demande des vannes de réglage puis fait bouger les vannes."""

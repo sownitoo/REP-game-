@@ -1,4 +1,4 @@
-"""Tests d'acceptation V0 (A1-A11, A13) — cf. docs/PROPOSITION_V0.md §6.
+"""Tests d'acceptation V0 (A1-A11, A13) — cf. docs/PROPOSITION_V0.md §6, rejoués sur la centrale V1.
 
 Spec §10, V0 : « Équilibre stable à 100 % ; fermer une ARE fait baisser le niveau GV
 et tasser/gonfler correctement ».
@@ -23,8 +23,10 @@ GV = ["GV1", "GV2", "GV3", "GV4"]
 def heure_a_100pct() -> tuple[Centrale, list[dict[str, float]], float]:
     c = centrale_depuis_etat("rp100")
     m0 = c.masse_eau_totale_kg()
-    mesures = ["GV1.p_bar", "turbine.p_elec_mw", "source.p_mw", "turbine.p_meca_mw", "condenseur.q_mer_mw",
-               "logique.au"] + [f"{g}.niveau_pct" for g in GV] + [f"{g}.p_bar" for g in GV]
+    mesures = ["GV1.p_bar", "turbine.p_elec_mw", "coeur.p_thermique_mw", "primaire.q_pompes_mw", "turbine.p_meca_mw",
+               "condenseur.q_mer_mw", "logique.au", "pzr.p_bar", "pzr.niveau_pct", "primaire.tmoy_c",
+               "coeur.puissance_pct", "rcv.charge_kg_s", "rcv.decharge_kg_s"] \
+        + [f"{g}.niveau_pct" for g in GV] + [f"{g}.p_bar" for g in GV]
     releves = serie(c, 3600.0, 60.0, *mesures)
     return c, releves, m0
 
@@ -47,8 +49,9 @@ def test_a1_equilibre_100pct(heure_a_100pct) -> None:
 def test_a2_bilan_energie(heure_a_100pct) -> None:
     _, releves, _ = heure_a_100pct
     r = releves[-1]
+    entree = r["coeur.p_thermique_mw"] + r["primaire.q_pompes_mw"]
     sortie = r["turbine.p_meca_mw"] + r["condenseur.q_mer_mw"]
-    assert abs(r["source.p_mw"] - sortie) / r["source.p_mw"] < 0.01
+    assert abs(entree - sortie) / entree < 0.01
 
 
 @pytest.mark.lent
@@ -73,12 +76,13 @@ def test_a4_fermeture_are_gv1(rp100: Centrale) -> None:
     for r in serie(c, 60.0, 0.1, "GV1.niveau_vrai_pct", "logique.au", "GV1.qm_vapeur_kg_s"):
         if r["logique.au"] and t_au is None:
             t_au = r["t_s"]
-            assert r["GV1.niveau_vrai_pct"] < n0 - 30.0
+            assert r["GV1.niveau_vrai_pct"] < n0 - 20.0
         if t_au is None and r["t_s"] > 5.0:
             # plus d'eau froide à réchauffer : toute la chaleur du GV1 part en vapeur
             assert r["GV1.qm_vapeur_kg_s"] > vap0
     assert t_au is not None and 10.0 <= t_au <= 60.0, f"AU à {t_au} s"
-    assert "niveau très bas GV1" in c.logique.etat.au_causes
+    # V1 : « débit d'eau insuffisant » (écart vapeur/eau + niveau < 25,5 %) précède le niveau très bas
+    assert set(c.logique.etat.au_causes) & {"niveau très bas GV1", "débit d'eau insuffisant GV1"}
 
 
 # ============================================================================ A5-A7
@@ -133,7 +137,8 @@ def test_a8_declenchement_turbine(rp100: Centrale) -> None:
     assert c.logique.etat.isolement_are_au
     assert c.vannes["ARE1_GD"].etat.position == 0.0
     for g in GV:
-        assert r[-1][f"{g}.p_bar"] == pytest.approx(76.0, abs=1.0)
+        # contournement en mode Tmoy (C-8) : Tmoy ≈ T à vide + offset → P GV ≈ Psat(292–293 °C)
+        assert 75.0 <= r[-1][f"{g}.p_bar"] <= 78.5
         assert 30.0 <= r[-1][f"{g}.niveau_pct"] <= 60.0
 
 

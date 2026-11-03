@@ -11,8 +11,10 @@ from typing import TYPE_CHECKING
 from sim.components.base import Composant, Condition
 from sim.components.pump import Pompe
 from sim.components.valve import Vanne
+from sim.core_model.coeur import Coeur
 from sim.logic.regulations import ConsigneReglable
 from sim.systems.gct import Contournement
+from sim.systems.pzr import GroupeChaufferettes
 from sim.units import POURCENT
 
 if TYPE_CHECKING:
@@ -39,6 +41,18 @@ def conditions_pompe(c: Centrale, p: Pompe, action: str, valeur: float | None) -
         if p in c.cexs:
             seuil = lg.declenchement_cex.niveau_puits_min_pct
             conds.append(Condition(f"Niveau puits > {seuil:g} %", c.condenseur.niveau_puits_pct() > seuil))
+        if p in c.primaire.pompes:
+            i = c.primaire.pompes.index(p)
+            pc = c.cfg.primaire
+            conds.append(Condition(f"Pression primaire ≥ {pc.p_min_demarrage_pompe_bar:g} bar (joint n°1)",
+                                   c.pzr.p_bar >= pc.p_min_demarrage_pompe_bar))
+            duree = c.primaire.etat.huile_s[i]
+            conds.append(Condition(f"Pompe de soulèvement d'huile {c.primaire.huile[i].id} en service depuis "
+                                   f"≥ {pc.soulevement_huile_s:g} s ({duree:.0f} s)",
+                                   duree >= pc.soulevement_huile_s))
+        if p is c.asg.turbopompe:
+            conds.append(Condition(f"Pression vapeur des GV d'alimentation ≥ {c.cfg.asg.p_vapeur_min_bar:g} bar",
+                                   c.asg.vapeur_disponible(c.gvs)))
         return conds
     if action == "arreter":
         return [Condition("Pompe en marche", p.etat.en_marche)]
@@ -69,6 +83,8 @@ def conditions_vanne(c: Centrale, v: Vanne, action: str, valeur: float | None) -
             seuil = c.cfg.logique.ouverture_viv.dp_max_bar
             conds.append(Condition(f"ΔP GV{b} − collecteur < {seuil:g} bar (équilibrer par le by-pass)",
                                    abs(dp) < seuil))
+        if v.id == "RCV_DECHARGE":
+            conds.append(Condition("Charge en service (RCV_CHARGE ouverte)", c.qm_charge_kg_s() > 0.0))
     elif action == "fermer":
         conds.append(Condition("Pas d'ordre automatique d'ouverture"
                                + (f" ({v.etat.ordre_raison})" if ordre == 1.0 else ""), ordre != 1.0))
@@ -105,19 +121,32 @@ def conditions_turbine(c: Centrale, action: str, valeur: float | None) -> list[C
         return [Condition("Alternateur couplé", t.couplee),
                 Condition(f"Charge < {seuil:g} % (P-13)", t.p_elec_mw < seuil / POURCENT * cfg.p_elec_nom_mw)]
     if action == "consigne_mw":
-        maxi = cfg.p_elec_nom_mw * c.cfg.source_v0.p_max_pct / POURCENT
-        return [Condition("Alternateur couplé", t.couplee), _plage(valeur, 0.0, maxi, "MW")]
+        maxi = cfg.p_elec_nom_mw * cfg.consigne_max_pct / POURCENT
+        e = c.logique.etat
+        conds = [Condition("Alternateur couplé", t.couplee), _plage(valeur, 0.0, maxi, "MW")]
+        if valeur is not None and valeur > t.consigne_eff_mw:
+            conds.append(Condition("Pas de préalarme ΔT (C-3 / C-4)", not (e.c3 or e.c4)))
+        return conds
     return []
 
 
-def conditions_source(c: Centrale, action: str, valeur: float | None) -> list[Condition]:
-    au = c.logique.etat.au
-    pas_au = Condition("AU réarmé (grappes non chutées)", not au)
+def conditions_grappes(c: Centrale, coeur: Coeur, action: str, valeur: float | None) -> list[Condition]:
+    e, lg = c.logique.etat, c.cfg.logique
+    pas_au = Condition("AU réarmé (grappes non maintenues insérées)", not e.au)
+    blocages = [Condition(f"Pas de C-2 (flux > {lg.c2_puissance_pct:g} %)", not e.c2),
+                Condition("Pas de C-3 / C-4 (préalarme ΔT)", not (e.c3 or e.c4))]
     if action == "auto":
-        return [pas_au]
-    if action == "consigne_mw":
-        maxi = c.cfg.source_v0.p_nom_mw * c.cfg.source_v0.p_max_pct / POURCENT
-        return [pas_au, Condition("Source en manuel", not c.source.etat.auto), _plage(valeur, 0.0, maxi, "MW")]
+        return [pas_au, Condition("Groupes d'arrêt extraits", coeur.etat.arret_insere <= 0.0)]
+    if action == "manu":
+        return []
+    if action == "position":
+        conds = [pas_au, Condition("Grappes en manuel", not coeur.etat.auto),
+                 _plage(valeur, 0.0, coeur.cfg.grappes.pas_max, "pas")]
+        if valeur is not None and valeur > coeur.etat.z_pas:
+            conds += blocages
+        return conds
+    if action == "extraire_arret":
+        return [pas_au, Condition("Groupes d'arrêt insérés", coeur.etat.arret_insere > 0.0)] + blocages
     return []
 
 
@@ -130,9 +159,35 @@ def conditions_rpr(c: Centrale, action: str) -> list[Condition]:
         return [Condition("AU présent", e.au),
                 Condition("Aucune cause d'AU présente" + (f" (présentes : {', '.join(causes)})" if causes else ""),
                           not causes)]
+    if action == "bloquer_flux_bas":
+        return [Condition("AU flux seuil bas non bloqué", not e.flux_bas_bloque),
+                Condition(f"P-10 présent (puissance > {c.cfg.logique.p10_puissance_pct:g} %)", e.p10)]
+    if action == "debloquer_flux_bas":
+        return [Condition("AU flux seuil bas bloqué", e.flux_bas_bloque)]
     if action == "rearmer_isolement_are":
         return [Condition("Isolement ARE complet présent", e.isolement_are_complet),
                 Condition("P-14 disparu (niveaux GV < seuil très haut)", not e.p14)]
+    return []
+
+
+def conditions_gct(c: Centrale, g: Contournement, action: str, valeur: float | None) -> list[Condition]:
+    if action == "consigne":
+        return [_plage(valeur, c.cfg.condenseur.p_incondensables_bar, max(c.cfg.vapeur.soupapes.tarages_bar), "bar")]
+    if action == "mode_tmoy":
+        return [Condition("Contournement en mode pression", g.etat.mode != "tmoy")]
+    if action == "mode_pression":
+        return [Condition("Contournement en mode Tmoy", g.etat.mode != "pression")]
+    if action == "rearmer_c7":
+        return [Condition("C-7 armé", g.etat.c7)]
+    return []
+
+
+def conditions_chaufferettes(c: Centrale, ch: GroupeChaufferettes, action: str,
+                             valeur: float | None) -> list[Condition]:
+    if action == "puissance":
+        return [Condition("Chaufferettes en manuel", not ch.etat.auto), _plage(valeur, 0.0, POURCENT, "%"),
+                Condition("Pas de coupure automatique" + (f" ({ch.etat.coupe})" if ch.etat.coupe else ""),
+                          not ch.etat.coupe)]
     return []
 
 
@@ -144,12 +199,14 @@ def conditions(c: Centrale, obj: Composant, action: str, valeur: float | None) -
         return conditions_vanne(c, obj, action, valeur)
     if obj is c.turbine:
         return conditions_turbine(c, action, valeur)
-    if obj is c.source:
-        return conditions_source(c, action, valeur)
+    if isinstance(obj, Coeur):
+        return conditions_grappes(c, obj, action, valeur)
     if obj is c.logique:
         return conditions_rpr(c, action)
+    if isinstance(obj, Contournement):
+        return conditions_gct(c, obj, action, valeur)
+    if isinstance(obj, GroupeChaufferettes):
+        return conditions_chaufferettes(c, obj, action, valeur)
     if isinstance(obj, ConsigneReglable):
         return [_plage(valeur, obj.mini, obj.maxi, obj.unite)]
-    if isinstance(obj, Contournement):
-        return [_plage(valeur, c.cfg.condenseur.p_incondensables_bar, max(c.cfg.vapeur.soupapes.tarages_bar), "bar")]
     return []

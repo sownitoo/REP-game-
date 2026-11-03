@@ -1,4 +1,5 @@
-"""Régulations V0 (§4.15) : niveau GV 3 éléments, ΔP des APP, VDA, contournement, puits.
+"""Régulations (§4.15) : pression et niveau PZR, niveau GV 3 éléments, ΔP des APP, VDA,
+contournement, puits, ASG. (Les grappes sont pilotées dans sim/core_model/coeur.py.)
 
 Elles calculent les demandes « auto » des actionneurs ; un actionneur en manuel
 ou sous ordre automatique ne les suit pas.
@@ -7,7 +8,7 @@ ou sous ordre automatique ne les suit pas.
 from __future__ import annotations
 
 import math
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
 from sim.components.base import Composant
@@ -48,8 +49,14 @@ class ConsigneReglable(Composant):
         return d
 
 
+@dataclass
+class EtatRegulations:
+    chaufferettes_tor: bool       # groupes tout-ou-rien enclenchés (hystérésis)
+    porv_auto: bool               # ouverture automatique des PORV (hystérésis)
+
+
 class Regulations:
-    """Ensemble des régulations automatiques du secondaire."""
+    """Ensemble des régulations automatiques."""
 
     def __init__(self, cfg: RegulationsCfg, c: Centrale) -> None:
         self.cfg = cfg
@@ -66,9 +73,20 @@ class Regulations:
         self.reg_vda = ConsigneReglable("REG_VDA", "VVP", cfg.vda.consigne_bar, 0.0,
                                         max(c.cfg.vapeur.soupapes.tarages_bar), "bar")
         self.reg_puits = ConsigneReglable("REG_PUITS", "CEX", cfg.puits.consigne_pct, 0.0, POURCENT, "%")
+        pp = cfg.pression_pzr
+        self.reg_p_pzr = ConsigneReglable("REG_P_PZR", "RCP", pp.consigne_bar, 0.0,
+                                          c.cfg.logique.au.p_pzr_haute_bar, "bar")
+        self.pi_p_pzr = RegulateurPI("PI_P_PZR", 1.0, pp.ti_s, -pp.aspersion_pleine_bar, pp.aspersion_pleine_bar, 0.0)
+        self.qm_charge_max_kg_s = c.debit_rcv_kg_s(c.cfg.rcv_v1.charge_max_m3h)
+        self.pi_niveau_pzr = RegulateurPI("PI_NIV_PZR", cfg.niveau_pzr.kp_kg_s_par_pct, cfg.niveau_pzr.ti_s,
+                                          0.0, self.qm_charge_max_kg_s, 0.0)
+        na = cfg.niveau_asg
+        self.pi_asg = [RegulateurPI(f"PI_ASG{b}", na.kp_par_pct, na.ti_s, 0.0, 1.0, 1.0) for b in c.boucles]
+        self.etat = EtatRegulations(chaufferettes_tor=False, porv_auto=False)
 
     def tous_les_pi(self) -> list[RegulateurPI]:
-        return self.pi_niveau + self.pi_debit + [self.pi_dp_app, self.pi_puits]
+        return (self.pi_niveau + self.pi_debit + self.pi_asg
+                + [self.pi_dp_app, self.pi_puits, self.pi_p_pzr, self.pi_niveau_pzr])
 
     # ------------------------------------------------------------------ calcul
     def calculer(self, dt: float) -> None:
@@ -79,10 +97,49 @@ class Regulations:
         for i, gv in enumerate(c.gvs):
             d = (gv.p_bar - self.reg_vda.valeur) / self.cfg.vda.bande_bar
             c.vapeur.vda[i].etat.demande_auto = min(max(d, 0.0), 1.0)
-        c.gct.calculer(c.vapeur.etat.p_collecteur_bar)
+        c.gct.calculer(c.vapeur.etat.p_collecteur_bar, c.primaire.tmoy_c, c.tref_c())
         u = self.pi_puits.calculer(self.reg_puits.valeur - c.condenseur.niveau_puits_pct(), dt)
         c.vannes["PUITS_APPOINT"].etat.demande_auto = max(u, 0.0)
         c.vannes["PUITS_REJET"].etat.demande_auto = max(-u, 0.0)
+        self._pression_pzr(dt)
+        self._niveau_pzr(dt)
+        self._asg(dt)
+
+    def _pression_pzr(self, dt: float) -> None:
+        """Régulateur maître PI (sortie en bar équivalents) → chaufferettes, aspersion, PORV."""
+        c, pp, e = self.c, self.cfg.pression_pzr, self.etat
+        p = c.pzr.capteur_p.mediane
+        u = self.pi_p_pzr.calculer(p - self.reg_p_pzr.valeur, dt)
+        prop = (pp.proportionnelles_nulles_bar - u) / (pp.proportionnelles_nulles_bar - pp.proportionnelles_pleines_bar)
+        c.pzr.chauffe_prop.etat.demande_auto = min(max(prop, 0.0), 1.0)
+        if u < pp.tor_marche_bar:
+            e.chaufferettes_tor = True
+        elif u > pp.tor_arret_bar:
+            e.chaufferettes_tor = False
+        c.pzr.chauffe_tor.etat.demande_auto = float(e.chaufferettes_tor)
+        asp = (u - pp.aspersion_debut_bar) / (pp.aspersion_pleine_bar - pp.aspersion_debut_bar)
+        for v in c.pzr.aspersion:
+            v.etat.demande_auto = min(max(asp, 0.0), 1.0)
+        if p > pp.porv_ouverture_bar:
+            e.porv_auto = True
+        elif p < pp.porv_fermeture_bar:
+            e.porv_auto = False
+        for v in c.pzr.porv:
+            v.etat.demande_auto = float(e.porv_auto)
+
+    def _niveau_pzr(self, dt: float) -> None:
+        """Débit de charge = débit de décharge (anticipation) + PI sur l'écart au programme de niveau."""
+        c = self.c
+        consigne = c.pzr.niveau_programme_pct(c.primaire.tmoy_c)
+        qm = self.pi_niveau_pzr.calculer(consigne - c.pzr.capteur_niveau.mediane, dt,
+                                         anticipation=c.qm_decharge_kg_s())
+        c.vannes["RCV_CHARGE"].etat.demande_auto = qm / self.qm_charge_max_kg_s
+
+    def _asg(self, dt: float) -> None:
+        """Vannes ASG : PI sur le niveau GV (consigne sous celle de l'ARE)."""
+        c, na = self.c, self.cfg.niveau_asg
+        for i, gv in enumerate(c.gvs):
+            c.asg.vannes[i].etat.demande_auto = self.pi_asg[i].calculer(na.consigne_pct - gv.capteur.mediane, dt)
 
     def _niveau_gv(self, dt: float, charge: float) -> None:
         """3 éléments : le niveau corrige un débit de consigne = débit vapeur ± correction ;
@@ -122,8 +179,11 @@ class Regulations:
 
     # ------------------------------------------------------------------ sauvegarde
     def exporter_etat(self) -> dict[str, Any]:
-        return {pi.id: asdict(pi.etat) for pi in self.tous_les_pi()}
+        d: dict[str, Any] = {pi.id: asdict(pi.etat) for pi in self.tous_les_pi()}
+        d["_etat"] = asdict(self.etat)
+        return d
 
     def importer_etat(self, donnees: dict[str, Any]) -> None:
         for pi in self.tous_les_pi():
             pi.etat = EtatPI(**donnees[pi.id])
+        self.etat = EtatRegulations(**donnees["_etat"])

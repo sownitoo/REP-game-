@@ -51,21 +51,30 @@ class EtatAlarme:
     t_apparition_s: float
 
 
+@dataclass
+class Temporisation:
+    depuis_s: float               # instant où la condition a changé d'état (confirmation en cours)
+    condition: bool
+
+
 class GestionAlarmes:
     """Alarmes à seuil définies dans plant.yaml (haut et/ou bas, avec hystérésis)."""
 
-    def __init__(self, definitions: list[AlarmeCfg], hysteresis_pct: float) -> None:
+    def __init__(self, definitions: list[AlarmeCfg], hysteresis_pct: float, temporisation_s: float) -> None:
         self.definitions = definitions
         self.hysteresis = hysteresis_pct / POURCENT
+        self.temporisation_s = temporisation_s
         self.etats: dict[str, EtatAlarme] = {}
+        self._tempo: dict[str, Temporisation] = {}
 
     def _depasse(self, d: AlarmeCfg, valeur: float, active: bool) -> bool:
+        """Seuil franchi ? Une alarme active ne disparaît qu'après un retour au-delà de l'hystérésis."""
         if d.haut is not None:
-            seuil = d.haut * (1.0 - self.hysteresis) if active else d.haut
+            seuil = d.haut - abs(d.haut) * self.hysteresis if active else d.haut
             if valeur > seuil:
                 return True
         if d.bas is not None:
-            seuil = d.bas * (1.0 + self.hysteresis) if active else d.bas
+            seuil = d.bas + abs(d.bas) * self.hysteresis if active else d.bas
             if valeur < seuil:
                 return True
         return False
@@ -77,7 +86,19 @@ class GestionAlarmes:
                 continue
             etat = self.etats.get(d.id)
             active = etat is not None and etat.active
-            if self._depasse(d, valeur, active):
+            condition = self._depasse(d, valeur, active)
+            # temporisation : le changement doit durer pour être pris en compte (anti-papillotement)
+            tempo = self._tempo.get(d.id)
+            if condition == active:
+                self._tempo.pop(d.id, None)
+                continue
+            if tempo is None or tempo.condition != condition:
+                tempo = self._tempo[d.id] = Temporisation(depuis_s=t_s, condition=condition)
+            delai = self.temporisation_s if d.temporisation_s is None else d.temporisation_s
+            if t_s - tempo.depuis_s < delai:
+                continue
+            self._tempo.pop(d.id, None)
+            if condition:
                 if not active:
                     self.etats[d.id] = EtatAlarme(active=True, acquittee=False, t_apparition_s=t_s)
                     journal.ajouter(t_s, "alarme", f"↑ {d.libelle}", d.priorite)
@@ -110,3 +131,4 @@ class GestionAlarmes:
 
     def importer(self, donnees: dict[str, Any]) -> None:
         self.etats = {k: EtatAlarme(**v) for k, v in donnees.items()}
+        self._tempo = {}

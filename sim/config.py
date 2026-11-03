@@ -8,13 +8,13 @@
 from __future__ import annotations
 
 import copy
+import json
 import types
 import typing
 from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
 
 RACINE = Path(__file__).resolve().parent.parent
 CHEMIN_CONFIG = RACINE / "config" / "plant.yaml"
@@ -80,18 +80,22 @@ class NumeriqueCfg:
     table_p_max_bar: float
     table_nb_points: int
     table_t_pas_c: float
+    table_p_liquide_bar: float
     flash: FlashCfg
     reseau: ReseauNumCfg
     collecteur: CollecteurNumCfg
     alarmes_hysteresis_pct: float
+    alarmes_temporisation_s: float
     iterations_initialisation: int
     duree_stabilisation_s: float
 
 
 @dataclass
 class PointNominalCfg:
-    p_source_mw: float
+    p_coeur_mw: float
     tmoy_c: float
+    p_primaire_bar: float
+    niveau_pzr_pct: float
     p_gv_bar: float
     niveau_gv_pct: float
     qm_vapeur_kg_s: float
@@ -101,29 +105,138 @@ class PointNominalCfg:
 
 @dataclass
 class ResiduelleCfg:
-    a: float
-    b: float
-    t_fonctionnement_s: float
+    fractions: list[float]
+    constantes_s: list[float]
+
+
+@dataclass
+class CombustibleCfg:
+    t_nom_c: float
+    capacite_mj_c: float
+
+
+@dataclass
+class RegulationTmoyCfg:
+    tref_programme_c: Table
+    bande_morte_c: float
+    ecart_plein_c: float
+    vitesse_min_pas_min: float
+    vitesse_max_pas_min: float
+    desequilibre_gain_c_par_pct: float
+    desequilibre_constante_s: float
+
+
+@dataclass
+class GrappesCfg:
+    pas_max: float
+    regulation_pcm: float
+    arret_pcm: float
+    position_nom_pas: float
+    temps_chute_s: float
+    vitesse_manu_pas_min: float
+    vitesse_arret_pas_min: float
+    regulation_tmoy: RegulationTmoyCfg
 
 
 @dataclass
 class CoeurCfg:
+    p_nom_mw: float
     beta_pcm: float
     lambda_s: float
-    rho_au_pcm: float
+    rho_max_fraction_beta: float
+    source_neutrons: float
+    alpha_mod_pcm_c: float
+    alpha_doppler_pcm_c: float
+    alpha_bore_pcm_ppm: float
+    bore_ppm: float
+    t_mod_ref_c: float
+    combustible: CombustibleCfg
     residuelle: ResiduelleCfg
+    grappes: GrappesCfg
 
 
 @dataclass
-class SourceV0Cfg:
-    p_nom_mw: float
-    capacite_thermique_mj_c: float
-    tref_programme_c: Table
-    mode_initial: str
-    kp_mw_c: float
-    ti_s: float
-    vitesse_max_pct_min: float
-    p_max_pct: float
+class NoeudsPrimairesCfg:
+    descente: float
+    coeur: float
+    plenum: float
+    branche_chaude: float
+    gv: float
+    branche_froide: float
+
+
+@dataclass
+class PrimaireCfg:
+    volumes_m3: NoeudsPrimairesCfg
+    capacites_metal_mj_c: NoeudsPrimairesCfg
+    hauteur_thermique_m: float
+    boucle_expansion: int
+    boucles_aspersion: list[int]
+    boucle_charge: int
+    boucle_decharge: int
+    gv_ua_mw_c: float
+    gv_exposant_debit: float
+    gv_fraction_ua_min: float
+    chaleur_pompe_mw: float
+    debit_nom_boucle_kg_s: float
+    p_min_demarrage_pompe_bar: float
+    soulevement_huile_s: float
+
+
+@dataclass
+class AspersionCfg:
+    debit_vanne_m3h: float
+    debit_permanent_m3h: float
+
+
+@dataclass
+class PorvCfg:
+    capacite_kg_s: float
+    p_ref_bar: float
+
+
+@dataclass
+class SoupapesPzrCfg:
+    tarages_bar: list[float]
+    capacite_kg_s: float
+    fermeture_pct: float
+
+
+@dataclass
+class ChaufferettesCfg:
+    proportionnelles_kw: float
+    tor_kw: float
+
+
+@dataclass
+class PressuriseurCfg:
+    volume_m3: float
+    programme_niveau_pct: Table
+    niveau_bas_pct: float
+    pertes_thermiques_kw: float
+    chaufferettes: ChaufferettesCfg
+    gamme_pression_bar: float
+    aspersion: AspersionCfg
+    porv: PorvCfg
+    soupapes: SoupapesPzrCfg
+    voies_pression: int
+    voies_niveau: int
+    retard_mesure_s: float
+
+
+@dataclass
+class RcvV1Cfg:
+    decharge_m3h: float
+    charge_max_m3h: float
+    t_vct_c: float
+    t_charge_c: float
+
+
+@dataclass
+class AsgCfg:
+    prises_vapeur_tps: list[int]
+    p_vapeur_min_bar: float
+    vapeur_tps_kg_s: float
 
 
 @dataclass
@@ -148,7 +261,6 @@ class SeuilsGVCfg:
 @dataclass
 class GVCfg:
     boucles: list[int]
-    ua_mw_c: float
     masse_assechement_t: float
     v_secondaire_m3: float
     debit_vapeur_nom_kg_s: float
@@ -192,6 +304,7 @@ class RegulationChargeCfg:
     echelon_max_pct: float
     kp: float
     ti_s: float
+    runback_pct_min: float
 
 
 @dataclass
@@ -216,6 +329,7 @@ class TurbineCfg:
     part_travail_soutirage: float
     rendement_alternateur: float
     p_elec_nom_mw: float
+    consigne_max_pct: float
     vitesse_nom_tr_min: float
     constante_inertie_s: float
     puissance_apparente_mva: float
@@ -236,12 +350,36 @@ class RegulationGctCfg:
 
 
 @dataclass
+class GctTmoyCfg:
+    t_vide_c: float
+    bande_morte_c: float
+    bande_perte_charge_c: float
+    bande_declenchement_c: float
+
+
+@dataclass
+class C7Cfg:
+    echelon_pct: float
+    constante_s: float
+
+
+@dataclass
+class P12GctCfg:
+    tmoy_c: float
+    groupes_autorises: int
+
+
+@dataclass
 class GctCfg:
     groupes: int
     capacite_groupe_kg_s: float
     p_ref_bar: float
     temps_course_s: float
     regulation: RegulationGctCfg
+    mode_initial: str
+    tmoy: GctTmoyCfg
+    c7: C7Cfg
+    p12: P12GctCfg
 
 
 @dataclass
@@ -308,6 +446,7 @@ class PompeCfg:
     vitesse_variable: bool = False
     vitesse_min: float | None = None
     vitesse_max: float | None = None
+    hauteur_rotor_bloque_m: float | None = None   # antidévireur : résistance au débit inverse (au débit nominal)
 
 
 @dataclass
@@ -406,12 +545,42 @@ class RegRecircCfg:
 
 
 @dataclass
+class RegPressionPzrCfg:
+    consigne_bar: float
+    ti_s: float
+    proportionnelles_pleines_bar: float
+    proportionnelles_nulles_bar: float
+    tor_marche_bar: float
+    tor_arret_bar: float
+    aspersion_debut_bar: float
+    aspersion_pleine_bar: float
+    porv_ouverture_bar: float
+    porv_fermeture_bar: float
+
+
+@dataclass
+class RegNiveauPzrCfg:
+    kp_kg_s_par_pct: float
+    ti_s: float
+
+
+@dataclass
+class RegNiveauAsgCfg:
+    consigne_pct: float
+    kp_par_pct: float
+    ti_s: float
+
+
+@dataclass
 class RegulationsCfg:
     niveau_gv: RegNiveauGVCfg
     dp_app: RegDpAppCfg
     vda: RegVdaCfg
     puits: RegPuitsCfg
     cex_recirculation: RegRecircCfg
+    pression_pzr: RegPressionPzrCfg
+    niveau_pzr: RegNiveauPzrCfg
+    niveau_asg: RegNiveauAsgCfg
 
 
 # ----------------------------------------------------------------- logique
@@ -457,8 +626,66 @@ class OuvertureVivCfg:
 
 
 @dataclass
+class VotesAuCfg:
+    flux: str
+    dt: str
+    p_pzr: str
+    niveau_pzr: str
+    debit: str
+    pompes: str
+
+
+@dataclass
+class AuCfg:
+    flux_haut_pct: float
+    flux_bas_pct: float
+    variation_flux_pct: float
+    variation_flux_constante_s: float
+    p_pzr_basse_bar: float
+    p_pzr_haute_bar: float
+    niveau_pzr_haut_pct: float
+    debit_bas_pct: float
+    ecart_vapeur_eau_pct: float
+    niveau_gv_bas_pct: float
+    votes: VotesAuCfg
+
+
+@dataclass
+class OtdtCfg:
+    k1: float
+    k2_par_c: float
+    k3_par_bar: float
+    tau1_s: float
+    tau2_s: float
+    t_ref_c: float
+    p_ref_bar: float
+    dt0_c: float
+    prealarme_pct: float
+
+
+@dataclass
+class OpdtCfg:
+    k4: float
+    k5_par_c: float
+    tau3_s: float
+    k6_par_c: float
+    t_ref_c: float
+    prealarme_pct: float
+
+
+@dataclass
 class LogiqueCfg:
     p7: P7Cfg
+    p8_puissance_pct: float
+    p9_puissance_pct: float
+    p10_puissance_pct: float
+    p12_tmoy_c: float
+    c2_puissance_pct: float
+    c5_charge_pct: float
+    c11_pas: float
+    au: AuCfg
+    otdt: OtdtCfg
+    opdt: OpdtCfg
     c9: C9Cfg
     isolement_are_au: IsolAreAuCfg
     declenchement_app: DeclAppCfg
@@ -475,6 +702,7 @@ class AlarmeCfg:
     libelle: str
     haut: float | None = None
     bas: float | None = None
+    temporisation_s: float | None = None    # None = valeur globale (numerique.alarmes_temporisation_s)
 
 
 @dataclass
@@ -484,7 +712,10 @@ class CentraleCfg:
     numerique: NumeriqueCfg
     point_nominal: PointNominalCfg
     coeur: CoeurCfg
-    source_v0: SourceV0Cfg
+    primaire: PrimaireCfg
+    pressuriseur: PressuriseurCfg
+    rcv_v1: RcvV1Cfg
+    asg: AsgCfg
     generateurs_vapeur: GVCfg
     vapeur: VapeurCfg
     turbine: TurbineCfg
@@ -650,10 +881,19 @@ def _verifier_references(cfg: CentraleCfg) -> None:
             raise ErreurConfig(f"poste_eau.reprise : composant inconnu « {rep} »")
 
 
+def lire_yaml_ou_json(chemin: Path) -> Any:
+    """Lit un fichier YAML ; sans PyYAML (navigateur), lit sa version JSON pré-convertie."""
+    try:
+        import yaml
+    except ImportError:
+        return json.loads(chemin.with_suffix(".json").read_text(encoding="utf-8"))
+    with open(chemin, encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
 def charger_config(chemin: Path = CHEMIN_CONFIG) -> CentraleCfg:
     """Lit, développe et valide config/plant.yaml."""
-    with open(chemin, encoding="utf-8") as f:
-        brut = yaml.safe_load(f)
+    brut = lire_yaml_ou_json(chemin)
     boucles = brut["generateurs_vapeur"]["boucles"]
     gabarits = brut.pop("gabarits", {})
     brut = developper_boucles(brut, boucles)

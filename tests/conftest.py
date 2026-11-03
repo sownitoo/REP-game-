@@ -18,7 +18,8 @@ def cfg() -> CentraleCfg:
 @pytest.fixture(scope="session")
 def table(cfg: CentraleCfg) -> TableEau:
     n = cfg.numerique
-    return obtenir_table(n.table_p_min_bar, n.table_p_max_bar, n.table_nb_points, n.table_t_pas_c)
+    return obtenir_table(n.table_p_min_bar, n.table_p_max_bar, n.table_nb_points, n.table_t_pas_c,
+                                   n.table_p_liquide_bar)
 
 
 @pytest.fixture

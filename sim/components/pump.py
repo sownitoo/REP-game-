@@ -82,6 +82,13 @@ class Pompe(Composant):
         s = self.etat.vitesse
         return hauteur_vers_bar(h0 * s * s, rho_kg_m3), hauteur_vers_bar(self.k_m_m3h2, rho_kg_m3)
 
+    def r_inverse_bar(self, rho_kg_m3: float) -> float:
+        """Antidévireur : rotor bloqué contre la rotation inverse → forte résistance au débit inverse
+        (bar/(m³/h)²). Nulle si la pompe n'en a pas."""
+        if self.cfg.hauteur_rotor_bloque_m is None:
+            return 0.0
+        return hauteur_vers_bar(self.cfg.hauteur_rotor_bloque_m, rho_kg_m3) / self.cfg.q_nom_m3h ** 2
+
     def debit_libre_m3h(self) -> float:
         """Débit d'une pompe sans réseau (CRF, reprise) : proportionnel à la vitesse."""
         return self.cfg.q_nom_m3h * self.etat.vitesse

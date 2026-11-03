@@ -1,14 +1,13 @@
-"""Assemblage de la centrale V0 et boucle de calcul d'un pas de temps (§2.3).
+"""Assemblage de la centrale et boucle de calcul d'un pas de temps (§2.3).
 
 Ordre d'un pas :
   1. commandes joueur (appliquées dès réception, entre deux pas)
-  2. électricité (V0 : stub, tout est sous tension)
+  2. électricité (V1 : stub, tout est sous tension — V3)
   3. logique : capteurs → permissifs → AU → automatismes
-  4. régulations → demandes des actionneurs, puis mouvement des actionneurs
-  5. hydraulique : collecteur vapeur, réseau d'eau alimentaire
-  6. thermique : GV, turbine, condenseur, bâches, réchauffeurs
-  7. source de chaleur (cœur en V1)
-  8. mesures, alarmes, historique
+  4. régulations → demandes des actionneurs, puis mouvement des actionneurs et des grappes
+  5. hydraulique : primaire, collecteur vapeur, eau alimentaire, ASG
+  6. thermique : cœur, primaire, pressuriseur, GV, turbine, condenseur, bâches, réchauffeurs
+  7. mesures, alarmes, historique
 """
 
 from __future__ import annotations
@@ -23,20 +22,23 @@ from sim.components.valve import Clapet, Resistance, Vanne
 from sim.config import (CentraleCfg, ClapetCfg, PompeCfg, ResistanceCfg, VanneCfg, charger_config)
 from sim.core.events import PRIORITE_HAUTE, PRIORITE_INFO, GestionAlarmes, Journal
 from sim.core.history import Historique
+from sim.core_model.coeur import Coeur
 from sim.logic import interlocks
 from sim.logic.protection import Logique
 from sim.logic.regulations import Regulations
+from sim.systems.asg import ASG
 from sim.systems.condenseur import Condenseur
 from sim.systems.gct import Contournement
 from sim.systems.gv import GenerateurVapeur
 from sim.systems.poste_eau import PosteEau
-from sim.systems.source_v0 import SourceV0
+from sim.systems.pzr import Pressuriseur
+from sim.systems.rcp import COEUR, DESCENTE, CircuitPrimaire, bc, bf, gvp
 from sim.systems.turbine import Turbine
 from sim.systems.vvp import Vapeur
 from sim.thermo.tables import obtenir_table
-from sim.units import KG_PAR_T, KW_PAR_MW, POURCENT, interp_table
+from sim.units import KG_PAR_T, KW_PAR_MW, POURCENT, S_PAR_H, interp_table
 
-VERSION_SAUVEGARDE = 1
+VERSION_SAUVEGARDE = 2
 
 
 @dataclass
@@ -48,21 +50,24 @@ class Reponse:
 
 
 class Centrale:
-    """Centrale V0 : boucle secondaire chauffée par une source imposée."""
+    """Centrale V1 : primaire 4 boucles + pressuriseur + cœur boîte noire, secondaire complet, ASG."""
 
     def __init__(self, cfg: CentraleCfg | None = None) -> None:
         self.cfg = cfg = cfg or charger_config()
         n = cfg.numerique
-        self.table = obtenir_table(n.table_p_min_bar, n.table_p_max_bar, n.table_nb_points, n.table_t_pas_c)
+        self.table = obtenir_table(n.table_p_min_bar, n.table_p_max_bar, n.table_nb_points, n.table_t_pas_c,
+                                   n.table_p_liquide_bar)
         self.boucles = cfg.generateurs_vapeur.boucles
         self.dt_s = cfg.simulation.dt_s
         self.t_s = 0.0
         self.inhiber_protections = False    # utilisé seulement pour stabiliser l'état initial
         self.journal = Journal(cfg.simulation.journal_max)
-        self.alarmes = GestionAlarmes(cfg.alarmes, n.alarmes_hysteresis_pct)
+        self.alarmes = GestionAlarmes(cfg.alarmes, n.alarmes_hysteresis_pct, n.alarmes_temporisation_s)
         self.historique = Historique(cfg.simulation.historique_duree_s, cfg.simulation.historique_pas_s,
                                      cfg.simulation.dt_s)
         self.mesures: dict[str, float] = {}
+        self._qm_turbine = 0.0
+        self._qm_gct = 0.0
 
         # --- composants génériques ---
         self.composants: dict[str, Composant] = {}
@@ -77,32 +82,37 @@ class Centrale:
                 self.composants[rep] = Resistance(rep, cc)
         self.pompes = {k: v for k, v in self.composants.items() if isinstance(v, Pompe)}
         self.vannes = {k: v for k, v in self.composants.items() if isinstance(v, Vanne)}
-        self.apps = [p for k, p in self.pompes.items() if p.cfg.systeme == "APP" and p.cfg.vitesse_variable]
+        self.apps = [p for p in self.pompes.values() if p.cfg.systeme == "APP" and p.cfg.vitesse_variable]
         self.cexs = [p for p in self.pompes.values() if p.cfg.systeme == "CEX"]
         self.crfs = [p for p in self.pompes.values() if p.cfg.systeme == "CRF"]
 
         # --- systèmes ---
         nom = cfg.point_nominal
-        self.source = SourceV0(cfg.source_v0, cfg.coeur, nom, self.dt_s)
+        p_atm = cfg.simulation.p_atm_bar
+        self.coeur = Coeur(cfg.coeur)
+        self.primaire = CircuitPrimaire(cfg.primaire, cfg.reseaux["primaire"], self.composants, n, self.table,
+                                        self.boucles, nom.tmoy_c)
+        self.pzr = Pressuriseur(cfg.pressuriseur, self.composants, self.table, n.flash, cfg.primaire.boucles_aspersion)
         self.gvs = [GenerateurVapeur(b, cfg.generateurs_vapeur, self.table, n.flash) for b in self.boucles]
         self.vapeur = Vapeur(cfg.vapeur, self.boucles, self.composants, self.table, n.collecteur)
         self.turbine = Turbine(cfg.turbine, self.table)
-        self.gct = Contournement(cfg.gct_c, self.composants)
-        self.condenseur = Condenseur(cfg.condenseur, cfg.puits, cfg.cst, self.crfs, self.table,
-                                     cfg.condenseur.t_mer_c)
+        self.gct = Contournement(cfg.gct_c, self.composants, POURCENT)
+        self.condenseur = Condenseur(cfg.condenseur, cfg.puits, cfg.cst, self.crfs, self.table, cfg.condenseur.t_mer_c)
         debit_purges_nom = cfg.turbine.fraction_soutirage * cfg.turbine.debit_nom_kg_s
         self.poste_eau = PosteEau(cfg.poste_eau, cfg.reseaux["eau_alimentaire"], self.composants, n,
-                                  self.table, debit_purges_nom, cfg.condenseur.t_mer_c,
-                                  cfg.simulation.p_atm_bar)
+                                  self.table, debit_purges_nom, cfg.condenseur.t_mer_c, p_atm)
+        self.asg = ASG(cfg.asg, cfg.reseaux["asg"], self.composants, n, self.table, self.boucles, cfg.cst.t_c, p_atm)
         self.logique = Logique(self)
         self.regulations = Regulations(cfg.regulations, self)
 
         # --- objets manœuvrables par le joueur ---
+        r = self.regulations
         self.commandables: dict[str, Composant] = {
             **self.pompes, **self.vannes,
-            self.turbine.id: self.turbine, self.source.id: self.source, self.logique.id: self.logique,
-            self.gct.id: self.gct, self.regulations.reg_vda.id: self.regulations.reg_vda,
-            self.regulations.reg_puits.id: self.regulations.reg_puits,
+            self.turbine.id: self.turbine, self.coeur.id: self.coeur, self.logique.id: self.logique,
+            self.gct.id: self.gct, r.reg_vda.id: r.reg_vda, r.reg_puits.id: r.reg_puits,
+            r.reg_p_pzr.id: r.reg_p_pzr, self.pzr.chauffe_prop.id: self.pzr.chauffe_prop,
+            self.pzr.chauffe_tor.id: self.pzr.chauffe_tor,
         }
         self.initialiser_100pct()
 
@@ -111,53 +121,110 @@ class Centrale:
         return self.gvs[self.boucles.index(b)]
 
     def sources(self, composant: Composant) -> Sources:
-        """Électricité et air disponibles pour ce composant (V0 : toujours disponibles)."""
+        """Électricité et air disponibles pour ce composant (V1 : toujours disponibles, cf. V3)."""
         return Sources()
 
+    def debit_rcv_kg_s(self, q_m3h: float) -> float:
+        """Débit RCV (m³/h mesurés à la température de la VCT) → kg/s."""
+        return q_m3h * self.table.rho_liq_kg_m3(self.cfg.rcv_v1.t_vct_c) / S_PAR_H
+
+    def qm_charge_kg_s(self) -> float:
+        return self.vannes["RCV_CHARGE"].etat.position * self.debit_rcv_kg_s(self.cfg.rcv_v1.charge_max_m3h)
+
+    def qm_decharge_kg_s(self) -> float:
+        return self.vannes["RCV_DECHARGE"].etat.position * self.debit_rcv_kg_s(self.cfg.rcv_v1.decharge_m3h)
+
+    def tref_c(self) -> float:
+        """Température de référence (programme Tmoy en fonction de la charge turbine)."""
+        return interp_table(self.cfg.coeur.grappes.regulation_tmoy.tref_programme_c, self.turbine.charge_pct)
+
+    def voies_flux_pct(self) -> list[float]:
+        """Chaînes de puissance (4 voies identiques en V1 : pas de panne de capteur)."""
+        return [self.coeur.puissance_pct] * int(self.cfg.logique.au.votes.flux.split("/")[1])
+
     # ================================================================== initialisation
+    def _temperatures_nominales(self) -> tuple[float, float, float]:
+        """(T branche froide, T branche chaude, T sortie GV) telles que Tmoy = nominale au point 100 %."""
+        cfg, tab = self.cfg, self.table
+        nb = len(self.boucles)
+        q_coeur = cfg.coeur.p_nom_mw * KW_PAR_MW / nb
+        q_pompe = cfg.primaire.chaleur_pompe_mw * KW_PAR_MW
+        w = sum(self.primaire.etat.w_boucles_kg_s) / nb
+        bas, haut = tab.t_min_c, cfg.point_nominal.tmoy_c
+        t_bf = t_bc = t_gv = haut
+        for _ in range(cfg.numerique.flash.iterations_max):
+            t_bf = 0.5 * (bas + haut)
+            t_bc = tab.t_primaire_c(tab.h_primaire_kj_kg(t_bf) + q_coeur / w)
+            t_gv = tab.t_primaire_c(tab.h_primaire_kj_kg(t_bc) - (q_coeur + q_pompe) / w)
+            if 0.5 * (t_bc + t_bf) > cfg.point_nominal.tmoy_c:
+                haut = t_bf
+            else:
+                bas = t_bf
+        return t_bf, t_bc, t_gv
+
     def initialiser_100pct(self) -> None:
         """État approché du point nominal 100 % (à stabiliser ensuite, cf. sim.tools.etat_initial)."""
         cfg, nom = self.cfg, self.cfg.point_nominal
         self.t_s = 0.0
+        # primaire : pompes en marche, débits, températures nominales
+        for p in self.primaire.pompes + self.primaire.huile:
+            p.demarrer()
+            p.etat.vitesse = 1.0
+        self.primaire.etat.huile_s = [cfg.primaire.soulevement_huile_s] * len(self.boucles)
+        self.primaire.reseau.fixer_frontiere("PLENUM", nom.p_primaire_bar)
+        t = self.primaire.etat.t_c
+        for _ in range(cfg.numerique.iterations_initialisation):     # débits ↔ températures
+            self.primaire.resoudre_hydraulique()
+            t_bf, t_bc, t_gv = self._temperatures_nominales()
+            t.update({DESCENTE: t_bf, COEUR: t_bc, "PLENUM": t_bc})
+            for b in self.boucles:
+                t.update({bc(b): t_bc, gvp(b): t_gv, bf(b): t_bf})
+        self.primaire.etat.masse_liquide_kg = self.primaire.masse_liquide_kg()
+        self.pzr.initialiser(nom.p_primaire_bar, nom.niveau_pzr_pct)
+        self.vannes["PZR_ISOL1"].etat.position = self.vannes["PZR_ISOL1"].etat.demande_manu = 1.0
+        self.vannes["PZR_ISOL2"].etat.position = self.vannes["PZR_ISOL2"].etat.demande_manu = 1.0
+        dech = self.vannes["RCV_DECHARGE"]
+        dech.etat.position = dech.etat.demande_manu = 1.0
+        charge = self.vannes["RCV_CHARGE"]
+        charge.etat.position = charge.etat.demande_auto = cfg.rcv_v1.decharge_m3h / cfg.rcv_v1.charge_max_m3h
+        self.regulations.pi_niveau_pzr.initialiser(self.qm_decharge_kg_s(), self.qm_decharge_kg_s())
+        for pi in self.regulations.pi_asg:
+            pi.initialiser(0.0)
+        # GV
         h_alim = self.table.h_liq_kj_kg(nom.t_alim_c)
         qm_gv = nom.qm_vapeur_kg_s / len(self.gvs)
         for gv in self.gvs:
             gv.initialiser(nom.p_gv_bar, nom.niveau_gv_pct, qm_gv, h_alim)
-        self.source.etat.tmoy_c = nom.tmoy_c
-        self.source.etat.p_kw = nom.p_source_mw * KW_PAR_MW
         self.vapeur.etat.p_collecteur_bar = nom.p_collecteur_bar
-        # pompes en service
+        # pompes du secondaire en service
         for p in self.crfs + self.cexs + self.apps + [self.pompes[r] for r in cfg.poste_eau.reprise.pompes]:
             p.demarrer()
             p.etat.vitesse = p.consigne_vitesse()
         for a in self.apps:
             a.etat.consigne_auto = a.etat.vitesse = 1.0
-        # vannes
         for b in self.boucles:
             for rep in (f"ARE{b}_ISOL", f"VIV{b}"):
                 v = self.vannes[rep]
                 v.etat.position = v.etat.demande_manu = 1.0
         # turbine couplée au nominal
-        t, tc = self.turbine.etat, cfg.turbine
-        t.declenchee, t.cause, t.couplee = False, "", True
-        t.positions_arret = [1.0] * tc.vannes_arret
-        t.y_reglage = t.demande_reglage = tc.ouverture_nom
-        t.vitesse_tr_min = t.consigne_vitesse_tr_min = t.consigne_vitesse_eff_tr_min = tc.vitesse_nom_tr_min
-        t.consigne_mw = t.consigne_eff_mw = tc.p_elec_nom_mw
-        # condenseur : température d'équilibre estimée (chaleur = source − puissance mécanique)
+        t_, tc = self.turbine.etat, cfg.turbine
+        t_.declenchee, t_.cause, t_.couplee = False, "", True
+        t_.positions_arret = [1.0] * tc.vannes_arret
+        t_.y_reglage = t_.demande_reglage = tc.ouverture_nom
+        t_.vitesse_tr_min = t_.consigne_vitesse_tr_min = t_.consigne_vitesse_eff_tr_min = tc.vitesse_nom_tr_min
+        t_.consigne_mw = t_.consigne_eff_mw = tc.p_elec_nom_mw
+        # condenseur : température d'équilibre estimée (chaleur = cœur − puissance mécanique)
         cd = cfg.condenseur
-        q_cond_kw = (nom.p_source_mw - tc.p_elec_nom_mw / tc.rendement_alternateur) * KW_PAR_MW
+        q_cond_kw = (nom.p_coeur_mw - tc.p_elec_nom_mw / tc.rendement_alternateur) * KW_PAR_MW
         mcp = self.condenseur.qm_crf_kg_s() * cd.cp_eau_mer_kj_kgk
         eff = 1.0 - math.exp(-cd.ua_mw_c * KW_PAR_MW / mcp)
         self.condenseur.etat.t_c = cd.t_mer_c + q_cond_kw / (eff * mcp)
         self.condenseur.integrer(0.0, q_cond_kw)
         self.turbine.calculer_puissance(0.0, nom.qm_vapeur_kg_s, nom.p_collecteur_bar, self.condenseur.etat.p_bar)
-        # réchauffeurs au nominal
         r = cfg.poste_eau.rechauffeurs
         self.poste_eau.etat.t_abp_c = interp_table(r.abp_sortie_c, POURCENT)
         self.poste_eau.etat.t_ahp_c = interp_table(r.ahp_sortie_c, POURCENT)
-        # quelques allers-retours régulations ↔ hydraulique pour placer vannes et pompes
-        # (dt = 0 : les régulateurs n'intègrent pas pendant ce calage)
+        # allers-retours régulations ↔ hydraulique pour placer vannes et pompes (dt = 0 : pas d'intégration)
         self.regulations.pi_dp_app.initialiser(self.apps[0].etat.vitesse)
         for _ in range(cfg.numerique.iterations_initialisation):
             self._resoudre_hydraulique()
@@ -168,6 +235,8 @@ class Centrale:
                 a.etat.vitesse = a.consigne_vitesse()
         self._resoudre_hydraulique()
         self.logique.etat.c9 = True
+        self.logique.initialiser_filtres()
+        self.coeur.etat.desequilibre_retard_pct = self.coeur.puissance_pct - self.turbine.charge_pct
         self._mesurer()
 
     # ================================================================== pas de temps
@@ -178,13 +247,18 @@ class Centrale:
         # 4. régulations puis actionneurs
         self.regulations.calculer(dt)
         self.turbine.reguler(dt, self.vapeur.etat.p_collecteur_bar)
+        self.asg.piloter_turbopompe(self.gvs)
+        lg = self.logique.etat
+        self.coeur.bouger_grappes(dt, self.coeur.vitesse_auto_pas_min(dt, self.primaire.tmoy_c, self.turbine.charge_pct),
+                                  retrait_interdit=lg.c2 or lg.c3 or lg.c4, retrait_auto_interdit=lg.c5 or lg.c11)
         for c in list(self.pompes.values()) + list(self.vannes.values()):
             c.avancer(dt, self.sources(c))
+        self.primaire.avancer_huile(dt)
         # 5. hydraulique
         self._resoudre_hydraulique()
         # 6. thermique
         self._bilans_thermiques(dt)
-        # 8. mesures
+        # 7. mesures
         self.t_s += dt
         self._mesurer()
         self.alarmes.evaluer(self.t_s, self.mesures, self.journal)
@@ -197,6 +271,8 @@ class Centrale:
 
     def _resoudre_hydraulique(self) -> None:
         cd = self.condenseur
+        self.primaire.reseau.fixer_frontiere("PLENUM", self.pzr.p_bar)
+        self.primaire.resoudre_hydraulique()
         k_turbine = self.turbine.k_kg_s_bar()
         k_gct = self.gct.k_kg_s_bar()
         self.vapeur.resoudre(self.dt_s, self.gvs, k_turbine + k_gct, cd.etat.p_bar)
@@ -205,28 +281,44 @@ class Centrale:
         self._qm_gct = k_gct * p_h
         for s in self.vapeur.decharges(self.gvs):
             self.journal.ajouter(self.t_s, "automatisme", f"Ouverture soupape {s}", PRIORITE_HAUTE)
-        frontieres = {"PUITS": cd.p_aspiration_cex_bar(), "CONDENSEUR": cd.etat.p_bar,
-                      "CST": cd.p_fond_cst_bar(self.cfg.simulation.p_atm_bar)}
+        p_cst = cd.p_fond_cst_bar(self.cfg.simulation.p_atm_bar)
+        frontieres = {"PUITS": cd.p_aspiration_cex_bar(), "CONDENSEUR": cd.etat.p_bar, "CST": p_cst}
         frontieres.update({gv.id: gv.p_bar for gv in self.gvs})
         purges = self.cfg.turbine.fraction_soutirage * self._qm_turbine
         self.poste_eau.resoudre(frontieres, cd.etat.t_c, self.cfg.cst.t_c, purges)
+        self.asg.resoudre(p_cst, self.gvs)
 
     def _bilans_thermiques(self, dt: float) -> None:
-        pe, cd, src = self.poste_eau, self.condenseur, self.source
-        h_alim = pe.h_alim_kj_kg
-        q_total = 0.0
+        pe, cd, tab, pc = self.poste_eau, self.condenseur, self.table, self.cfg.primaire
+        # cœur puis primaire
+        self.coeur.avancer(dt, self.primaire.t_moderateur_c)
+        boucles_asp = pc.boucles_aspersion
+        t_asp = sum(self.primaire.t(bf(b)) for b in boucles_asp) / len(boucles_asp)
+        vitesses = [self.primaire.pompes[self.boucles.index(b)].etat.vitesse for b in boucles_asp]
+        qm_asp = self.pzr.debit_aspersion_kg_s(vitesses, tab.rho_primaire_kg_m3(t_asp))
+        h_charge = tab.h_primaire_kj_kg(self.cfg.rcv_v1.t_charge_c)
+        self.primaire.avancer(dt, self.coeur.puissance_thermique_kw, self.gvs, self.qm_charge_kg_s(), h_charge,
+                              self.qm_decharge_kg_s(), qm_asp, self.pzr.vol.sat.hf_kj_kg)
+        h_bc_exp = tab.h_primaire_kj_kg(self.primaire.t(bc(pc.boucle_expansion)))
+        for s in self.pzr.avancer(dt, self.primaire.etat.qm_expansion_kg_s, h_bc_exp, qm_asp,
+                                  tab.h_primaire_kj_kg(t_asp), self.sources(self.pzr)):
+            self.journal.ajouter(self.t_s, "automatisme", f"Ouverture soupape {s}", PRIORITE_HAUTE)
+        # GV : eau alimentaire ARE + ASG
+        h_are, h_asg = pe.h_alim_kj_kg, self.asg.h_eau_kj_kg
         for i, gv in enumerate(self.gvs):
-            q = src.chaleur_gv_kw(gv.ua_kw_c(), gv.tsat_c)
-            q_total += q
-            gv.avancer(dt, q, pe.qm(f"L_ARE{gv.b}"), h_alim, self.vapeur.etat.qm_lignes_kg_s[i],
-                       self.vapeur.qm_decharge_kg_s(i))
+            qm_are = pe.qm(f"L_ARE{gv.b}")
+            qm_asg = max(0.0, self.asg.etat.qm_gv_kg_s[i])
+            qm_alim = qm_are + qm_asg
+            h_alim = (qm_are * h_are + qm_asg * h_asg) / qm_alim if qm_alim > 0.0 else h_are
+            decharge = self.vapeur.qm_decharge_kg_s(i) + self.asg.vapeur_tps_par_gv_kg_s(gv.b)
+            gv.avancer(dt, self.primaire.etat.q_gv_kw[i], qm_alim, h_alim, self.vapeur.etat.qm_lignes_kg_s[i], decharge)
         # turbine
         p_h = self.vapeur.etat.p_collecteur_bar
         self.turbine.calculer_puissance(dt, self._qm_turbine, p_h, cd.etat.p_bar)
         # condenseur : énergie restante après travail et réchauffage de l'eau alimentaire
         h_col, h_puits = self.vapeur.etat.h_collecteur_kj_kg, cd.h_puits_kj_kg
-        qm_alim = sum(pe.qm(f"L_ARE{b}") for b in self.boucles)
-        q_rechauffeurs = qm_alim * (h_alim - h_puits)
+        qm_are_total = sum(pe.qm(f"L_ARE{b}") for b in self.boucles)
+        q_rechauffeurs = qm_are_total * (h_are - h_puits)
         qm_vapeur = self._qm_turbine + self._qm_gct
         q_cond = (qm_vapeur * (h_col - h_puits) - self.turbine.etat.p_meca_mw * KW_PAR_MW - q_rechauffeurs)
         cd.integrer(dt, max(0.0, q_cond))
@@ -236,19 +328,59 @@ class Centrale:
                   + self._qm_gct + pe.qm("L_RECIRC") + pe.qm("L_APPOINT"))
         sortie = pe.qm("L_CEX1") + pe.qm("L_CEX2")
         cd.puits.integrer(dt, entree - sortie)
-        cd.cst.integrer(dt, pe.qm("L_REJET") - pe.qm("L_APPOINT"))
+        cd.cst.integrer(dt, pe.qm("L_REJET") - pe.qm("L_APPOINT") - sum(self.asg.etat.qm_gv_kg_s))
         pe.avancer_rechauffeurs(dt, self.turbine.charge_pct, cd.etat.t_c)
-        # 7. source
-        src.avancer(dt, q_total, self.turbine.charge_pct)
 
     # ================================================================== mesures
     def masse_eau_totale_kg(self) -> float:
-        """GV + puits + CST (circuit fermé hors décharges à l'atmosphère)."""
-        return sum(gv.vol.etat.m_kg for gv in self.gvs) + self.condenseur.puits.etat.m_kg + self.condenseur.cst.etat.m_kg
+        """Secondaire : GV + puits + CST (circuit fermé hors décharges à l'atmosphère)."""
+        return (sum(gv.vol.etat.m_kg for gv in self.gvs) + self.condenseur.puits.etat.m_kg
+                + self.condenseur.cst.etat.m_kg)
+
+    def masse_primaire_kg(self) -> float:
+        """Primaire : nœuds liquides + pressuriseur."""
+        return self.primaire.masse_liquide_kg() + self.pzr.vol.etat.m_kg
 
     def _mesurer(self) -> None:
         m: dict[str, float] = {}
-        pe, cd, t, src, lg = self.poste_eau, self.condenseur, self.turbine.etat, self.source.etat, self.logique.etat
+        pe, cd, t, lg = self.poste_eau, self.condenseur, self.turbine.etat, self.logique.etat
+        pr, co, pz = self.primaire, self.coeur, self.pzr
+        # cœur et primaire
+        m["coeur.puissance_pct"] = co.puissance_pct
+        m["coeur.p_thermique_mw"] = co.puissance_thermique_kw / KW_PAR_MW
+        m["coeur.rho_pcm"] = co.etat.rho_pcm
+        m["coeur.t_comb_c"] = co.etat.t_comb_c
+        m["grappes.position_pas"] = co.etat.z_pas
+        m["grappes.arret_insere_pct"] = POURCENT * co.etat.arret_insere
+        tmoy, tref = pr.tmoy_c, self.tref_c()
+        m["primaire.tmoy_c"] = tmoy
+        m["primaire.tref_c"] = tref
+        m["primaire.ecart_tref_abs_c"] = abs(tmoy - tref)
+        m["primaire.q_pompes_mw"] = pr.etat.q_pompes_kw / KW_PAR_MW
+        m["primaire.debit_min_pct"] = min(pr.debit_pct(i) for i in range(len(self.boucles)))
+        for i, b in enumerate(self.boucles):
+            m[f"B{b}.t_bc_c"] = pr.t(bc(b))
+            m[f"B{b}.t_bf_c"] = pr.t(bf(b))
+            m[f"B{b}.dt_c"] = pr.dt_boucle_c(i)
+            m[f"B{b}.debit_pct"] = pr.debit_pct(i)
+        m["cuve.t_entree_c"] = pr.t(DESCENTE)
+        m["cuve.t_sortie_c"] = pr.t(COEUR)
+        m["cuve.marge_saturation_c"] = self.table.tsat_c(pz.p_bar) - pr.t(COEUR)
+        m["pzr.p_bar"] = pz.p_bar
+        m["pzr.niveau_pct"] = pz.niveau_pct
+        m["pzr.niveau_programme_pct"] = pz.niveau_programme_pct(tmoy)
+        m["pzr.ecart_niveau_pct"] = pz.niveau_pct - pz.niveau_programme_pct(tmoy)
+        m["pzr.chauffe_kw"] = pz.etat.q_chauffe_kw
+        m["pzr.aspersion_kg_s"] = pz.etat.qm_aspersion_kg_s
+        m["pzr.porv_qm_kg_s"] = pz.etat.qm_porv_kg_s
+        m["pzr.soupapes_ouvertes"] = float(pz.nb_soupapes_ouvertes())
+        m["pzr.expansion_kg_s"] = pr.etat.qm_expansion_kg_s
+        m["rcv.charge_kg_s"] = self.qm_charge_kg_s()
+        m["rcv.decharge_kg_s"] = self.qm_decharge_kg_s()
+        m_ot, m_op = self.logique.marges_dt_pct()
+        m["otdt.marge_pct"] = m_ot
+        m["opdt.marge_pct"] = m_op
+        # GV
         for i, gv in enumerate(self.gvs):
             k = gv.id
             m[f"{k}.niveau_pct"] = gv.capteur.mediane
@@ -256,14 +388,11 @@ class Centrale:
             m[f"{k}.p_bar"] = gv.p_bar
             m[f"{k}.qm_vapeur_kg_s"] = gv.etat.qm_ligne_kg_s
             m[f"{k}.qm_alim_kg_s"] = gv.etat.qm_alim_kg_s
+            m[f"{k}.qm_asg_kg_s"] = self.asg.etat.qm_gv_kg_s[i]
             m[f"{k}.q_mw"] = gv.etat.q_kw / KW_PAR_MW
             m[f"{k}.m_eau_t"] = gv.vol.m_liq_kg / KG_PAR_T
             m[f"{k}.qm_decharge_kg_s"] = self.vapeur.qm_decharge_kg_s(i)
-        m["source.p_mw"] = src.p_kw / KW_PAR_MW
-        m["source.puissance_pct"] = self.source.puissance_pct
-        m["source.tmoy_c"] = src.tmoy_c
-        m["source.tref_c"] = src.tref_c
-        m["source.ecart_tref_abs_c"] = abs(src.tmoy_c - src.tref_c)
+        # vapeur, turbine, condenseur, poste d'eau
         m["collecteur.p_bar"] = self.vapeur.etat.p_collecteur_bar
         m["turbine.p_elec_mw"] = t.p_elec_mw
         m["turbine.p_meca_mw"] = t.p_meca_mw
@@ -290,16 +419,23 @@ class Centrale:
         m["alim.dp_bar"] = pe.p("N_ARE") - self.vapeur.etat.p_collecteur_bar
         m["cex.q_m3h"] = pe.debit_cex_m3h(cd.rho_puits_kg_m3)
         m["reprise.qm_kg_s"] = pe.etat.qm_reprise_kg_s
+        m["asg.qm_kg_s"] = self.asg.qm_total_kg_s()
+        m["asg.p_refoulement_bar"] = self.asg.reseau.p("N_ASG")
         for noeud in pe.reseau.noeuds:
             m[f"{noeud}.p_bar"] = pe.p(noeud)
         for p in self.pompes.values():
             m[f"{p.id}.vitesse_pct"] = POURCENT * p.etat.vitesse
         m["crf.debit_m3s"] = cd.qm_crf_kg_s() / self.cfg.condenseur.rho_eau_mer_kg_m3
         m["bilan.masse_eau_t"] = self.masse_eau_totale_kg() / KG_PAR_T
+        m["bilan.masse_primaire_t"] = self.masse_primaire_kg() / KG_PAR_T
+        # logique
         m["logique.au"] = float(lg.au)
         m["logique.p7"] = float(lg.p7)
+        m["logique.p10"] = float(lg.p10)
+        m["logique.p12"] = float(lg.p12)
         m["logique.p14"] = float(lg.p14)
         m["logique.c9"] = float(lg.c9)
+        m["logique.c3_c4"] = float(lg.c3 or lg.c4)
         m["logique.turbine_declenchee"] = float(t.declenchee)
         m["logique.isolement_are"] = float(lg.isolement_are_au or lg.isolement_are_complet)
         m["logique.app_declenchee"] = float(lg.app_declenchee)
@@ -366,9 +502,15 @@ class Centrale:
         objets.update({f"{gv.id}.volume": gv.vol for gv in self.gvs})
         objets.update({gv.capteur.id: gv.capteur for gv in self.gvs})
         objets.update({s.id: s for ligne in self.vapeur.soupapes for s in ligne})
-        objets.update({"SOURCE": self.source, "TURBINE": self.turbine, "CONDENSEUR": self.condenseur,
-                       "REG_GCTC": self.gct, "REG_VDA": self.regulations.reg_vda,
-                       "REG_PUITS": self.regulations.reg_puits})
+        objets.update({s.id: s for s in self.pzr.soupapes})
+        pz, r = self.pzr, self.regulations
+        objets.update({
+            "GRAPPES": self.coeur, "PRIMAIRE": self.primaire, "PZR": pz, "PZR.volume": pz.vol,
+            pz.capteur_p.id: pz.capteur_p, pz.capteur_niveau.id: pz.capteur_niveau,
+            pz.chauffe_prop.id: pz.chauffe_prop, pz.chauffe_tor.id: pz.chauffe_tor, "ASG": self.asg,
+            "TURBINE": self.turbine, "CONDENSEUR": self.condenseur, "REG_GCTC": self.gct,
+            r.reg_vda.id: r.reg_vda, r.reg_puits.id: r.reg_puits, r.reg_p_pzr.id: r.reg_p_pzr,
+        })
         return objets
 
     def exporter(self) -> dict[str, Any]:
@@ -408,8 +550,8 @@ class Centrale:
         self.logique.etat = type(self.logique.etat)(**d["logique"])
         self.journal.importer(d["journal"])
         self.alarmes.importer(d["alarmes"])
-        for gv in self.gvs:
-            gv.vol.mettre_a_jour()
+        for vol in [gv.vol for gv in self.gvs] + [self.pzr.vol]:
+            vol.mettre_a_jour()
         p_h = self.vapeur.etat.p_collecteur_bar
         self._qm_turbine = self.turbine.k_kg_s_bar() * p_h
         self._qm_gct = self.gct.k_kg_s_bar() * p_h
