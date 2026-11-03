@@ -5,6 +5,10 @@
   turbine, alternateur, ARE, GCT-c, poste d'eau, condenseur, CRF, ASG, réseau, tableaux, diesels, batteries, air),
   rangés par bâtiment et reliés par les flux (chaleur, eau primaire, vapeur, eau alimentaire, eau de mer, électricité),
   animés quand ils circulent. Bordure : en service / à l'arrêt / sollicité / en défaut. Clic : onglet détaillé.
+- **Bâtiment réacteur rond** (vue de dessus) avec les **3 barrières** : ① gaines du combustible (dans la cuve),
+  ② enveloppe du circuit primaire (cuve, boucles, PZR, pompes, tubes des GV), ③ enceinte à double paroi
+  (béton précontraint + béton armé, espace entre-enceintes) ; traversées de l'enceinte marquées ■ (vapeur, eau
+  alimentaire, ASG, RCV, RRA). Survol : explication de chaque barrière et des traversées.
 - **Glossaire** : ~60 sigles décomposés (lettre par lettre) avec leur rôle ; fenêtre de recherche dans le menu ☰.
 - **Fiches** des 177 équipements (nom, type, circuit, rôle) : infobulle au survol + en tête du panneau au clic.
   Chaque texte des synoptiques qui contient un sigle connu est survolable. Onglets : sigles en infobulle.

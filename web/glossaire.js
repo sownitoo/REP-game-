@@ -237,6 +237,28 @@ const Glossaire = {
       role: "Laisse passer l'eau dans un seul sens (empêche le retour vers une pompe arrêtée)." })],
   ],
 
+  // ---------------------------------------------------------------- notions (barrières de confinement…)
+  INFOS: {
+    barriere1: { nom: "① 1re barrière : la gaine du combustible",
+      texte: "Tube en alliage de zirconium (~0,6 mm) qui enferme les pastilles d'oxyde d'uranium. Elle retient "
+           + "les produits de fission. Elle est protégée tant que le cœur est bien refroidi (pas de crise d'ébullition)." },
+    barriere2: { nom: "② 2e barrière : l'enveloppe du circuit primaire",
+      texte: "Cuve, couvercle, boucles, pressuriseur, pompes primaires et tubes des GV (acier, ~20 cm d'épaisseur pour la "
+           + "cuve). Elle retient l'eau radioactive à 155 bar. Une fuite de tube de GV la fait communiquer avec le secondaire." },
+    barriere3: { nom: "③ 3e barrière : l'enceinte de confinement",
+      texte: "Bâtiment réacteur. Ici à double paroi (type 1 300 MWe) : enceinte interne en béton précontraint "
+           + "(tient la pression d'un accident), enceinte externe en béton armé (agressions externes), espace "
+           + "entre-enceintes maintenu en dépression et filtré." },
+    traversee: { nom: "Traversée de l'enceinte",
+      texte: "Chaque tuyauterie qui sort du bâtiment réacteur passe par une traversée équipée de vannes d'isolement "
+           + "(une de chaque côté de la paroi). L'IS (phase A, puis phase B) les ferme pour refermer la 3e barrière." },
+  },
+
+  htmlInfo(cle) {
+    const i = this.INFOS[cle];
+    return i ? `<div class="fiche"><div class="fiche-nom">${i.nom}</div><div class="fiche-role">${i.texte}</div></div>` : "";
+  },
+
   fiche(id) {
     for (const [motif, f] of this.EQUIPEMENTS) {
       const m = id.match(motif);

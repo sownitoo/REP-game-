@@ -552,7 +552,7 @@ function preparerDescriptions(svg) {
     if (Glossaire.fiche(t.parentNode.dataset.id)) t.remove();
   });
   svg.querySelectorAll("text").forEach(t => {
-    if (t.closest("[data-id], [data-sigle]") || t.dataset.mesure) return;
+    if (t.closest("[data-id], [data-sigle], [data-info]") || t.dataset.mesure) return;
     const sigles = Glossaire.sigles(t.textContent);
     if (sigles.length) { t.dataset.sigle = sigles.join(" "); t.classList.add("texte-sigle"); }
   });
@@ -568,6 +568,7 @@ function contenuInfobulle(cible) {
     return Glossaire.html(id, ` <span class="discret">(${id})</span>`)
       + (etatTxt ? `<div class="fiche-etat">${etatTxt}</div>` : "") + `<div class="discret petit">clic : commandes</div>`;
   }
+  if (cible.dataset.info) return Glossaire.htmlInfo(cible.dataset.info);
   const sigles = (cible.dataset.sigle || "").split(" ").filter(Boolean);
   const html = sigles.map(sg => Glossaire.htmlSigle(sg)).join("");
   return html + (cible.dataset.lienOnglet ? `<div class="discret petit">clic : ouvrir l'onglet</div>` : "");
@@ -575,12 +576,13 @@ function contenuInfobulle(cible) {
 
 const infobulle = document.getElementById("infobulle");
 document.addEventListener("mousemove", ev => {
-  const cible = ev.target.closest && ev.target.closest(".synoptique [data-id], .synoptique [data-sigle]");
+  const cible = ev.target.closest && ev.target.closest(".synoptique [data-id], .synoptique [data-sigle], .synoptique [data-info]");
   const html = cible && !ev.buttons ? contenuInfobulle(cible) : "";
   if (!html) { infobulle.hidden = true; return; }
-  if (infobulle.dataset.cle !== (cible.dataset.id || cible.dataset.sigle)) {
+  const cle = cible.dataset.id || cible.dataset.info || cible.dataset.sigle;
+  if (infobulle.dataset.cle !== cle) {
     infobulle.innerHTML = html;
-    infobulle.dataset.cle = cible.dataset.id || cible.dataset.sigle;
+    infobulle.dataset.cle = cle;
   }
   infobulle.hidden = false;
   const l = infobulle.offsetWidth, h = infobulle.offsetHeight;

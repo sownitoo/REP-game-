@@ -359,3 +359,15 @@ table.lecture td.froid, .froid { color: #a9cdf5; }
 .table-glossaire { width: 100%; border-collapse: collapse; font-size: 13px; }
 .table-glossaire td { padding: 6px 6px; border-bottom: 1px solid var(--trait); vertical-align: top; }
 .sigle-cle { font-weight: 800; color: #9fd3ff; width: 70px; font-size: 14px; }
+
+/* ---------------- bâtiment réacteur et barrières ---------------- */
+.paroi-externe { fill: #141c27; stroke: #7d8a99; stroke-width: 9; }
+.entre-enceinte { fill: none; stroke: #0c1117; stroke-width: 5; }
+.paroi-interne { fill: #172131; stroke: #a9b5c2; stroke-width: 7; }
+.barriere-2 { fill: rgba(229, 102, 77, .05); stroke: #e5664d; stroke-width: 2.5; stroke-dasharray: 9 5; cursor: help; }
+.barriere-txt { font-size: 12px; font-weight: 800; letter-spacing: .05em; cursor: help; }
+.barriere-txt.b1 { fill: #ffd27a; }
+.barriere-txt.b2 { fill: #ff9d87; }
+.barriere-txt.b3 { fill: #c9d4df; }
+.cuve-bloc { fill: #2a1c14; stroke-width: 3; }
+.traversee { fill: #0d1217; stroke: #e8f4ff; stroke-width: 2; cursor: help; }
