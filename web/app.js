@@ -40,7 +40,7 @@ const SYNOPTIQUES = [["synoptique-ensemble", "construireEnsemble"], ["synoptique
                      ["synoptique-elec", "construireElec"], ["synoptique-ris", "construireRIS"]];
 function construireVueCoeur(svg) { VueCoeur.construire(svg); }
 
-const VERSION_UI = "V4";     // doit correspondre à meta.version de plant.yaml
+const VERSION_UI = "V5";     // doit correspondre à meta.version de plant.yaml
 const etat = { transport: null, dernier: null, selection: null, minuterieConditions: null, seuils: {} };
 
 // ============================================================================ utilitaires
@@ -75,6 +75,7 @@ function surMessage(msg) {
   else if (msg.type === "historique") Courbes.recevoir(msg.series);
   else if (msg.type === "export") telecharger(`centrale_${formatTemps(msg.t_s).replaceAll(":", "h")}.json`, msg.donnees);
   else if (msg.type === "import") alert(msg.ok ? `État chargé (t = ${formatTemps(msg.t_s)})` : `Échec : ${msg.erreur}`);
+  else if (msg.type === "tuto") Tuto.surCharge(msg);
   else if (msg.type === "erreur") alert(msg.texte);
 }
 
@@ -86,7 +87,10 @@ function surStatut(texte) {
 function initialiser(msg) {
   document.getElementById("chargement").style.display = "none";
   const mode = window.REP_MODE === "serveur" ? "serveur Python" : "dans le navigateur";
-  document.getElementById("version").textContent = `${msg.meta.version} — simulation ${mode}`;
+  const v = document.getElementById("version");
+  v.textContent = `${msg.meta.version} — ${msg.meta.reacteur} — simulation ${mode}`;
+  v.title = msg.meta.reacteur_detail;
+  etat.meta = msg.meta;
   const acc = document.getElementById("accelerations");
   acc.querySelectorAll("button[data-acc]").forEach(b => b.remove());
   msg.accelerations.forEach(a => {
@@ -144,6 +148,7 @@ function initialiser(msg) {
   });
   if (!document.getElementById("pc-r")) PilotageCoeur.init();
   Courbes.init(msg.variables);
+  Tuto.init(msg.tutos, msg.explications, msg.meta);
   majEtat(msg.etat);
 }
 
@@ -170,6 +175,7 @@ function majEtat(e) {
   majLogique(e);
   majJournal(e.journal);
   if (etat.selection) majPanneauEtat();
+  Tuto.maj(e);
 }
 
 // état standard + check-list des conditions pour l'état suivant (§5)
@@ -291,7 +297,7 @@ function majSynoptiques(e) {
                              echec: "ÉCHEC" }[d.etat] + (d.refus ? " · en panne" : "");
   });
   const disque = document.querySelector(".synoptique [data-disque]");
-  if (disque) disque.textContent = m["prt.disque_rompu"] > 0.5 ? "DISQUE ROMPU" : "disque intact";
+  if (disque) disque.textContent = m["rdp.disque_rompu"] > 0.5 ? "DISQUE ROMPU" : "disque intact";
   const srcLg = document.querySelector(".synoptique [data-source-lg]");
   if (srcLg && comp.RESEAU) srcLg.textContent = { TS: "LG sur le soutirage", TA: "LG sur les transfos auxiliaires",
                                                    "": "LG HORS TENSION" }[comp.RESEAU.source_normale];
@@ -513,6 +519,7 @@ function afficherReponse(msg) {
   d.textContent = msg.ok ? `✓ ${msg.cible} : ${LIBELLES_ACTIONS[msg.action] || msg.action}`
                          : `✗ Refusé : ${msg.raisons.join(" ; ")}`;
   envoyer({ type: "conditions", cible: msg.cible });
+  Tuto.surReponse(msg);
 }
 
 // ============================================================================ onglets, sauvegarde
@@ -550,7 +557,7 @@ document.addEventListener("click", ev => {
 document.addEventListener("keydown", ev => {
   if (ev.target.closest("input, select, textarea")) return;
   if (ev.key === " ") { ev.preventDefault(); envoyer({ type: "pause", valeur: !(etat.dernier && etat.dernier.pause) }); }
-  if (ev.key === "Escape") deselectionner();
+  if (ev.key === "Escape") { deselectionner(); Tuto.fermerAccueil(); }
 });
 
 // ============================================================================ descriptions (glossaire)

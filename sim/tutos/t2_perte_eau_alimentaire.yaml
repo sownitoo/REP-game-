@@ -1,0 +1,93 @@
+id: t2_perte_eau_alimentaire
+titre: "T2 — Perte de l'eau alimentaire : l'ASG prend le relais"
+resume: >-
+  Les 2 pompes alimentaires s'arrêtent à 100 %. Les GV se vident, l'alimentation de secours (ASG) démarre,
+  le réacteur s'arrête. On voit pourquoi, dans quel ordre, et ce que l'ASG fait au primaire.
+niveau: "Débutant"
+duree_min: 12
+etat_initial: rp100
+etapes:
+  - titre: "Comment on alimente les GV en marche"
+    texte: >-
+      Chaque GV vaporise ~470 kg/s d'eau, et n'en contient qu'une quarantaine de tonnes : sans eau neuve, il
+      serait vide en ~1 minute et demie.<br><br>
+      L'eau vient du condenseur : <b>CEX</b> → réchauffeurs → <b>pompes alimentaires APP</b> (2 grosses
+      turbopompes) → vannes <b>ARE</b>, qui règlent le débit pour tenir le niveau de chaque GV.
+    onglet: secondaire
+    voir: [APP1, APP2, ARE1_GD, ARE2_GD, ARE3_GD, ARE4_GD, CEX1, CEX2]
+    mesures:
+      - [alim.qm_kg_s, "Eau alimentaire", "kg/s", 0]
+      - [GV1.niveau_pct, "Niveau GV1", "%", 0]
+
+  - titre: "Le secours : l'ASG"
+    texte: >-
+      L'<b>alimentation de secours des GV (ASG)</b> prend l'eau dans sa propre bâche (CST, ~1 400 m³) :<br>
+      • 2 <b>motopompes</b> (électriques, sur les tableaux secourus LHA / LHB, donc reprises par les diesels) ;<br>
+      • 1 <b>turbopompe</b> entraînée par la vapeur des GV : elle marche sans électricité.<br><br>
+      Elles démarrent seules : perte des 2 APP → motopompes ; niveau GV très bas → toutes.
+    onglet: asg
+    voir: [ASG_MP1, ASG_MP2, ASG_TP, ASG1, ASG2, ASG3, ASG4]
+    mesures:
+      - [asg.qm_kg_s, "Débit ASG", "kg/s", 0]
+      - [cst.volume_m3, "Réserve CST", "m³", 0]
+
+  - titre: "À toi : arrête la pompe alimentaire APP1"
+    texte: "Clique sur <b>APP1</b> (onglet Secondaire) → Arrêter, ou laisse-moi faire. La simulation reste en pause."
+    action: {cible: APP1, action: arreter, libelle: "Arrêter APP1"}
+    onglet: secondaire
+    voir: [APP1]
+
+  - titre: "… puis la seconde, APP2"
+    texte: "Même chose pour <b>APP2</b>. Ensuite on lance la simulation."
+    action: {cible: APP2, action: arreter, libelle: "Arrêter APP2"}
+    onglet: secondaire
+    voir: [APP2]
+
+  - titre: "Observe : la première minute et demie"
+    texte: >-
+      Les GV ne reçoivent plus d'eau normale. Suis les automatismes : qui démarre, qui s'arrête, et pourquoi.
+    observer:
+      attendus: [asg_app, au, turbine, basculement, asg_niveau, isolement_are_gd]
+      duree_s: 90
+      acceleration: 1
+
+  - titre: "Les GV sont-ils alimentés ?"
+    texte: >-
+      Oui, par l'<b>ASG</b> : ~100 kg/s pour les 4 GV, alors qu'il en fallait 1 880 à 100 %. Ça suffit parce
+      qu'après l'AU il ne reste que la puissance résiduelle (quelques %).<br><br>
+      L'ordre à retenir : <b>perte des APP → motopompes ASG tout de suite</b>, mais elles ne compensent pas
+      100 % → niveau bas + écart vapeur/eau → <b>AU</b> (« débit d'eau insuffisant ») → turbine déclenchée →
+      niveau très bas → <b>turbopompe ASG</b>.
+    onglet: asg
+    voir: [ASG_MP1, ASG_MP2, ASG_TP]
+    mesures:
+      - [asg.qm_kg_s, "Débit ASG", "kg/s", 0]
+      - [GV1.niveau_pct, "Niveau GV1", "%", 0]
+
+  - titre: "Observe : 10 minutes plus tard (accéléré)"
+    texte: >-
+      Regarde la <b>Tmoy</b> : l'ASG envoie de l'eau froide (~30 °C) à plein débit, plus que ce que demande la
+      puissance résiduelle. Le primaire se refroidit sous 292 °C.
+    observer:
+      attendus: []
+      duree_s: 600
+      acceleration: 60
+    onglet: asg
+    mesures:
+      - [primaire.tmoy_c, "Tmoy primaire", "°C", 1]
+      - [asg.qm_kg_s, "Débit ASG", "kg/s", 0]
+      - [GV1.niveau_pct, "Niveau GV1", "%", 0]
+      - [pzr.p_bar, "Pression PZR", "bar", 1]
+
+  - titre: "Ce que ferait l'opérateur"
+    texte: >-
+      L'automatisme met l'ASG en grand pour être sûr que les GV ne se vident pas. Une fois les niveaux revenus,
+      c'est à l'opérateur de <b>régler les vannes ASG</b> (manuel, ouverture réduite) pour tenir à la fois le
+      niveau des GV et la température du primaire — sinon, refroidir trop vite contracte le primaire, fait
+      baisser la pression et rend le cœur plus réactif.<br><br>
+      Essaie : clique sur <b>ASG1</b> → Manuel, puis une position de 30 % ; observe la Tmoy.
+    onglet: asg
+    voir: [ASG1, ASG2, ASG3, ASG4]
+    mesures:
+      - [primaire.tmoy_c, "Tmoy primaire", "°C", 1]
+      - [asg.qm_kg_s, "Débit ASG", "kg/s", 0]

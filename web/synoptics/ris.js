@@ -1,6 +1,6 @@
 // Synoptique « RIS · EAS · Enceinte » : aspiration PTR (injection directe) ou puisards (recirculation) →
 // pompes HP (charge par la BIT), MP (SI), BP (RRA en injection), EAS (aspersion) → branches froides / rampes.
-// À droite, l'enceinte : primaire, accumulateurs, PRT et son disque, atmosphère, puisards. Repère 1400 × 820.
+// À droite, l'enceinte : primaire, accumulateurs, RDP et son disque, atmosphère, puisards. Repère 1400 × 820.
 "use strict";
 
 function construireRIS(svg) {
@@ -84,13 +84,13 @@ function construireRIS(svg) {
   for (let x = 780; x <= 1280; x += 50) svgEl("circle", { cx: x, cy: 102, r: 3, class: "goutte" }, svg);
   Sym.texte(svg, 1025, 80, "rampes d'aspersion (EAS)", "atm");
 
-  // ------------------------------------------------------------------ PRT (bâche de décharge du PZR)
+  // ------------------------------------------------------------------ RDP (bâche de décharge du PZR)
   Sym.tuyau(svg, [[980, 220], [1060, 220], [1060, 180]], "vapeur", "pzr.porv_qm_kg_s", 0.1);
   D(Sym.texte(svg, 1068, 236, "décharge PZR (PORV, soupapes)", "atm", "start"));
-  Sym.bache(svg, 1040, 130, 130, 50, "PRT", null, "Bâche de décharge du PZR");
-  Sym.texte(svg, 1105, 160, "PRT", "lib-fort");
-  Sym.valeur(svg, 1180, 148, "prt.p_bar", "bar", 2, "val", "start");
-  Sym.valeur(svg, 1180, 164, "prt.t_c", "°C", 0, "val", "start");
+  Sym.bache(svg, 1040, 130, 130, 50, "RDP", null, "Bâche de décharge du PZR");
+  Sym.texte(svg, 1105, 160, "RDP", "lib-fort");
+  Sym.valeur(svg, 1180, 148, "rdp.p_bar", "bar", 2, "val", "start");
+  Sym.valeur(svg, 1180, 164, "rdp.t_c", "°C", 0, "val", "start");
   svgEl("text", { x: 1105, y: 196, class: "val", "text-anchor": "middle", "data-disque": "1" }, svg).textContent = "disque intact";
 
   // ------------------------------------------------------------------ atmosphère et puisards

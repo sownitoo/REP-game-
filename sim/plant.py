@@ -7,7 +7,7 @@ Ordre d'un pas :
   4. régulations → demandes des actionneurs, puis mouvement des actionneurs et des grappes
   5. hydraulique : primaire (+ RRA), collecteur vapeur, eau alimentaire, ASG
   6. thermique : cœur, RRA, accumulateurs, brèches, RIS / EAS, RCV/REA (bore), primaire, pressuriseur
-     (+ vide primaire), PRT, enceinte, GV, turbine, condenseur, bâches, réchauffeurs, RRI/SEC
+     (+ vide primaire), RDP, enceinte, GV, turbine, condenseur, bâches, réchauffeurs, RRI/SEC
   7. mesures, alarmes, historique
 """
 
@@ -34,7 +34,7 @@ from sim.systems.accumulateurs import Accumulateurs
 from sim.systems.air import AirComprime
 from sim.systems.asg import ASG
 from sim.systems.breches import Breches
-from sim.systems.enceinte import PRT, Enceinte
+from sim.systems.enceinte import RDP, Enceinte
 from sim.systems.condenseur import Condenseur
 from sim.systems.gct import Contournement
 from sim.systems.gv import GenerateurVapeur
@@ -106,7 +106,7 @@ class Reponse:
 class Centrale:
     """Centrale V4 : primaire 4 boucles + PZR (primaire saturé / plein d'eau) + cœur, RCV/REA, RRA, RRI/SEC,
     accumulateurs, secondaire, ASG, électricité (réseau, tableaux, diesels, séquenceurs, batteries), air comprimé,
-    joints des pompes primaires, RIS (HP / MP / BP, recirculation), EAS, enceinte, PRT, brèches."""
+    joints des pompes primaires, RIS (HP / MP / BP, recirculation), EAS, enceinte, RDP, brèches."""
 
     def __init__(self, cfg: CentraleCfg | None = None) -> None:
         self.cfg = cfg = cfg or charger_config()
@@ -171,7 +171,7 @@ class Centrale:
         self.pannes: list[dict[str, Any]] = []
         self.ris = RIS(cfg.ris, cfg.enceinte, self.composants, self.rra.pompes)
         self.enceinte = Enceinte(cfg.enceinte, self.table)
-        self.prt = PRT(cfg.prt, self.table)
+        self.rdp = RDP(cfg.rdp, self.table)
         self.breches = Breches(cfg.breches, len(self.boucles))
         self.formateur = Formateur(self)
         self.logique = Logique(self)
@@ -461,12 +461,12 @@ class Centrale:
                                   br.etat.qm_primaire_vapeur_kg_s):
             self.journal.ajouter(self.t_s, "automatisme", f"Ouverture soupape {s}", PRIORITE_HAUTE)
         self._verifier_domaine()
-        # décharge du PZR → PRT → (disque rompu) enceinte ; brèches → enceinte ; aspersion
-        disque = self.prt.etat.disque_rompu
-        vers_enceinte = self.prt.avancer(dt, self.pzr.etat.qm_porv_kg_s + self.pzr.etat.qm_soupapes_kg_s,
+        # décharge du PZR → RDP → (disque rompu) enceinte ; brèches → enceinte ; aspersion
+        disque = self.rdp.etat.disque_rompu
+        vers_enceinte = self.rdp.avancer(dt, self.pzr.etat.qm_porv_kg_s + self.pzr.etat.qm_soupapes_kg_s,
                                          self.pzr.h_decharge_kj_kg, enc.etat.p_bar)
-        if self.prt.etat.disque_rompu and not disque:
-            self.journal.ajouter(self.t_s, "automatisme", "Disque de rupture de la PRT rompu : décharge dans l'enceinte",
+        if self.rdp.etat.disque_rompu and not disque:
+            self.journal.ajouter(self.t_s, "automatisme", "Disque de rupture du RDP rompu : décharge dans l'enceinte",
                                  PRIORITE_HAUTE)
         j = br.etat.vapeur_gv - 1
         vers_enceinte += [(qm_joints_fuite, tab.h_primaire_kj_kg(pr.t(DESCENTE))),
@@ -490,12 +490,14 @@ class Centrale:
                 decharge += br.etat.qm_vapeur_kg_s
             gv.avancer(dt, self.primaire.etat.q_gv_kw[i], qm_alim, h_alim, self.vapeur.etat.qm_lignes_kg_s[i], decharge)
         br.avancer_activite(dt, [gv.vol.m_liq_kg for gv in self.gvs])
-        # turbine
+        # turbine (eau alimentaire perdue : la vapeur des soutirages se détend en plus dans la turbine)
         p_h = self.vapeur.etat.p_collecteur_bar
-        self.turbine.calculer_puissance(dt, self._qm_turbine, p_h, cd.etat.p_bar)
-        # condenseur : énergie restante après travail et réchauffage de l'eau alimentaire
         h_col, h_puits = self.vapeur.etat.h_collecteur_kj_kg, cd.h_puits_kj_kg
         qm_are_total = sum(pe.qm(f"L_ARE{b}") for b in self.boucles)
+        q_soutirage_libre = max(0.0, self._qm_turbine - qm_are_total) * max(0.0, h_are - h_puits)
+        self.turbine.calculer_puissance(dt, self._qm_turbine, p_h, cd.etat.p_bar,
+                                        cfg.turbine.rendement_soutirage_libre * q_soutirage_libre / KW_PAR_MW)
+        # condenseur : énergie restante après travail et réchauffage de l'eau alimentaire
         q_rechauffeurs = qm_are_total * (h_are - h_puits)
         qm_vapeur = self._qm_turbine + self._qm_gct
         q_cond = (qm_vapeur * (h_col - h_puits) - self.turbine.etat.p_meca_mw * KW_PAR_MW - q_rechauffeurs)
@@ -658,17 +660,17 @@ class Centrale:
         m["primaire.sature"] = float(pz.etat.sature)
         m["primaire.en_eau"] = float(pz.en_eau)
         m["cuve.niveau_pct"] = POURCENT * max(0.0, 1.0 - pz.etat.v_vide_m3 / self.volume_decouvrement_m3)
-        # V4 : enceinte, PRT, RIS, brèches
-        en, pt, ri, bre = self.enceinte.etat, self.prt.etat, self.ris.etat, self.breches.etat
+        # V4 : enceinte, RDP, RIS, brèches
+        en, pt, ri, bre = self.enceinte.etat, self.rdp.etat, self.ris.etat, self.breches.etat
         m["enceinte.p_bar"] = en.p_bar
         m["enceinte.p_rel_bar"] = self.enceinte.p_rel_bar
         m["enceinte.t_c"] = en.t_c
         m["enceinte.puisard_m3"] = en.puisard_m3
         m["enceinte.t_puisard_c"] = en.t_puisard_c
         m["enceinte.puisard_pct"] = POURCENT * min(1.0, en.puisard_m3 / PUISARD_REFERENCE_M3)
-        m["prt.p_bar"] = pt.p_bar
-        m["prt.t_c"] = pt.t_c
-        m["prt.disque_rompu"] = float(pt.disque_rompu)
+        m["rdp.p_bar"] = pt.p_bar
+        m["rdp.t_c"] = pt.t_c
+        m["rdp.disque_rompu"] = float(pt.disque_rompu)
         m["ris.q_hp_m3h"] = self.rcv.etat.q_bit_m3h
         m["ris.q_mp_m3h"] = ri.q_mp_m3h
         m["ris.q_bp_m3h"] = ri.q_bp_m3h
@@ -836,7 +838,7 @@ class Centrale:
             "TURBINE": self.turbine, "CONDENSEUR": self.condenseur, "REG_GCTC": self.gct,
             "RCV": self.rcv, "REA": self.rea, "RRA": self.rra, "RRI": self.rri, "ACCUS": self.accus,
             "SUIVI": self.suivi, "ELEC": self.elec, "SAR": self.air, "JOINTS": self.joints,
-            "ENCEINTE": self.enceinte, "PRT": self.prt, "BRECHES": self.breches, "RIS": self.ris,
+            "ENCEINTE": self.enceinte, "RDP": self.rdp, "BRECHES": self.breches, "RIS": self.ris,
             r.reg_vda.id: r.reg_vda, r.reg_puits.id: r.reg_puits, r.reg_p_pzr.id: r.reg_p_pzr,
         })
         return objets

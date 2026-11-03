@@ -153,12 +153,14 @@ class Turbine(Composant):
         e.y_reglage += max(-pas, min(pas, e.demande_reglage - e.y_reglage))
 
     # ------------------------------------------------------------------ puissance + vitesse
-    def calculer_puissance(self, dt: float, qm_kg_s: float, p_adm_bar: float, p_cond_bar: float) -> None:
+    def calculer_puissance(self, dt: float, qm_kg_s: float, p_adm_bar: float, p_cond_bar: float,
+                           p_soutirage_mw: float = 0.0) -> None:
+        """p_soutirage_mw : travail en plus quand la vapeur des soutirages n'est pas prise par les réchauffeurs."""
         c, e = self.cfg, self.etat
         e.qm_kg_s = qm_kg_s
         s_adm = self.table.sat(p_adm_bar)
         e.dh_is_kj_kg = max(0.0, s_adm.hg_kj_kg - self.table.h_isentrope_kj_kg(s_adm.sg_kj_kgk, p_cond_bar))
-        e.p_meca_mw = self.mw_par_kg_s() * qm_kg_s / c.rendement_alternateur
+        e.p_meca_mw = self.mw_par_kg_s() * qm_kg_s / c.rendement_alternateur + p_soutirage_mw
         n_nom = c.vitesse_nom_tr_min
         if e.couplee:
             e.vitesse_tr_min = n_nom

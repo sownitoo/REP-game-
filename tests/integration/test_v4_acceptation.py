@@ -23,7 +23,7 @@ def test_e1_situation_normale(rp100: Centrale) -> None:
     c = rp100
     c.avancer(10.0)
     m = c.mesures
-    assert abs(m["enceinte.p_rel_bar"]) < 0.01 and m["prt.disque_rompu"] == 0.0
+    assert abs(m["enceinte.p_rel_bar"]) < 0.01 and m["rdp.disque_rompu"] == 0.0
     assert m["ris.qm_kg_s"] == 0.0 and m["ris.q_eas_m3h"] == 0.0 and m["breche.primaire_kg_s"] == 0.0
     assert m["primaire.sature"] == 0.0 and m["primaire.vide_m3"] == 0.0 and m["cuve.niveau_pct"] == 100.0
     assert not c.logique.etat.is_actif and not c.logique.etat.isolement_vapeur
@@ -70,9 +70,9 @@ def test_e3_recirculation(rp100: Centrale) -> None:
 
 
 @pytest.mark.lent
-def test_e4_s8_porv_bloquee_tmi_et_prt() -> None:
+def test_e4_s8_porv_bloquee_tmi_et_rdp() -> None:
     c = centrale_scenario("s8_porv_bloquee")
-    r = serie(c, 700.0, 5.0, "pzr.niveau_pct", "primaire.sature", "cuve.niveau_pct", "prt.p_bar", "prt.disque_rompu")
+    r = serie(c, 700.0, 5.0, "pzr.niveau_pct", "primaire.sature", "cuve.niveau_pct", "rdp.p_bar", "rdp.disque_rompu")
     assert c.logique.etat.is_actif
     t_sat = premier(r, "primaire.sature", 0.5)
     assert t_sat < 400.0, "la PORV ouverte amène le primaire à saturation"
@@ -80,7 +80,7 @@ def test_e4_s8_porv_bloquee_tmi_et_prt() -> None:
     n_min = min(x["pzr.niveau_pct"] for x in r if x["t_s"] < t_sat)
     assert n_sat > n_min + 10.0, "TMI : le niveau PZR remonte pendant que le primaire bout"
     assert min(x["cuve.niveau_pct"] for x in r) < 100.0
-    assert r[-1]["prt.disque_rompu"] == 1.0, "la PRT monte à 8 bar et son disque crève"
+    assert r[-1]["rdp.disque_rompu"] == 1.0, "le RDP monte à 8 bar et son disque crève"
     assert any("Disque de rupture" in e.texte for e in c.journal.evenements)
     assert c.commande("PZR_ISOL1", "fermer").ok
     c.avancer(30.0)

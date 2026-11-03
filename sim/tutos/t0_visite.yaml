@@ -1,0 +1,161 @@
+id: t0_visite
+titre: "T0 — Visite guidée : comment marche la centrale"
+resume: >-
+  Le tour de la centrale en 12 étapes, à 100 % de puissance : d'où vient la chaleur, comment elle devient de
+  l'électricité, à quoi servent les circuits auxiliaires et les systèmes de sauvegarde.
+niveau: "Découverte"
+duree_min: 10
+etat_initial: rp100
+etapes:
+  - titre: "Le réacteur de ce simulateur"
+    texte: >-
+      C'est un <b>réacteur à eau pressurisée (REP) à 4 boucles de conception Westinghouse</b>, calqué sur la
+      centrale de référence des cours de l'autorité de sûreté américaine (USNRC) : <b>3 411 MW de chaleur</b>,
+      <b>~1 135 MW d'électricité</b> (rendement ~33 %), 193 assemblages de combustible, 155 bar.<br><br>
+      Le cousin français le plus proche est le <b>palier 1300 MWe</b> (P4 / P'4, 4 boucles, 3 817 MWth —
+      Flamanville 1-2 en font partie), mais ce n'en est pas une copie : le schéma et les valeurs viennent des
+      manuels américains, seuls les noms des circuits (RCV, ARE, ASG…) sont ceux d'EDF.
+    onglet: ensemble
+    voir: ["bloc:coeur", "bloc:alternateur"]
+    mesures:
+      - [coeur.p_thermique_mw, "Chaleur produite par le cœur", "MW", 0]
+      - [turbine.p_elec_mw, "Électricité envoyée au réseau", "MWe", 0]
+
+  - titre: "Trois circuits qui ne se mélangent jamais"
+    texte: >-
+      <b>① Le primaire</b> (en rouge) : l'eau traverse le cœur et s'y chauffe de 289 à 325 °C. À 155 bar, elle
+      reste liquide. Elle est radioactive : elle ne sort jamais du bâtiment réacteur.<br>
+      <b>② Le secondaire</b> : dans les générateurs de vapeur (GV), l'eau primaire chauffe une autre eau qui
+      bout à 63 bar. Cette vapeur fait tourner la turbine.<br>
+      <b>③ L'eau de mer</b> : elle condense la vapeur sortie de la turbine, puis repart à la mer un peu plus chaude.<br><br>
+      Le rond à gauche, c'est le bâtiment réacteur avec ses 3 barrières (gaines du combustible, circuit
+      primaire, enceinte en béton) : survole-les pour les détails.
+    onglet: ensemble
+    voir: ["bloc:coeur", "bloc:gv", "bloc:condenseur", "bloc:crf"]
+    mesures:
+      - [B1.t_bc_c, "Eau primaire sortant du cœur", "°C", 1]
+      - [B1.t_bf_c, "Eau primaire revenant au cœur", "°C", 1]
+      - [GV1.p_bar, "Pression de la vapeur", "bar", 1]
+
+  - titre: "Le cœur et les grappes"
+    texte: >-
+      Le cœur : 193 assemblages de crayons d'uranium. La fission chauffe l'eau qui passe entre les crayons.<br><br>
+      On règle la réaction avec deux « freins » :<br>
+      • les <b>grappes</b> (barres absorbantes) : groupe R pour réguler la température, groupe G pour compenser
+      les variations de puissance, groupes S tenus hors du cœur, prêts à tomber pour l'arrêt d'urgence ;<br>
+      • le <b>bore</b> dissous dans l'eau primaire (un absorbant de neutrons), ajusté par le RCV.<br><br>
+      Double-clic sur la cuve (onglet Primaire) pour voir le cœur, et ⚛ pour la vue des neutrons.
+    onglet: coeur
+    voir: [GRAPPES]
+    mesures:
+      - [coeur.puissance_pct, "Puissance", "%", 1]
+      - [grappes.position_pas, "Position du groupe R", "pas", 0]
+      - [primaire.bore_ppm, "Bore", "ppm", 0]
+
+  - titre: "Une boucle primaire"
+    texte: >-
+      Vue de dessus : la cuve au centre, 4 boucles en étoile. Dans chaque boucle, l'eau fait :<br>
+      cuve → <b>branche chaude</b> (325 °C) → <b>GV</b> (elle y cède sa chaleur) → <b>pompe primaire</b> →
+      <b>branche froide</b> (289 °C) → retour dans la cuve.<br><br>
+      Chaque pompe primaire pousse ~4 100 kg/s (≈ 20 000 m³/h). Si elles s'arrêtent, l'eau circule quand
+      même, plus lentement, par <b>circulation naturelle</b> (l'eau chaude monte, la froide descend).
+    onglet: primaire
+    voir: [PP1, PP2, PP3, PP4, GV1, GV2, GV3, GV4]
+    mesures:
+      - [B1.debit_pct, "Débit boucle 1", "%", 0]
+      - [B1.dt_c, "Échauffement dans le cœur (ΔT)", "°C", 1]
+
+  - titre: "Le pressuriseur (PZR)"
+    texte: >-
+      Le seul endroit du primaire où il y a de la vapeur : un grand ballon, moitié eau, moitié vapeur, à 345 °C.
+      C'est lui qui <b>fixe la pression</b> de tout le primaire :<br>
+      • pression trop basse → les <b>chaufferettes</b> font de la vapeur ;<br>
+      • pression trop haute → l'<b>aspersion</b> pulvérise de l'eau froide qui condense la vapeur ;<br>
+      • en dernier recours, les <b>PORV</b> et soupapes déchargent la vapeur vers le RDP (réservoir de décharge).<br><br>
+      Son <b>niveau</b> monte et descend quand l'eau du primaire se dilate ou se contracte.
+    onglet: primaire
+    voir: [PZR, PZR_CHAUF_P, PZR_CHAUF_T, PZR_ASP2, PZR_ASP3, PZR_PORV1, PZR_PORV2]
+    mesures:
+      - [pzr.p_bar, "Pression", "bar", 1]
+      - [pzr.niveau_pct, "Niveau", "%", 0]
+
+  - titre: "Les générateurs de vapeur (GV)"
+    texte: >-
+      Un GV = un gros échangeur : l'eau primaire passe dans plusieurs milliers de tubes en U, l'eau secondaire bout autour.
+      Chaque GV fait ~470 kg/s de vapeur à 63 bar.<br><br>
+      Son <b>niveau d'eau</b> est surveillé de près : trop bas, les tubes se découvrent et le primaire n'est plus
+      refroidi (AU + secours ASG) ; trop haut, de l'eau partirait vers la turbine (P-14).
+    onglet: secondaire
+    voir: [GV1, GV2, GV3, GV4]
+    mesures:
+      - [GV1.p_bar, "Pression GV1", "bar", 1]
+      - [GV1.niveau_pct, "Niveau GV1", "%", 0]
+
+  - titre: "Vapeur → turbine → électricité"
+    texte: >-
+      La vapeur des 4 GV se rejoint dans le collecteur (VVP), passe les vannes d'isolement (VIV), puis entre dans
+      la turbine HP puis BP. L'alternateur tourne à 1 500 tr/min et envoie l'électricité au réseau 400 kV.<br><br>
+      À côté : le <b>contournement (GCT-c)</b> qui envoie la vapeur directement au condenseur quand la turbine ne
+      peut pas la prendre, et les <b>VDA</b> qui la rejettent à l'air libre si le condenseur n'est pas là.
+    onglet: secondaire
+    voir: [TURBINE, VIV1, VIV2, VIV3, VIV4, GCTC_G1, VDA1]
+    mesures:
+      - [turbine.p_elec_mw, "Puissance électrique", "MWe", 0]
+      - [turbine.charge_pct, "Charge turbine", "%", 0]
+
+  - titre: "Condenseur et poste d'eau : la boucle se referme"
+    texte: >-
+      Sortie turbine, la vapeur se condense sous vide, refroidie par ~48 m³/s d'eau de mer (pompes CRF).<br>
+      L'eau repart vers les GV : pompes d'extraction (<b>CEX</b>) → réchauffeurs basse pression → bâche
+      → <b>pompes alimentaires APP</b> → réchauffeurs haute pression → vannes de réglage <b>ARE</b>
+      (une par GV) qui tiennent le niveau. Elle arrive dans les GV à ~224 °C.
+    onglet: secondaire
+    voir: [CONDENSEUR, CEX1, CEX2, APP1, APP2, ARE1_GD, ARE2_GD, ARE3_GD, ARE4_GD]
+    mesures:
+      - [alim.qm_kg_s, "Débit d'eau alimentaire", "kg/s", 0]
+      - [alim.t_c, "Température de l'eau alimentaire", "°C", 0]
+
+  - titre: "Les auxiliaires du primaire"
+    texte: >-
+      <b>RCV</b> (contrôle chimique et volumétrique) : retire un peu d'eau du primaire (décharge), la purifie, la
+      réinjecte (charge) ; c'est par lui qu'on ajoute du bore ou de l'eau pure (REA).<br>
+      <b>RRA</b> (refroidissement à l'arrêt) : prend le relais des GV sous 177 °C pour refroidir jusqu'à froid.<br>
+      <b>RRI / SEC</b> : un circuit d'eau intermédiaire refroidi par l'eau de mer ; il refroidit les échangeurs du
+      RCV, du RRA et les pompes primaires.
+    onglet: ensemble
+    voir: ["bloc:rcv", "bloc:rea", "bloc:rra", "bloc:rri", "bloc:sec", "bloc:ptr"]
+    mesures:
+      - [rcv.charge_m3h, "Charge RCV", "m³/h", 1]
+      - [rri.t_c, "Température RRI", "°C", 1]
+
+  - titre: "Les systèmes de sauvegarde (ils dorment)"
+    texte: >-
+      En marche normale, ils ne font rien… mais ils doivent démarrer seuls en cas de problème :<br>
+      • <b>RIS</b> : injection d'eau borée dans le primaire en cas de brèche (+ accumulateurs à 42 bar) ;<br>
+      • <b>ASG</b> : eau de secours des GV (2 motopompes + 1 turbopompe à vapeur) ;<br>
+      • <b>EAS</b> : aspersion de l'enceinte ;<br>
+      • <b>diesels</b> : électricité de secours des tableaux LHA / LHB, avec les batteries 125 V.
+    onglet: ensemble
+    voir: ["bloc:ris", "bloc:asg", "bloc:diesels", "bloc:batteries"]
+    mesures:
+      - [ACC1.p_bar, "Pression des accumulateurs", "bar", 0]
+      - [cst.volume_m3, "Réserve d'eau ASG (CST)", "m³", 0]
+
+  - titre: "La protection du réacteur (RPR)"
+    texte: >-
+      La RPR surveille en permanence ~20 paramètres, en votes 2 sur 3 ou 2 sur 4 (une seule mesure fausse ne
+      suffit pas à déclencher, une seule mesure en panne n'empêche pas de déclencher).<br><br>
+      Si un seuil est franchi : <b>arrêt automatique du réacteur (AU)</b>, et si on suspecte une brèche :
+      <b>injection de sécurité (IS)</b>. Les « permissifs » (P-4, P-7, P-11…) adaptent ces protections à l'état
+      de la tranche. Tout est dans l'onglet Logique.
+    onglet: logique
+    voir: [RPR, "bloc:rpr"]
+    mesures:
+      - [pzr.p_bar, "Pression PZR (AU sous 129,6 bar)", "bar", 1]
+      - [coeur.puissance_pct, "Puissance (AU au-dessus de 109 %)", "%", 1]
+
+  - titre: "La suite"
+    texte: >-
+      Tu connais les acteurs. Prochain tuto : <b>T1 — l'arrêt automatique du réacteur</b>. On appuie sur le bouton
+      et on regarde, automatisme par automatisme, ce qui se ferme, ce qui s'ouvre et qui alimente les GV.
+    onglet: ensemble

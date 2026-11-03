@@ -1,12 +1,12 @@
-"""Enceinte de confinement (§9.5) et bâche de décharge du pressuriseur (PRT).
+"""Enceinte de confinement (§9.5) et réservoir de décharge du pressuriseur (RDP).
 
 Enceinte : un volume d'air + vapeur (gaz parfaits), des parois (béton + acier) qui absorbent la chaleur,
-un puisard qui recueille l'eau. Ce qui entre (brèche, vapeur, PRT) se détend : une partie se vaporise
+un puisard qui recueille l'eau. Ce qui entre (brèche, vapeur, RDP) se détend : une partie se vaporise
 (titre x = (h − h_f) / h_fg à la pression de l'enceinte), le reste tombe au puisard. Si la vapeur dépasse
 la saturation, l'excédent condense (brouillard → puisard) en rendant sa chaleur latente à l'atmosphère.
 L'aspersion (EAS) refroidit l'atmosphère, ce qui fait condenser la vapeur et baisser la pression.
 
-PRT : ~38 m³ d'eau sous azote. La vapeur des PORV et des soupapes du PZR y condense (barboteur) ;
+RDP : ~38 m³ d'eau sous azote. La vapeur des PORV et des soupapes du PZR y condense (barboteur) ;
 P = P_azote (comprimé par l'eau, chauffé) + Psat(T eau). Au-delà de 8 bar, le disque de rupture cède :
 la décharge part alors directement dans l'enceinte.
 """
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sim.config import EnceinteCfg, PrtCfg
+from sim.config import EnceinteCfg, RdpCfg
 from sim.thermo.tables import TableEau
 from sim.units import KJ_PAR_MJ, S_PAR_H
 
@@ -29,7 +29,7 @@ RHO_EAU_KG_M3 = 990.0
 T_ABS = 273.15
 KPA_PAR_BAR = 100.0
 ITERATIONS_CONDENSATION = 40
-VOLUME_GAZ_MIN = 0.05            # fraction minimale du volume de la PRT laissée au gaz
+VOLUME_GAZ_MIN = 0.05            # fraction minimale du volume du RDP laissée au gaz
 
 
 @dataclass
@@ -136,18 +136,18 @@ class Enceinte:
 
 
 @dataclass
-class EtatPrt:
+class EtatRdp:
     m_eau_kg: float
     t_c: float
     disque_rompu: bool = False
     p_bar: float = 0.0
 
 
-class PRT:
-    def __init__(self, cfg: PrtCfg, table: TableEau) -> None:
+class RDP:
+    def __init__(self, cfg: RdpCfg, table: TableEau) -> None:
         self.cfg = cfg
         self.table = table
-        self.etat = EtatPrt(m_eau_kg=cfg.volume_eau_m3 * RHO_EAU_KG_M3, t_c=cfg.t_initiale_c)
+        self.etat = EtatRdp(m_eau_kg=cfg.volume_eau_m3 * RHO_EAU_KG_M3, t_c=cfg.t_initiale_c)
         self.etat.p_bar = self._pression()
 
     def _pression(self) -> float:

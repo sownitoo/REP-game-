@@ -2,7 +2,7 @@
 
 Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 
-227 valeurs marquées `# HYPOTHESE`.
+228 valeurs marquées `# HYPOTHESE`.
 
 | Clé | Valeur | Justification |
 |---|---|---|
@@ -80,8 +80,8 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `enceinte.p_calcul_bar` | `5.8` | pression de calcul (alarme) |
 | `enceinte.aspersion_m3h` | `700.0` | par pompe EAS |
 | `enceinte.efficacite_aspersion` | `0.9` | (les gouttes arrivent presque à la température de l'atmosphère) |
-| `prt.t_initiale_c` | `40.0` |  |
-| `prt.p_azote_bar` | `1.2` |  |
+| `rdp.t_initiale_c` | `40.0` |  |
+| `rdp.p_azote_bar` | `1.2` |  |
 | `breches.cd` | `0.6` | coefficient de décharge (liquide) |
 | `breches.g_sature_kg_m2s_bar` | `500.0` | débit critique diphasique d'eau saturée ≈ 500 × P (kg/m²/s, P en bar) |
 | `breches.vide_debut_vapeur_pct` | `30.0` | vide primaire (% du volume de découvrement) où la brèche commence à voir de la vapeur |
@@ -113,6 +113,7 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `turbine.eta_isentropique` | `0.835` | calée : ≈ 1 135 MWe pour 1 885 kg/s |
 | `turbine.part_travail_soutirage` | `0.5` | un soutirage fait en moyenne la moitié de la détente |
 | `turbine.rendement_alternateur` | `0.985` |  |
+| `turbine.rendement_soutirage_libre` | `0.3` | part de la chaleur des soutirages non utilisée (eau alimentaire perdue) qui se détend en plus dans la turbine |
 | `turbine.p_elec_nom_mw` | `1135` | (résultat du calage) |
 | `turbine.consigne_max_pct` | `105.0` |  |
 | `turbine.constante_inertie_s` | `4.0` | H (énergie cinétique / puissance apparente) |

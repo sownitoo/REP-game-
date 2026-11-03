@@ -1,0 +1,102 @@
+id: t1_arret_automatique
+titre: "T1 — L'arrêt automatique du réacteur (AU)"
+resume: >-
+  On déclenche un AU depuis 100 % et on suit chaque automatisme : grappes, turbine, électricité,
+  contournement, niveaux des GV et du pressuriseur, eau alimentaire. Puis on regarde la tranche se poser
+  en arrêt à chaud.
+niveau: "Débutant"
+duree_min: 15
+etat_initial: rp100
+etapes:
+  - titre: "Point de départ : 100 % de puissance"
+    texte: >-
+      La tranche produit 1 135 MWe. Le cœur fait 3 411 MW de chaleur, que les 4 GV transforment en vapeur pour la
+      turbine. Tout est en régulation automatique.<br><br>
+      Repère les grandeurs ci-dessous : on va les voir bouger.
+    onglet: ensemble
+    voir: ["bloc:coeur", "bloc:turbine"]
+    mesures:
+      - [coeur.puissance_pct, "Puissance", "%", 1]
+      - [turbine.p_elec_mw, "Électricité", "MWe", 0]
+      - [primaire.tmoy_c, "Tmoy primaire", "°C", 1]
+      - [pzr.p_bar, "Pression PZR", "bar", 1]
+
+  - titre: "Qu'est-ce qu'un AU ?"
+    texte: >-
+      L'<b>arrêt automatique du réacteur</b>, c'est la chute de toutes les grappes dans le cœur. La protection
+      (RPR) le déclenche si un paramètre sort du domaine sûr, par exemple :<br>
+      • puissance neutronique > 109 % ;<br>
+      • pression PZR < 129,6 bar ou > 165,5 bar ;<br>
+      • niveau d'un GV très bas (< 11,5 %) ;<br>
+      • débit primaire < 90 % sur une boucle, ΔT de surtempérature ou de surpuissance ;<br>
+      • déclenchement de la turbine au-dessus de P-7, injection de sécurité…<br>
+      … ou l'opérateur, avec le bouton d'AU manuel. C'est ce qu'on va faire.
+    onglet: logique
+    voir: [RPR]
+
+  - titre: "À toi : déclenche l'AU"
+    texte: >-
+      Ouvre l'onglet <b>Cœur</b> et appuie sur le bouton d'AU, ou clique sur <b>RPR</b> puis
+      « Déclencher l'AU »… ou laisse-moi le faire.<br><br>
+      Ensuite, la simulation tourne en temps réel et <b>s'arrête sur chaque automatisme</b> pour t'expliquer ce
+      qui vient de se passer.
+    action: {cible: RPR, action: declencher_au, libelle: "Déclencher l'AU"}
+    onglet: coeur
+    voir: [RPR, GRAPPES]
+
+  - titre: "Observe : la première minute après l'AU"
+    texte: >-
+      8 automatismes vont se succéder en moins de 20 secondes. Chaque fois, la simulation se met en pause :
+      lis l'explication, regarde l'équipement qui clignote, puis « Continuer ».
+    observer:
+      attendus: [au, turbine, basculement, contournement, tassement_gv, contraction_primaire,
+                 niveau_pzr_programme, isolement_are_gd]
+      duree_s: 60
+      acceleration: 1
+
+  - titre: "Bilan : qu'est-ce qui s'est fermé, ouvert, arrêté ?"
+    texte: >-
+      <table class="tuto-table">
+      <tr><th>Fermé</th><td>grappes (dans le cœur), vannes d'arrêt de la turbine, vannes ARE grand débit</td></tr>
+      <tr><th>Ouvert</th><td>contournement GCT-c (vapeur → condenseur), chaufferettes du PZR à fond</td></tr>
+      <tr><th>Toujours en marche</th><td>4 pompes primaires (passées sur le TA), pompes alimentaires + vannes ARE
+      petit débit, pompes CEX et CRF, pompe de charge RCV</td></tr>
+      <tr><th>Pas sollicité</th><td>ASG (le niveau des GV n'est pas descendu sous « très bas »), injection de
+      sécurité, diesels</td></tr>
+      </table>
+      <b>Les GV sont-ils alimentés ?</b> Oui, par l'eau alimentaire normale, via les vannes petit débit.<br>
+      <b>Où va la chaleur ?</b> Le cœur fait encore ~6 % de puissance résiduelle : les GV la transforment en
+      vapeur, que le contournement envoie au condenseur.
+    onglet: secondaire
+    voir: [GCTC_G1, GCTC_G2, ARE1_PD, ARE2_PD, ARE3_PD, ARE4_PD, TURBINE]
+    mesures:
+      - [coeur.p_thermique_mw, "Puissance résiduelle", "MW", 0]
+      - [gctc.qm_kg_s, "Vapeur au condenseur", "kg/s", 0]
+      - [alim.qm_kg_s, "Eau alimentaire", "kg/s", 0]
+
+  - titre: "Observe : la tranche se pose (10 minutes en accéléré)"
+    texte: >-
+      On laisse tourner 10 minutes à ×60. Regarde la Tmoy se poser vers 292 °C, la pression du PZR remonter vers
+      155 bar grâce aux chaufferettes, le niveau des GV revenir à sa consigne et la puissance résiduelle baisser.
+    observer:
+      attendus: []
+      duree_s: 600
+      acceleration: 60
+    onglet: ensemble
+    mesures:
+      - [primaire.tmoy_c, "Tmoy primaire", "°C", 1]
+      - [pzr.p_bar, "Pression PZR", "bar", 1]
+      - [GV1.niveau_pct, "Niveau GV1", "%", 0]
+      - [coeur.p_thermique_mw, "Puissance résiduelle", "MW", 0]
+
+  - titre: "Arrêt à chaud sur les GV (AN/GV)"
+    texte: >-
+      Le réacteur est dans l'état standard <b>AN/GV</b> : arrêté, chaud (~292 °C), pressurisé, refroidi par les GV
+      et le contournement. La puissance résiduelle tombe à ~1,5 % au bout d'une heure.<br><br>
+      Pour aller plus loin : <b>T2</b> (et si l'eau alimentaire manquait ?) ou le scénario S2 pour descendre
+      jusqu'à l'arrêt à froid.
+    onglet: ensemble
+    voir: ["bloc:coeur", "bloc:gct"]
+    mesures:
+      - [primaire.tmoy_c, "Tmoy primaire", "°C", 1]
+      - [coeur.p_thermique_mw, "Puissance résiduelle", "MW", 0]

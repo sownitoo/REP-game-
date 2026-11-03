@@ -1,0 +1,436 @@
+# Catalogue des automatismes expliqués (mode tuto et mode libre « commenté »).
+# motif   : expression régulière cherchée dans le texte du journal (automatismes, pannes, alarmes « ↑ … »)
+# voir    : repères à mettre en surbrillance (data-id des schémas, ou « bloc:clé » de la vue d'ensemble)
+# onglet  : onglet ouvert pour montrer l'automatisme ; mesures : [mesure, libellé, unité, décimales]
+# Les chiffres cités sont ceux du simulateur (centrale générique), pas des réglages EDF.
+
+reprise_mode_commente_s: 600        # mode libre : un même automatisme n'est réexpliqué qu'après 10 min simulées
+
+explications:
+  # ------------------------------------------------------------------ arrêt du réacteur
+  - id: au
+    motif: "^AU : "
+    titre: "Arrêt automatique du réacteur (AU)"
+    pourquoi: >-
+      Un paramètre a franchi un seuil de protection (ou l'opérateur a appuyé sur le bouton d'AU) : la protection
+      du réacteur (RPR) ouvre les disjoncteurs qui alimentent les mécanismes de grappes.
+    effet: >-
+      Privées de courant, les grappes tombent par gravité dans le cœur en ~2 s : la réaction en chaîne s'arrête.
+      La puissance neutronique chute (saut à ~8 % en une seconde, puis décroissance). Il reste la puissance
+      résiduelle des produits de fission (~6 % juste après, ~1,5 % au bout d'une heure) : il faudra l'évacuer
+      pendant des jours. L'AU donne aussi le signal P-4 qui déclenche la turbine.
+    voir: [GRAPPES, RPR, "bloc:coeur", "bloc:rpr"]
+    onglet: coeur
+    mesures:
+      - [coeur.puissance_pct, "Puissance neutronique", "%", 1]
+      - [grappes.arret_insere_pct, "Grappes d'arrêt insérées", "%", 0]
+      - [coeur.p_thermique_mw, "Chaleur produite (résiduelle)", "MW", 0]
+
+  - id: turbine
+    motif: "^Déclenchement turbine"
+    titre: "La turbine déclenche"
+    pourquoi: >-
+      Après un AU, le signal P-4 ferme les vannes d'arrêt de la turbine : sans réacteur, plus question de
+      prendre de la vapeur pour faire de l'électricité. (La turbine peut aussi déclencher d'elle-même : perte du
+      réseau, vide condenseur dégradé, niveau GV très haut… et, au-dessus de P-7, c'est elle qui provoque l'AU.)
+    effet: >-
+      Les 4 vannes d'arrêt se ferment en moins d'une seconde, l'alternateur est découplé du réseau. La vapeur des
+      GV n'a plus de débouché : leur pression monte, et le contournement (GCT-c) va s'ouvrir.
+    voir: [TURBINE, "bloc:turbine", "bloc:alternateur"]
+    onglet: secondaire
+    mesures:
+      - [turbine.p_elec_mw, "Puissance électrique", "MWe", 0]
+      - [GV1.p_bar, "Pression GV1", "bar", 1]
+
+  - id: basculement
+    motif: "^Basculement rapide des tableaux"
+    titre: "Les auxiliaires changent de source électrique"
+    pourquoi: >-
+      En marche, les tableaux 6,6 kV normaux (LGA / LGB) — pompes primaires, pompes alimentaires, CRF… — sont
+      alimentés par l'alternateur via le transformateur de soutirage (TS). Turbine déclenchée : l'alternateur ne
+      produit plus.
+    effet: >-
+      Basculement rapide sur le transformateur auxiliaire (TA), branché sur le réseau 400 kV : les gros moteurs
+      ne s'arrêtent pas. Les pompes primaires continuent donc de faire circuler l'eau du primaire.
+    voir: [RESEAU, "bloc:tableaux", "bloc:reseau"]
+    onglet: elec
+    mesures:
+      - [elec.LGA.tension_pct, "Tension LGA", "%", 0]
+      - [elec.LGB.tension_pct, "Tension LGB", "%", 0]
+
+  - id: contournement
+    motif: "^↑ Contournement condenseur ouvert"
+    titre: "Le contournement condenseur (GCT-c) s'ouvre"
+    pourquoi: >-
+      Turbine déclenchée (signal C-8) ou forte baisse de charge (C-7) : la vapeur produite n'est plus consommée.
+      Sans sortie, la pression et la température montent dans les GV… et dans le primaire.
+    effet: >-
+      Les vannes GCT-c envoient la vapeur directement au condenseur, sans passer par la turbine. Elles ramènent
+      d'abord la Tmoy du primaire vers ~292 °C (température de l'arrêt à chaud), puis évacuent la puissance
+      résiduelle. Il faut le vide au condenseur (C-9) ; sinon ce sont les VDA qui rejettent la vapeur à l'air.
+    voir: [GCTC_G1, GCTC_G2, GCTC_G3, GCTC_G4, REG_GCTC, CONDENSEUR, "bloc:gct", "bloc:condenseur"]
+    onglet: secondaire
+    mesures:
+      - [gctc.qm_kg_s, "Débit au condenseur", "kg/s", 0]
+      - [primaire.tmoy_c, "Tmoy primaire", "°C", 1]
+      - [GV1.p_bar, "Pression GV1", "bar", 1]
+
+  - id: tassement_gv
+    motif: "^↑ Niveau GV\\d bas"
+    titre: "Le niveau des GV chute : c'est le « tassement »"
+    pourquoi: >-
+      La turbine ne prend plus de vapeur : la pression des GV monte, les bulles de vapeur mélangées à l'eau
+      s'écrasent. Le niveau mesuré baisse d'un coup alors que l'eau n'est pas partie.
+    effet: >-
+      L'eau alimentaire (ARE) remonte ensuite le niveau. S'il atteignait le seuil très bas, ce serait un AU (s'il
+      n'a pas déjà eu lieu) et le démarrage de l'alimentation de secours (ASG).
+    voir: [GV1, GV2, GV3, GV4, "bloc:gv"]
+    onglet: secondaire
+    mesures:
+      - [GV1.niveau_pct, "Niveau GV1 (gamme étroite)", "%", 0]
+      - [GV1.p_bar, "Pression GV1", "bar", 1]
+      - [alim.qm_kg_s, "Eau alimentaire (ARE)", "kg/s", 0]
+
+  - id: contraction_primaire
+    motif: "^↑ Pression pressuriseur basse"
+    titre: "Le primaire se contracte : la pression baisse"
+    pourquoi: >-
+      Le primaire refroidit de 307 °C vers ~292 °C : l'eau se contracte, le niveau du pressuriseur baisse, la
+      vapeur du PZR se détend et sa pression baisse.
+    effet: >-
+      La régulation de pression met les chaufferettes du PZR au maximum (et ferme l'aspersion) ; la régulation de
+      niveau augmente la charge RCV. La pression remonte doucement vers 155 bar.
+    voir: [PZR, PZR_CHAUF_P, PZR_CHAUF_T, PZR_ASP2, PZR_ASP3, "bloc:pzr"]
+    onglet: primaire
+    mesures:
+      - [pzr.p_bar, "Pression PZR", "bar", 1]
+      - [pzr.niveau_pct, "Niveau PZR", "%", 0]
+      - [pzr.chauffe_kw, "Chaufferettes", "kW", 0]
+
+  - id: niveau_pzr_programme
+    motif: "^↑ Niveau pressuriseur haut \\(/ programme\\)"
+    titre: "Niveau PZR « trop haut »… par rapport à sa consigne"
+    pourquoi: >-
+      La consigne de niveau du PZR dépend de la Tmoy (60 % à 307 °C, 25 % à 292 °C). Avec l'AU, la Tmoy chute et
+      la consigne tombe d'un coup, plus vite que le niveau réel.
+    effet: >-
+      Pas de danger : la régulation de charge RCV ramène doucement le niveau vers sa nouvelle consigne.
+    voir: [PZR, RCV_CHARGE, "bloc:pzr", "bloc:rcv"]
+    onglet: primaire
+    mesures:
+      - [pzr.niveau_pct, "Niveau PZR", "%", 0]
+      - [pzr.niveau_programme_pct, "Consigne de niveau", "%", 0]
+
+  - id: isolement_are_gd
+    motif: "^Isolement ARE grand débit"
+    titre: "L'eau alimentaire « grand débit » est isolée"
+    pourquoi: >-
+      AU (P-4) et Tmoy basse : le cœur ne produit plus que la puissance résiduelle (quelques %). Envoyer encore le
+      débit nominal d'eau dans les GV surrefroidirait le primaire.
+    effet: >-
+      Les vannes ARE grand débit se ferment. Les GV restent alimentés par les vannes petit débit (ARE PD), qui
+      tiennent leur niveau. Si l'eau normale manquait, l'ASG prendrait le relais.
+    voir: [ARE1_GD, ARE2_GD, ARE3_GD, ARE4_GD, ARE1_PD, ARE2_PD, ARE3_PD, ARE4_PD, "bloc:are"]
+    onglet: secondaire
+    mesures:
+      - [alim.qm_kg_s, "Eau alimentaire (ARE)", "kg/s", 0]
+      - [GV1.niveau_pct, "Niveau GV1", "%", 0]
+
+  # ------------------------------------------------------------------ eau des GV
+  - id: asg_app
+    motif: "^Démarrage ASG_MP\\d \\(perte des 2 APP\\)"
+    titre: "L'ASG démarre : plus de pompes alimentaires"
+    pourquoi: >-
+      Les 2 pompes alimentaires (APP) sont à l'arrêt : plus rien n'envoie l'eau normale dans les GV, qui se vident
+      en vaporisant.
+    effet: >-
+      Les 2 motopompes ASG démarrent tout de suite et envoient l'eau de la bâche ASG (CST) dans les 4 GV par les
+      vannes ASG. Elles ne remplacent pas le débit nominal (~470 kg/s par GV) : à 100 %, le niveau des GV
+      continue de baisser jusqu'à l'AU.
+    voir: [ASG_MP1, ASG_MP2, ASG1, ASG2, ASG3, ASG4, APP1, APP2, "bloc:asg"]
+    onglet: asg
+    mesures:
+      - [asg.qm_kg_s, "Débit ASG", "kg/s", 0]
+      - [GV1.niveau_pct, "Niveau GV1", "%", 0]
+
+  - id: asg_niveau
+    motif: "^Démarrage ASG_TP \\(niveau GV très bas\\)"
+    titre: "Niveau GV très bas : la turbopompe ASG démarre"
+    pourquoi: >-
+      Le niveau d'un GV est sous le seuil très bas : si les tubes se découvrent, le primaire n'est plus refroidi.
+      C'est aussi un signal d'AU.
+    effet: >-
+      La vanne vapeur de la turbopompe ASG s'ouvre : entraînée par la vapeur des GV, elle fonctionne même sans
+      électricité (seule sa régulation a besoin du 125 V). Avec les 2 motopompes, l'ASG peut maintenant remonter
+      les niveaux… et refroidir trop si personne ne règle son débit.
+    voir: [ASG_TP, ASG_TP_VAP, "bloc:asg"]
+    onglet: asg
+    mesures:
+      - [asg.qm_kg_s, "Débit ASG", "kg/s", 0]
+      - [GV1.niveau_pct, "Niveau GV1", "%", 0]
+      - [primaire.tmoy_c, "Tmoy primaire", "°C", 1]
+
+  - id: app_declenchement
+    motif: "^Déclenchement APP\\d"
+    titre: "Une pompe alimentaire déclenche"
+    pourquoi: >-
+      Protection de la pompe : pression d'aspiration basse (plus de pompes d'extraction CEX, donc plus d'eau à
+      l'aspiration), ou niveau GV très haut (P-14).
+    effet: >-
+      Avec les 2 APP perdues, l'eau alimentaire normale est perdue : démarrage automatique des motopompes ASG.
+    voir: [APP1, APP2, CEX1, CEX2, "bloc:poste"]
+    onglet: secondaire
+    mesures:
+      - [alim.qm_kg_s, "Eau alimentaire (ARE)", "kg/s", 0]
+
+  - id: soupapes_gv
+    motif: "^Ouverture soupape SOUP\\d"
+    titre: "Les soupapes de sûreté des lignes vapeur se soulèvent"
+    pourquoi: >-
+      La pression vapeur dépasse leur tarage (82 → 86 bar) : la vapeur ne trouve pas d'autre sortie assez vite
+      (turbine déclenchée, condenseur indisponible).
+    effet: >-
+      La vapeur part à l'air libre : c'est la protection ultime des GV contre la surpression. Les VDA (vannes de
+      décharge à l'atmosphère, consigne ~79 bar) prennent ensuite le relais et les soupapes se referment.
+    voir: [SOUP1_1, SOUP2_1, SOUP3_1, SOUP4_1, VDA1, VDA2, VDA3, VDA4, "bloc:vvp"]
+    onglet: secondaire
+    mesures:
+      - [GV1.p_bar, "Pression GV1", "bar", 1]
+      - [vapeur.vda_qm_kg_s, "Débit VDA", "kg/s", 0]
+
+  # ------------------------------------------------------------------ électricité
+  - id: panne
+    motif: "^PANNE : "
+    titre: "L'événement de départ"
+    pourquoi: "C'est la panne de ce scénario (ou celle injectée par le formateur)."
+    effet: "Regarde maintenant comment les automatismes y répondent, un par un."
+    voir: []
+    onglet: ensemble
+    mesures: []
+
+  - id: perte_reseau_turbine
+    motif: "^Perte du réseau : déclenchement turbine"
+    titre: "Réseau perdu : la turbine déclenche"
+    pourquoi: >-
+      Le réseau 400 kV a disparu : l'alternateur n'a plus où envoyer sa puissance et s'emballerait.
+    effet: >-
+      La turbine déclenche. Le transformateur auxiliaire (TA), branché sur ce même réseau, ne peut pas reprendre
+      les tableaux normaux : ils vont se retrouver sans tension.
+    voir: [RESEAU, TURBINE, "bloc:reseau", "bloc:turbine"]
+    onglet: elec
+    mesures:
+      - [elec.reseau_ok, "Réseau présent (1 = oui)", "", 0]
+
+  - id: tableaux_normaux_ht
+    motif: "^Tableaux 6,6 kV normaux hors tension"
+    titre: "Les tableaux normaux n'ont plus de tension"
+    pourquoi: >-
+      Ni le réseau, ni l'alternateur : LGA et LGB (pompes primaires, pompes alimentaires, CRF, CEX…) sont morts.
+    effet: >-
+      Ces gros moteurs s'arrêtent ; la sous-tension des 2 tableaux normaux provoque l'AU. Les pompes primaires
+      ralentissent sur leur volant d'inertie, puis la circulation naturelle prend le relais. Plus de CRF : plus de
+      vide condenseur, la vapeur partira par les VDA.
+    voir: [PP1, PP2, PP3, PP4, "bloc:tableaux", "bloc:pp"]
+    onglet: elec
+    mesures:
+      - [elec.LGA.tension_pct, "Tension LGA", "%", 0]
+      - [B1.debit_pct, "Débit primaire boucle 1", "%", 0]
+
+  - id: delestage_diesel
+    motif: "^Sous-tension LH[AB] : délestage, démarrage DIESEL"
+    titre: "Délestage et démarrage des diesels"
+    pourquoi: >-
+      Les tableaux secourus LHA / LHB (matériels de sauvegarde) sont hors tension depuis plus d'une seconde.
+    effet: >-
+      Toutes leurs charges sont décrochées (délestage) pour que le diesel ne démarre pas sur une surcharge, et le
+      diesel de la voie démarre : il atteint sa vitesse et sa tension en ~10 s.
+    voir: [DIESEL_A, DIESEL_B, LHA, LHB, "bloc:diesels"]
+    onglet: elec
+    mesures:
+      - [elec.LHA.tension_pct, "Tension LHA", "%", 0]
+      - [elec.LHB.tension_pct, "Tension LHB", "%", 0]
+
+  - id: diesel_couple
+    motif: "^DIESEL_[AB] couplé sur LH[AB]"
+    titre: "Diesel couplé : le séquenceur démarre"
+    pourquoi: "Le diesel est à vitesse et à tension : son disjoncteur se ferme sur le tableau secouru."
+    effet: >-
+      Le tableau secouru est de nouveau sous tension. Le séquenceur rebranche les gros moteurs un par un
+      (séquenceur « arrêt », ou « accident » s'il y a une injection de sécurité).
+    voir: [DIESEL_A, DIESEL_B, "bloc:diesels"]
+    onglet: elec
+    mesures:
+      - [elec.DIESEL_A.charge_kw, "Charge diesel A", "kW", 0]
+
+  - id: sequenceur
+    motif: "^Séquenceur LH[AB] : démarrage"
+    titre: "Séquenceur : les pompes repartent une par une"
+    pourquoi: >-
+      Un gros moteur appelle 5 à 7 fois son courant nominal au démarrage : les démarrer tous en même temps
+      écroulerait le diesel. On les échelonne de quelques secondes.
+    effet: >-
+      Ordre du séquenceur arrêt : pompe de charge RCV (eau des joints des pompes primaires), RRI puis SEC
+      (refroidissements), motopompe ASG (eau des GV), compresseur d'air.
+    voir: [RCV_PC1, RRI_P1, SEC_P1, ASG_MP1, SAR_C1, RCV_PC2, RRI_P2, SEC_P2, ASG_MP2, SAR_C2]
+    onglet: elec
+    mesures:
+      - [elec.DIESEL_A.charge_kw, "Charge diesel A", "kW", 0]
+      - [elec.DIESEL_B.charge_kw, "Charge diesel B", "kW", 0]
+
+  # ------------------------------------------------------------------ injection de sécurité
+  - id: injection_securite
+    motif: "^INJECTION DE SÉCURITÉ"
+    titre: "Signal d'injection de sécurité (IS)"
+    pourquoi: >-
+      Un signal de « brèche » est apparu : pression primaire sous 125,6 bar, pression enceinte haute, écart de
+      pression entre lignes vapeur ou débit vapeur haut. On suppose que de l'eau quitte le primaire.
+    effet: >-
+      Ordres automatiques : AU, isolement de l'eau alimentaire, démarrage de l'ASG, des pompes d'injection (HP :
+      pompes de charge par la BIT ; MP : pompes IS ; BP : pompes RRA), des 2 trains RRI / SEC, des diesels (à
+      vide, prêts à reprendre), isolement de l'enceinte « phase A » (décharge RCV fermée), aspiration de la
+      charge sur la PTR, ouverture des accumulateurs.
+    voir: [RPR, RIS_BIT, RIS_PMP1, RIS_PMP2, RCV_PC1, RCV_PC2, "bloc:ris", "bloc:rpr"]
+    onglet: ris
+    mesures:
+      - [pzr.p_bar, "Pression primaire", "bar", 1]
+      - [ris.q_hp_m3h, "Injection HP", "m³/h", 0]
+      - [ris.q_mp_m3h, "Injection MP", "m³/h", 0]
+
+  - id: ordres_is
+    motif: "\\(IS\\)$"
+    titre: "Les pompes de sauvegarde démarrent (ordres IS)"
+    pourquoi: "Ce sont les ordres du signal d'injection de sécurité, exécutés en même temps sur les 2 voies."
+    effet: >-
+      Pompes de charge (HP), pompes IS (MP, débit nul au-dessus de 106 bar), pompes RRA (BP, débit nul au-dessus
+      de 14 bar), RRI, SEC, motopompes ASG. Les pompes qui ne débitent pas encore tournent sur leur débit minimum :
+      elles injecteront dès que la pression du primaire descendra sous leur hauteur de refoulement.
+    voir: [RIS_PMP1, RIS_PMP2, RRA_P1, RRA_P2, RRI_P1, RRI_P2, SEC_P1, SEC_P2, ASG_MP1, ASG_MP2]
+    onglet: ris
+    mesures:
+      - [ris.q_hp_m3h, "Injection HP", "m³/h", 0]
+      - [ris.q_mp_m3h, "Injection MP", "m³/h", 0]
+      - [ris.q_bp_m3h, "Injection BP", "m³/h", 0]
+
+  - id: aspiration_ptr
+    motif: "^Aspiration des pompes de charge basculée sur la PTR"
+    titre: "La charge aspire dans la PTR"
+    pourquoi: >-
+      Sur IS (ou niveau VCT très bas), l'eau doit venir de la grosse réserve d'eau borée (PTR, ~1 600 m³ à
+      2 500 ppm) et plus du petit réservoir VCT.
+    effet: >-
+      Vannes d'aspiration PTR ouvertes, VCT fermée : l'eau injectée est très borée, ce qui garantit que le
+      réacteur reste arrêté même si l'eau refroidit.
+    voir: [RCV_ASP_PTR, RCV_ASP_VCT, PTR, VCT, "bloc:ptr"]
+    onglet: rcv
+    mesures:
+      - [rcv.ptr_pct, "Niveau PTR", "%", 0]
+      - [primaire.bore_ppm, "Bore du primaire", "ppm", 0]
+
+  - id: niveau_pzr_bas
+    motif: "^Niveau PZR bas : décharge isolée"
+    titre: "Niveau PZR bas : décharge isolée, chaufferettes coupées"
+    pourquoi: >-
+      Le niveau du pressuriseur est sous 17 % : il ne faut plus sortir d'eau du primaire, et les chaufferettes
+      risquent de se retrouver hors d'eau.
+    effet: >-
+      Vannes de décharge RCV (LCV-459 / 460) et orifices fermés ; chaufferettes coupées (dénoyées, elles
+      grilleraient). La charge continue d'injecter : sans fuite, le niveau remonte.
+    voir: [RCV_LCV459, RCV_LCV460, RCV_ORIF1, PZR_CHAUF_P, PZR_CHAUF_T, PZR]
+    onglet: rcv
+    mesures:
+      - [pzr.niveau_pct, "Niveau PZR", "%", 0]
+      - [rcv.decharge_m3h, "Décharge RCV", "m³/h", 1]
+
+  - id: accumulateurs
+    motif: "^↑ Les accumulateurs injectent"
+    titre: "Les accumulateurs injectent"
+    pourquoi: "La pression du primaire est passée sous celle de leur azote (~42 bar)."
+    effet: >-
+      Sans pompe ni électricité, l'azote pousse ~29 m³ d'eau borée par accumulateur dans les branches froides :
+      c'est le renoyage rapide du cœur en cas de grosse brèche.
+    voir: [ACC1_ISOL, ACC2_ISOL, ACC3_ISOL, ACC4_ISOL]
+    onglet: ris
+    mesures:
+      - [accu.qm_kg_s, "Débit des accumulateurs", "kg/s", 0]
+      - [pzr.p_bar, "Pression primaire", "bar", 1]
+
+  - id: primaire_sature
+    motif: "^↑ Primaire saturé"
+    titre: "Le primaire bout : il n'y a plus de marge à la saturation"
+    pourquoi: >-
+      L'eau la plus chaude du primaire est à sa température d'ébullition pour la pression actuelle : de la vapeur
+      se forme dans le haut de la cuve.
+    effet: >-
+      La pression ne baisse plus que si l'eau refroidit (P = pression de saturation de l'eau la plus chaude). Le
+      niveau du PZR ne dit plus rien de la quantité d'eau : regarder le niveau cuve et la marge à la saturation.
+    voir: [GRAPPES, PZR, "bloc:coeur"]
+    onglet: ris
+    mesures:
+      - [cuve.marge_saturation_c, "Marge à la saturation", "°C", 1]
+      - [cuve.niveau_pct, "Niveau cuve", "%", 0]
+      - [pzr.niveau_pct, "Niveau PZR", "%", 0]
+
+  - id: isolement_vapeur
+    motif: "^ISOLEMENT VAPEUR"
+    titre: "Isolement vapeur : les VIV se ferment"
+    pourquoi: >-
+      Débit vapeur anormalement haut avec une pression vapeur basse (ou Tmoy très basse), ou pression enceinte
+      très haute : une ligne vapeur est probablement rompue.
+    effet: >-
+      Les 4 vannes d'isolement vapeur (VIV) et leurs by-pass se ferment en quelques secondes : chaque GV est isolé
+      des autres. Une brèche entre un GV et sa VIV ne peut plus vider que ce GV.
+    voir: [VIV1, VIV2, VIV3, VIV4, "bloc:vvp"]
+    onglet: secondaire
+    mesures:
+      - [breche.vapeur_kg_s, "Débit de la brèche vapeur", "kg/s", 0]
+      - [primaire.tmoy_c, "Tmoy primaire", "°C", 1]
+
+  - id: phase_b
+    motif: "aspersion EAS \\+ isolement phase B"
+    titre: "Pression enceinte très haute : aspersion + phase B"
+    pourquoi: "La pression dans l'enceinte dépasse 2,07 bar relatifs : il faut condenser la vapeur."
+    effet: >-
+      Les pompes EAS pulvérisent de l'eau borée en haut de l'enceinte ; la phase B isole le RRI des pompes
+      primaires (qui devront s'arrêter).
+    voir: [EAS_P1, EAS_P2, "bloc:ris"]
+    onglet: ris
+    mesures:
+      - [enceinte.p_rel_bar, "Pression enceinte", "bar rel", 2]
+      - [ris.q_eas_m3h, "Aspersion", "m³/h", 0]
+
+  - id: disque_rdp
+    motif: "^Disque de rupture du RDP rompu"
+    titre: "Le disque du réservoir de décharge (RDP) crève"
+    pourquoi: >-
+      La vapeur des PORV / soupapes du PZR condense dans le RDP ; à force, son eau chauffe et sa pression monte
+      jusqu'à 8 bar.
+    effet: "Le disque cède : la décharge du pressuriseur part directement dans l'enceinte."
+    voir: [RDP, PZR_PORV1, PZR_ISOL1]
+    onglet: ris
+    mesures:
+      - [rdp.p_bar, "Pression RDP", "bar", 2]
+      - [enceinte.p_rel_bar, "Pression enceinte", "bar rel", 2]
+
+  - id: recirculation_rra
+    motif: "^Arrêt RRA_P\\d : PTR à 48"
+    titre: "PTR à 48 % : les pompes RRA s'arrêtent"
+    pourquoi: "La réserve PTR s'épuise : il faut passer en recirculation sur l'eau tombée au fond de l'enceinte."
+    effet: >-
+      Les pompes RRA (injection BP) s'arrêtent ; l'opérateur ouvre les vannes d'aspiration aux puisards puis les
+      relance : l'eau tourne en boucle primaire → brèche → puisards → pompes.
+    voir: [RRA_P1, RRA_P2, RIS_PUISARD1, RIS_PUISARD2, PTR, PUISARDS]
+    onglet: ris
+    mesures:
+      - [rcv.ptr_pct, "Niveau PTR", "%", 0]
+      - [enceinte.puisard_m3, "Eau aux puisards", "m³", 0]
+
+  - id: perte_rri_pp
+    motif: "^Défaut PP\\d : perte du RRI"
+    titre: "Pompe primaire en défaut : plus de RRI"
+    pourquoi: >-
+      Sans RRI depuis ~2 min, les paliers et la barrière thermique de la pompe ne sont plus refroidis.
+    effet: "La pompe est perdue (défaut) : il fallait l'arrêter avant."
+    voir: [PP1, PP2, PP3, PP4, RRI_P1, RRI_P2]
+    onglet: rra
+    mesures:
+      - [B1.debit_pct, "Débit boucle 1", "%", 0]

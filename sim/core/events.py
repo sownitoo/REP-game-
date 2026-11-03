@@ -29,9 +29,16 @@ class Journal:
 
     def __init__(self, taille_max: int) -> None:
         self.evenements: deque[Evenement] = deque(maxlen=taille_max)
+        self.total = 0              # nombre d'événements ajoutés depuis la création (repère pour « les nouveaux »)
 
     def ajouter(self, t_s: float, categorie: str, texte: str, priorite: int) -> None:
         self.evenements.append(Evenement(t_s, categorie, texte, priorite))
+        self.total += 1
+
+    def depuis(self, total: int) -> list[Evenement]:
+        """Événements ajoutés après que le compteur valait `total`."""
+        n = min(self.total - total, len(self.evenements))
+        return list(self.evenements)[-n:] if n > 0 else []
 
     def derniers(self, n: int) -> list[dict[str, Any]]:
         return [asdict(e) for e in list(self.evenements)[-n:]]
@@ -42,6 +49,7 @@ class Journal:
     def importer(self, donnees: list[dict[str, Any]]) -> None:
         self.evenements.clear()
         self.evenements.extend(Evenement(**d) for d in donnees)
+        self.total = len(self.evenements)
 
 
 @dataclass

@@ -1,4 +1,4 @@
-"""Volume diphasique à l'équilibre de saturation (GV côté secondaire ; plus tard PZR, PRT).
+"""Volume diphasique à l'équilibre de saturation (GV côté secondaire ; plus tard PZR, RDP).
 
 Variables d'état conservées : masse totale m et énergie interne totale U.
 La pression et le titre se déduisent de (v = V/m, u = U/m) par un « flash » sur

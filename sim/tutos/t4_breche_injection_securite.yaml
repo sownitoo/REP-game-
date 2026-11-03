@@ -1,0 +1,80 @@
+id: t4_breche_injection_securite
+titre: "T4 — Brèche primaire et injection de sécurité"
+resume: >-
+  Une brèche de 5 cm s'ouvre sur une branche froide. On voit la pression baisser, l'AU puis le signal
+  d'injection de sécurité et tous ses ordres, puis l'injection haute et moyenne pression qui compense la fuite.
+niveau: "Intermédiaire"
+duree_min: 15
+scenario: s7_petite_breche_primaire
+etapes:
+  - titre: "La brèche (APRP)"
+    texte: >-
+      Une <b>brèche primaire</b> (APRP : accident de perte de réfrigérant primaire) : de l'eau du primaire fuit
+      dans l'enceinte. Ici, un trou de 5 cm sur la branche froide de la boucle 1, à t = 30 s.<br><br>
+      Au début, ~125 kg/s s'échappent ; la charge RCV n'en fournit que quelques-uns. Les premiers signes :
+      niveau du pressuriseur qui baisse, pression qui baisse, eau aux puisards de l'enceinte.
+    onglet: ris
+    voir: [PZR, PUISARDS]
+    mesures:
+      - [breche.primaire_kg_s, "Débit de la brèche", "kg/s", 0]
+      - [pzr.niveau_pct, "Niveau PZR", "%", 0]
+      - [pzr.p_bar, "Pression PZR", "bar", 1]
+
+  - titre: "Observe : de la brèche à l'injection de sécurité"
+    texte: >-
+      On passe en ×10 : la pression va baisser en ~1 min 30. Suis les automatismes : AU, signal d'injection de
+      sécurité et ses ordres.
+    observer:
+      attendus: [panne, au, turbine, niveau_pzr_bas, injection_securite, ordres_is, aspiration_ptr,
+                 isolement_are_gd]
+      duree_s: 150
+      acceleration: 10
+
+  - titre: "L'ordre d'injection : HP, MP, BP"
+    texte: >-
+      Chaque pompe n'injecte que si sa hauteur de refoulement dépasse la pression du primaire :<br>
+      <table class="tuto-table">
+      <tr><th>HP</th><td>pompes de charge par la BIT : jusqu'à ~185 bar, injecte tout de suite</td></tr>
+      <tr><th>MP</th><td>pompes IS : sous ~106 bar</td></tr>
+      <tr><th>Accumulateurs</th><td>sous ~42 bar, sans pompe (azote)</td></tr>
+      <tr><th>BP</th><td>pompes RRA : sous ~14 bar, gros débit (2 × 700 m³/h)</td></tr>
+      </table>
+      Pour une petite brèche, la pression se stabilise assez haut : seules l'HP et la MP injectent.
+    onglet: ris
+    voir: [RIS_BIT, RIS_PMP1, RIS_PMP2, RRA_P1, RRA_P2]
+    mesures:
+      - [pzr.p_bar, "Pression primaire", "bar", 1]
+      - [ris.q_hp_m3h, "Injection HP", "m³/h", 0]
+      - [ris.q_mp_m3h, "Injection MP", "m³/h", 0]
+
+  - titre: "Observe : l'injection rattrape la fuite (10 min accéléré)"
+    texte: >-
+      Regarde la MP démarrer quand la pression passe sous 106 bar, puis la pression se poser vers 80 bar : à ce
+      niveau, le débit de la brèche a baissé et l'injection le compense. Les puisards se remplissent.
+    observer:
+      attendus: []
+      duree_s: 600
+      acceleration: 60
+    onglet: ris
+    mesures:
+      - [pzr.p_bar, "Pression primaire", "bar", 1]
+      - [breche.primaire_kg_s, "Brèche", "kg/s", 0]
+      - [ris.q_mp_m3h, "Injection MP", "m³/h", 0]
+      - [enceinte.puisard_m3, "Eau aux puisards", "m³", 0]
+
+  - titre: "Pourquoi ~80 bar ?"
+    texte: >-
+      Les GV sont à ~70-75 bar (leur eau à ~285-290 °C) : ils empêchent le primaire de refroidir plus bas que ça.
+      L'eau la plus chaude du primaire bout vers 80 bar : la pression ne peut pas descendre plus tant qu'on ne
+      refroidit pas. D'où la suite de la conduite :<br>
+      • <b>refroidir par les GV</b> (GCT ou VDA) pour faire baisser la pression du primaire et la fuite ;<br>
+      • quand la PTR passe sous 48 %, <b>recirculation</b> sur les puisards ;<br>
+      • <b>arrêter l'injection</b> quand la marge à la saturation et le niveau PZR sont revenus, sinon le PZR se
+      remplit d'eau.<br><br>
+      Tu peux continuer seul : le scénario est en cours (onglet RIS · EAS · Enceinte).
+    onglet: ris
+    voir: [GCTC_G1, VDA1, RIS_PUISARD1, RIS_PUISARD2]
+    mesures:
+      - [cuve.marge_saturation_c, "Marge à la saturation", "°C", 1]
+      - [rcv.ptr_pct, "Niveau PTR", "%", 0]
+      - [GV1.p_bar, "Pression GV1", "bar", 1]

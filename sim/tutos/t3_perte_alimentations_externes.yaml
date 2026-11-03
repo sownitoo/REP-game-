@@ -1,0 +1,78 @@
+id: t3_perte_alimentations_externes
+titre: "T3 — Perte des alimentations électriques externes"
+resume: >-
+  Le réseau 400 kV disparaît à 100 %. Turbine, tableaux, pompes primaires… tout s'arrête ; les diesels
+  démarrent et le séquenceur relance les pompes indispensables une par une. Le primaire passe en
+  circulation naturelle.
+niveau: "Intermédiaire"
+duree_min: 15
+scenario: s5_perte_alimentations_externes
+etapes:
+  - titre: "D'où vient l'électricité de la centrale ?"
+    texte: >-
+      Une centrale consomme elle-même ~50 MW pour ses pompes. Ses tableaux 6,6 kV :<br>
+      • <b>normaux LGA / LGB</b> : pompes primaires, alimentaires, CEX, CRF… alimentés par l'alternateur (TS) ou
+      le réseau (TA) ;<br>
+      • <b>secourus LHA / LHB</b> : matériels de sauvegarde (charge RCV, RRI, SEC, ASG, RIS…), alimentés par les
+      tableaux normaux… ou par un <b>diesel</b> chacun ;<br>
+      • <b>batteries 125 V</b> : contrôle-commande, électrovannes, régulation de la turbopompe ASG.<br><br>
+      Dans 30 secondes, le réseau va disparaître.
+    onglet: elec
+    voir: [RESEAU, LHA, LHB, DIESEL_A, DIESEL_B]
+    mesures:
+      - [elec.LGA.tension_pct, "Tension LGA (normal)", "%", 0]
+      - [elec.LHA.tension_pct, "Tension LHA (secouru)", "%", 0]
+
+  - titre: "Observe : la première minute"
+    texte: >-
+      Le réseau tombe à t = 30 s. Suis la cascade : turbine, tableaux, AU, délestage, diesels, séquenceur…
+    observer:
+      attendus: [panne, perte_reseau_turbine, tableaux_normaux_ht, au, delestage_diesel, app_declenchement,
+                 asg_app, soupapes_gv, diesel_couple, sequenceur]
+      duree_s: 75
+      acceleration: 1
+
+  - titre: "Ce qui a été perdu, ce qui a été repris"
+    texte: >-
+      <table class="tuto-table">
+      <tr><th>Perdu</th><td>turbine, tableaux normaux LGA / LGB : 4 pompes primaires, pompes alimentaires, CEX,
+      CRF (donc le condenseur)</td></tr>
+      <tr><th>Repris par les diesels</th><td>charge RCV (injection aux joints des pompes primaires), RRI, SEC,
+      motopompes ASG, compresseurs d'air</td></tr>
+      <tr><th>Évacuation de la chaleur</th><td>GV alimentés par l'ASG, vapeur rejetée à l'air par les VDA
+      (plus de condenseur)</td></tr>
+      </table>
+      Les <b>soupapes</b> des GV se sont soulevées quelques secondes, le temps que les VDA ouvrent.
+    onglet: ensemble
+    voir: ["bloc:diesels", "bloc:asg", "bloc:vvp", "bloc:pp"]
+    mesures:
+      - [elec.DIESEL_A.charge_kw, "Charge diesel A", "kW", 0]
+      - [asg.qm_kg_s, "Débit ASG", "kg/s", 0]
+      - [vapeur.vda_qm_kg_s, "Vapeur par les VDA", "kg/s", 0]
+
+  - titre: "Observe : la circulation naturelle s'installe (15 min accéléré)"
+    texte: >-
+      Sans pompes primaires, l'eau du primaire circule quand même : chauffée dans le cœur (en bas), refroidie
+      dans les GV (en haut), elle tourne toute seule — lentement. Regarde le débit d'une boucle et l'écart de
+      température entre branche chaude et branche froide.
+    observer:
+      attendus: []
+      duree_s: 900
+      acceleration: 60
+    onglet: primaire
+    mesures:
+      - [B1.debit_pct, "Débit boucle 1", "%", 1]
+      - [B1.dt_c, "ΔT boucle 1 (chaude − froide)", "°C", 1]
+      - [cuve.marge_saturation_c, "Marge à la saturation", "°C", 1]
+
+  - titre: "Bilan"
+    texte: >-
+      Avec ~5 % de débit, l'écart de température entre branches chaude et froide augmente (la même chaleur
+      portée par moins d'eau) mais le cœur reste bien refroidi : la <b>marge à la saturation</b> reste grande.<br><br>
+      Ce qui compte maintenant : les diesels (gazole), la réserve d'eau de l'ASG, et l'injection aux joints des
+      pompes primaires. Le scénario <b>S6</b> montre ce qui se passe si en plus le diesel A refuse de démarrer.
+    onglet: primaire
+    voir: [PP1, PP2, PP3, PP4]
+    mesures:
+      - [B1.debit_pct, "Débit boucle 1", "%", 1]
+      - [cuve.marge_saturation_c, "Marge à la saturation", "°C", 1]

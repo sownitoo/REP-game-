@@ -3,21 +3,34 @@
 - mode navigateur : Pyodide dans un Web Worker (sim/navigateur.py), pour un hébergement statique (Vercel).
 
 Messages reçus (dict JSON) : commande, conditions, acceleration, pause, acquitter,
-historique, exporter, importer, scenario. Messages envoyés : init, etat, reponse,
-conditions, historique, export, import, erreur.
+historique, exporter, importer, scenario ; mode tuto : tuto (charger), observer, continuer, commente.
+Messages envoyés : init, etat, reponse, conditions, historique, export, import, tuto, erreur.
 """
 
 from __future__ import annotations
 
+from dataclasses import asdict
+from functools import lru_cache
 from typing import Any
 
 from sim.core.engine import Simulateur
+from sim.tutos.chargement import Catalogue, Tuto, centrale_tuto, lire_catalogue, lister_tutos
 from sim.logic import etats
 from sim.plant import Centrale
 from sim.scenarios.chargement import centrale_scenario, lister_scenarios
 
 SCENARIO_DEFAUT = "s0_bac_a_sable_100"
 NB_EVENEMENTS_DIFFUSES = 60
+
+
+@lru_cache(maxsize=1)
+def catalogue() -> Catalogue:
+    return lire_catalogue()
+
+
+@lru_cache(maxsize=1)
+def tutos() -> dict[str, Tuto]:
+    return {t.id: t for t in lister_tutos()}
 
 
 def creer_simulateur(scenario: str = SCENARIO_DEFAUT) -> Simulateur:
@@ -62,6 +75,9 @@ def etat_ui(c: Centrale, sim: Simulateur) -> dict[str, Any]:
         "gct": {"mode": c.gct.etat.mode, "c7": c.gct.etat.c7, "c8": c.gct.etat.c8},
         "alarmes": c.alarmes.liste(),
         "journal": c.journal.derniers(NB_EVENEMENTS_DIFFUSES),
+        "arret": sim.arret,
+        "arrets_en_attente": len(sim.file),
+        "observation": {"points": sorted(sim.points), "fin_s": sim.fin_observation_s, "commente": sim.permanents},
     }
 
 
@@ -111,12 +127,15 @@ def message_init(c: Centrale, sim: Simulateur) -> dict[str, Any]:
     cfg = c.cfg
     return {
         "type": "init",
-        "meta": {"version": cfg.meta.version, "nom": cfg.meta.nom},
+        "meta": {"version": cfg.meta.version, "nom": cfg.meta.nom, "reacteur": cfg.meta.reacteur,
+                 "reacteur_detail": cfg.meta.reacteur_detail},
         "accelerations": cfg.simulation.accelerations,
         "variables": sorted(c.mesures),
         "scenarios": [{"id": s.id, "titre": s.titre, "description": s.description, "objectifs": s.objectifs}
                       for s in lister_scenarios()],
         "seuils": seuils(c),
+        "tutos": [t.vers_ui() for t in tutos().values()],
+        "explications": {e.id: asdict(e) for e in catalogue().explications},
         "etat": etat_ui(c, sim),
     }
 
@@ -139,10 +158,16 @@ def traiter_message(sim: Simulateur, msg: dict[str, Any]) -> dict[str, Any] | No
         valeur = int(msg.get("valeur", 1))
         if valeur in sim.cfg.accelerations:
             sim.acceleration = valeur
-            sim.pause = False
+            if sim.arret is not None:          # relancer pendant une explication = « continuer »
+                sim.continuer()
+            else:
+                sim.pause = False
         return None
     if genre == "pause":
-        sim.pause = bool(msg.get("valeur", True))
+        if not msg.get("valeur", True) and sim.arret is not None:
+            sim.continuer()
+        else:
+            sim.pause = bool(msg.get("valeur", True))
         return None
     if genre == "acquitter":
         c.alarmes.acquitter(msg.get("id"))
@@ -165,4 +190,32 @@ def traiter_message(sim: Simulateur, msg: dict[str, Any]) -> dict[str, Any] | No
             return {"type": "erreur", "texte": f"Scénario inconnu : {ident}"}
         sim.remplacer(centrale_scenario(ident), ident)
         return {"type": "import", "ok": True, "t_s": sim.centrale.t_s}
+    if genre == "tuto":                          # charger l'état de départ d'un tuto (en pause)
+        t = tutos().get(str(msg.get("id")))
+        if t is None:
+            return {"type": "erreur", "texte": f"Tuto inconnu : {msg.get('id')}"}
+        sim.remplacer(centrale_tuto(t), t.scenario or t.etat_initial)
+        sim.pause = True
+        sim.acceleration = sim.cfg.accelerations[0]
+        return {"type": "tuto", "id": t.id, "t_s": sim.centrale.t_s}
+    if genre == "observer":                      # étape d'observation : points d'arrêt + durée
+        ids = [str(x) for x in msg.get("points", [])]
+        duree = msg.get("duree_s")
+        valeur = int(msg.get("acceleration", sim.cfg.accelerations[0]))
+        if valeur in sim.cfg.accelerations:
+            sim.acceleration = valeur
+        sim.observer(catalogue().motifs(ids), float(duree) if duree else None)
+        return None
+    if genre == "continuer":
+        sim.continuer()
+        return None
+    if genre == "commente":                      # mode libre commenté : pause sur chaque automatisme expliqué
+        pause = sim.pause and sim.arret is None
+        if msg.get("valeur"):
+            cat = catalogue()
+            sim.observer(cat.motifs(), None, permanents=True, reprise_s=cat.reprise_mode_commente_s)
+        else:
+            sim.arreter_observation()
+        sim.pause = pause
+        return None
     return {"type": "erreur", "texte": f"message inconnu : {genre}"}

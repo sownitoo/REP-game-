@@ -34,6 +34,8 @@ class ErreurConfig(Exception):
 class MetaCfg:
     version: str
     nom: str
+    reacteur: str
+    reacteur_detail: str
 
 
 @dataclass
@@ -383,7 +385,7 @@ class EnceinteCfg:
 
 
 @dataclass
-class PrtCfg:
+class RdpCfg:
     volume_m3: float
     volume_eau_m3: float
     t_initiale_c: float
@@ -509,6 +511,7 @@ class TurbineCfg:
     eta_isentropique: float
     fraction_soutirage: float
     part_travail_soutirage: float
+    rendement_soutirage_libre: float
     rendement_alternateur: float
     p_elec_nom_mw: float
     consigne_max_pct: float
@@ -943,7 +946,7 @@ class CentraleCfg:
     joints_pp: JointsPpCfg
     ris: RisCfg
     enceinte: EnceinteCfg
-    prt: PrtCfg
+    rdp: RdpCfg
     breches: BrechesCfg
     asg: AsgCfg
     generateurs_vapeur: GVCfg

@@ -1,16 +1,16 @@
 id: s8_porv_bloquee
 titre: "S8 — PORV du pressuriseur bloquée ouverte"
 description: >-
-  La PORV n° 1 du pressuriseur s'ouvre et reste bloquée. La vapeur part vers la bâche de décharge (PRT) :
+  La PORV n° 1 du pressuriseur s'ouvre et reste bloquée. La vapeur part vers le réservoir de décharge (RDP) :
   la pression chute, le primaire se met à bouillir… et le niveau PZR MONTE alors que le primaire se vide
-  (piège de TMI-2, 1979). Si rien n'est fait, la PRT monte en pression et son disque de rupture crève.
+  (piège de TMI-2, 1979). Si rien n'est fait, le RDP monte en pression et son disque de rupture crève.
 etat_initial: rp100
 duree_s: 7200
 pannes:
   - {t_s: 30, type: porv_bloquee, cible: PZR_PORV1}
 objectifs:
-  - "Repérer le débit vers la PRT : pression et température de la PRT qui montent (onglet RIS · EAS · Enceinte)."
+  - "Repérer le débit vers le RDP : pression et température du RDP qui montent (onglet RIS · EAS · Enceinte)."
   - "Fermer la vanne d'isolement PZR_ISOL1 (en amont de la PORV) — c'est LE geste de ce scénario."
   - "Ne pas se fier au seul niveau PZR : regarder la marge à la saturation et le niveau cuve."
-  - "Sans action : disque de la PRT rompu vers 8 bar, la vapeur part dans l'enceinte."
+  - "Sans action : disque du RDP rompu vers 8 bar, la vapeur part dans l'enceinte."
   - "Après isolement : l'injection remplit le PZR, l'arrêter quand la marge à la saturation est revenue."

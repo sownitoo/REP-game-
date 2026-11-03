@@ -131,7 +131,7 @@ function construirePrimaire(svg) {
   Sym.texte(svg, 1116, yAsp + 30, "BF3 →", "atm", "end");
   D(Sym.texte(svg, 1160, yAsp - 22, "aspersion", "atm"));
 
-  // décharges : 2 PORV (avec isolement) + 3 soupapes → PRT
+  // décharges : 2 PORV (avec isolement) + 3 soupapes → RDP
   const yDech = haut - 70, xD = pz.x + 16;
   Sym.tuyau(svg, [[xD, haut + 4], [xD, yDech - 40], [1385, yDech - 40]], "vapeur");
   Sym.tuyau(svg, [[xD, yDech], [1385, yDech]], "vapeur", "pzr.porv_qm_kg_s", 0.1);
@@ -144,7 +144,7 @@ function construirePrimaire(svg) {
   D(Sym.texte(svg, xD + 34, yDech + 46, "isol.", "atm"));
   D(Sym.texte(svg, xD + 74, yDech + 46, "PORV", "atm"));
   D(Sym.texte(svg, xD + 56, yDech - 66, "soupapes", "atm"));
-  Sym.texte(svg, 1390, yDech + 12, "PRT", "atm", "end");
+  Sym.texte(svg, 1390, yDech + 12, "RDP", "atm", "end");
 
   // ------------------------------------------------------------------ carte cœur + RPR (à gauche)
   const x0 = 24, y0 = 360;

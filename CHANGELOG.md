@@ -1,5 +1,47 @@
 # Changelog
 
+## V5 — 2026-11-03 — Mode tuto : comprendre plutôt que jouer
+
+Réorientation demandée : la spec prévoyait en V5 un score et un éditeur de scénarios ; on fait à la place un
+**mode tuto guidé**, pour voir ce que font les automatismes au lieu de manœuvrer à l'aveugle.
+
+### Ajouté
+- **Écran d'accueil** (bouton 🎓 Tutos) : fiche du réacteur, liste des tutos, accès au mode libre.
+- **5 tutos guidés** (`sim/tutos/t*.yaml`) : T0 visite de la centrale, T1 arrêt automatique du réacteur,
+  T2 perte de l'eau alimentaire → ASG, T3 perte des alimentations externes, T4 brèche primaire et injection de
+  sécurité. Une étape est une lecture (texte, onglet ouvert, équipements qui clignotent, mesures en direct), une
+  action (« fais-le », ou « le faire pour moi ») ou une observation.
+- **Points d'arrêt** dans l'horloge de simulation (`sim/core/engine.py`) : pendant une observation, la simulation
+  se met en pause **exactement sur chaque automatisme attendu** (même en accéléré) et la carte explique : ce qui
+  s'est passé (ligne du journal), **pourquoi**, **ce que ça fait**, avec les équipements concernés en surbrillance
+  et l'onglet qui va bien. Plusieurs automatismes dans le même pas : « Automatisme suivant (n) ».
+- **Catalogue d'explications** (`sim/tutos/explications.yaml`, 31 automatismes) : AU, turbine, basculement des
+  tableaux, contournement, tassement des GV, contraction du primaire, isolement ARE, ASG, soupapes, perte réseau,
+  délestage, diesels, séquenceur, IS et ses ordres, aspiration PTR, accumulateurs, primaire saturé, isolement vapeur,
+  phase B, RDP, recirculation, perte RRI…
+- **Mode libre commenté** (☰ → 💬, ou case à cocher de l'accueil) : même pause + explication sur n'importe quel
+  automatisme, dans n'importe quel scénario (une fois par automatisme et par 10 min simulées).
+- **Type de réacteur** affiché (barre du haut, accueil, T0) : REP 4 boucles Westinghouse, référence Trojan
+  (USNRC), 3 411 MWth, ~1 135 MWe ; cousin français le plus proche : palier 1300 MWe (P4 / P'4), sans en être
+  une copie.
+- Tests : chaque tuto est rejoué sans interface et **chaque automatisme annoncé doit vraiment arriver** ;
+  cohérence du contenu (onglets, repères, mesures, commandes). 121 tests.
+
+### Corrigé
+- **PRT → RDP** : la bâche de décharge du pressuriseur s'appelle le RDP (réservoir de décharge du pressuriseur)
+  en France ; PRT est le sigle américain. Renommé partout (schémas, alarmes, mesures `rdp.*`, glossaire).
+- **Perte des pompes alimentaires** : la turbine déclenchait sur « vide condenseur dégradé » avant le niveau GV,
+  parce que la chaleur des soutirages, plus prise par l'eau alimentaire, allait toute au condenseur. Une partie
+  (30 %, HYPOTHESE) se détend maintenant en plus dans la turbine : la séquence est celle des manuels (ASG à 0 s,
+  AU « débit d'eau insuffisant » à 18 s, turbopompe ASG sur niveau très bas à 21 s).
+- Glossaire : PORV — sur les REP français, la protection du PZR est faite par des soupapes pilotées (SEBIM).
+
+### Limites
+- Les explications décrivent le **modèle** (schéma Westinghouse générique), pas les consignes d'une tranche EDF.
+- Pas de questions / quiz ni de score : les tutos montrent et expliquent, ils ne notent pas.
+- Une seule simulation par serveur : deux navigateurs ouverts suivent le même tuto.
+
+
 ## V4 — 2026-11-03 — RIS, EAS, enceinte, brèches, primaire saturé, tous les signaux de sauvegarde
 
 ### Ajouté

@@ -10,8 +10,15 @@
 # =============================================================================
 
 meta:
-  version: V4
+  version: V5
   nom: "Mini-Centrale REP 4 boucles (générique)"
+  reacteur: "REP 4 boucles de conception Westinghouse · 3 411 MWth · ~1 135 MWe"
+  reacteur_detail: >-
+    Réacteur à eau pressurisée à 4 boucles de conception Westinghouse, calqué sur la centrale de référence des
+    cours USNRC (Trojan, États-Unis) : 3 411 MWth, ~1 135 MWe, 193 assemblages 17 × 17, 155 bar, Tmoy 307 °C,
+    1 générateur de vapeur et 1 pompe primaire par boucle. Le cousin français le plus proche est le palier 1300 MWe
+    (P4 / P'4, 4 boucles, 193 assemblages, 3 817 MWth — Flamanville 1-2 en font partie), mais ce n'en est pas une
+    copie : schéma et valeurs viennent des manuels américains, seuls les noms des circuits sont ceux d'EDF.
 
 simulation:
   dt_s: 0.1
@@ -247,8 +254,8 @@ enceinte:
   aspersion_m3h: 700.0                # HYPOTHESE par pompe EAS
   efficacite_aspersion: 0.9           # HYPOTHESE (les gouttes arrivent presque à la température de l'atmosphère)
 
-# --- Bâche de décharge du pressuriseur (PRT) -----------------------------------------------------
-prt:
+# --- Réservoir de décharge du pressuriseur (RDP) -----------------------------------------------------
+rdp:
   volume_m3: 51.0                     # spec
   volume_eau_m3: 38.0                 # spec (~3/4 d'eau)
   t_initiale_c: 40.0                  # HYPOTHESE
@@ -328,6 +335,7 @@ turbine:
   fraction_soutirage: 0.333         # spec : reprise des purges ≈ 1/3 du débit
   part_travail_soutirage: 0.5       # HYPOTHESE : un soutirage fait en moyenne la moitié de la détente
   rendement_alternateur: 0.985      # HYPOTHESE
+  rendement_soutirage_libre: 0.3    # HYPOTHESE part de la chaleur des soutirages non utilisée (eau alimentaire perdue) qui se détend en plus dans la turbine
   p_elec_nom_mw: 1135               # HYPOTHESE (résultat du calage)
   consigne_max_pct: 105.0           # HYPOTHESE
   vitesse_nom_tr_min: 1500          # 4 pôles, 50 Hz
@@ -914,8 +922,8 @@ alarmes:
   - {id: P_ENCEINTE_TH, mesure: enceinte.p_rel_bar, haut: 2.07, priorite: 1, libelle: "Pression enceinte très haute : aspersion + phase B", temporisation_s: 0.0}
   - {id: PUISARD, mesure: enceinte.puisard_m3, haut: 1.0, priorite: 2, libelle: "Eau dans les puisards de l'enceinte"}
   - {id: PTR_RECIRC, mesure: rcv.ptr_pct, bas: 48.0, priorite: 1, libelle: "PTR à 48 % : passer en recirculation sur les puisards", temporisation_s: 0.0}
-  - {id: PRT_T, mesure: prt.t_c, haut: 46.0, priorite: 2, libelle: "Température bâche de décharge PZR haute"}
-  - {id: PRT_DISQUE, mesure: prt.disque_rompu, haut: 0.5, priorite: 1, libelle: "Disque de rupture de la bâche de décharge rompu", temporisation_s: 0.0}
+  - {id: RDP_T, mesure: rdp.t_c, haut: 46.0, priorite: 2, libelle: "Température du réservoir de décharge du PZR (RDP) haute"}
+  - {id: RDP_DISQUE, mesure: rdp.disque_rompu, haut: 0.5, priorite: 1, libelle: "Disque de rupture du réservoir de décharge (RDP) rompu", temporisation_s: 0.0}
   - {id: ACTIVITE_GV, mesure: gv.activite_max, haut: 0.001, priorite: 1, libelle: "Activité haute dans un GV (fuite primaire → secondaire)", temporisation_s: 0.0}
   - {id: INJECTION, mesure: ris.qm_kg_s, haut: 0.5, priorite: 1, libelle: "Injection de sécurité en cours", temporisation_s: 0.0}
   - {id: ISOL_VAPEUR, mesure: logique.isolement_vapeur, haut: 0.5, priorite: 1, libelle: "Isolement vapeur", temporisation_s: 0.0}

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mini-Centrale REP</title>
   <meta name="description" content="Simulateur pédagogique schématique d'une centrale REP 4 boucles (générique).">
-  <link rel="stylesheet" href="style.css?v=6">
-  <script src="mode.js?v=6"></script>
+  <link rel="stylesheet" href="style.css?v=7">
+  <script src="mode.js?v=7"></script>
 </head>
 <body>
   <div id="chargement">
@@ -36,6 +36,7 @@
     <div class="bloc mesures-barre" id="mesures-barre"></div>
     <div class="bloc voyants" id="voyants"></div>
     <div class="bloc actions">
+      <button id="btn-tutos" class="btn-tutos" title="Tutos guidés">🎓 Tutos</button>
       <div class="menu">
         <button id="btn-menu" title="Scénarios, sauvegarde, aide">☰</button>
         <div id="menu-contenu" class="menu-contenu" hidden>
@@ -47,6 +48,7 @@
           <button id="btn-sauver">💾 Sauver l'état (JSON)</button>
           <button id="btn-charger">📂 Charger un état</button>
           <hr>
+          <button id="btn-commente" title="Mode libre : la simulation s'arrête et explique chaque automatisme">💬 Automatismes expliqués</button>
           <button id="btn-glossaire">📖 Glossaire des sigles</button>
           <button id="btn-formateur">⚠ Pannes (formateur)</button>
           <input type="file" id="fichier" accept=".json" hidden>
@@ -123,6 +125,15 @@
     </section>
 
     <aside id="panneau-droit">
+      <div id="tuto" hidden>
+        <div class="tuto-tete"><span id="tuto-titre"></span><span id="tuto-progression" class="discret"></span>
+          <button id="tuto-reduire" class="discret-btn" title="Réduire / agrandir">–</button>
+          <button id="tuto-quitter" class="discret-btn" title="Quitter le tuto">✕</button></div>
+        <div class="tuto-barre"><div id="tuto-avance"></div></div>
+        <div id="tuto-corps"></div>
+        <table id="tuto-mesures" class="lecture"></table>
+        <div id="tuto-boutons"></div>
+      </div>
       <section id="panneau-equipement" hidden>
         <h2><span id="eq-titre">Équipement</span><button id="btn-fermer-eq" class="discret-btn" title="Fermer">✕</button></h2>
         <div id="eq-fiche"></div>
@@ -177,6 +188,21 @@
   </div>
 
   <div id="infobulle" hidden></div>
+  <div id="accueil" class="voile" hidden>
+    <div class="cadre-accueil">
+      <h1>Mini-Centrale REP <span class="discret">— comprendre comment marche une centrale nucléaire</span></h1>
+      <p id="accueil-reacteur" class="accueil-reacteur"></p>
+      <h2>🎓 Tutos guidés</h2>
+      <p class="discret petit">La simulation s'arrête sur chaque automatisme et explique ce qui vient de se passer :
+        quelle vanne se ferme, quelle pompe démarre, pourquoi. Les équipements concernés clignotent sur les schémas.</p>
+      <div id="accueil-tutos"></div>
+      <h2>🛠 Mode libre</h2>
+      <p class="discret petit">Manœuvre toi-même, charge un scénario (☰), injecte des pannes (⚠ formateur).</p>
+      <label class="petit"><input type="checkbox" id="accueil-commente"> Arrêter la simulation et expliquer chaque
+        automatisme aussi en mode libre</label>
+      <div class="ligne-btn"><button id="btn-mode-libre" class="gros-btn">Aller au simulateur</button></div>
+    </div>
+  </div>
   <div id="vue-glossaire" class="voile" hidden>
     <div class="cadre-glossaire">
       <div class="neutrons-entete"><b>📖 Glossaire des sigles</b>
@@ -186,22 +212,23 @@
     </div>
   </div>
 
-  <script src="svg.js?v=6"></script>
-  <script src="glossaire.js?v=6"></script>
-  <script src="zoom.js?v=6"></script>
-  <script src="coeur_geo.js?v=6"></script>
-  <script src="coeur_vue.js?v=6"></script>
-  <script src="neutrons.js?v=6"></script>
-  <script src="synoptics/ensemble.js?v=6"></script>
-  <script src="synoptics/primaire.js?v=6"></script>
-  <script src="synoptics/secondaire.js?v=6"></script>
-  <script src="synoptics/asg.js?v=6"></script>
-  <script src="synoptics/rcv.js?v=6"></script>
-  <script src="synoptics/rra.js?v=6"></script>
-  <script src="synoptics/elec.js?v=6"></script>
-  <script src="synoptics/ris.js?v=6"></script>
-  <script src="transport.js?v=6"></script>
-  <script src="curves.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="svg.js?v=7"></script>
+  <script src="glossaire.js?v=7"></script>
+  <script src="zoom.js?v=7"></script>
+  <script src="coeur_geo.js?v=7"></script>
+  <script src="coeur_vue.js?v=7"></script>
+  <script src="neutrons.js?v=7"></script>
+  <script src="synoptics/ensemble.js?v=7"></script>
+  <script src="synoptics/primaire.js?v=7"></script>
+  <script src="synoptics/secondaire.js?v=7"></script>
+  <script src="synoptics/asg.js?v=7"></script>
+  <script src="synoptics/rcv.js?v=7"></script>
+  <script src="synoptics/rra.js?v=7"></script>
+  <script src="synoptics/elec.js?v=7"></script>
+  <script src="synoptics/ris.js?v=7"></script>
+  <script src="transport.js?v=7"></script>
+  <script src="curves.js?v=7"></script>
+  <script src="tuto.js?v=7"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

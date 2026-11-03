@@ -377,3 +377,52 @@ table.lecture td.froid, .froid { color: #a9cdf5; }
 .contour-acc { fill: #0d1217; stroke: #c8d2dc; stroke-width: 1.5; }
 .goutte { fill: #4ea1ff; opacity: .7; }
 .val.breche { fill: #ff9d87; }
+
+/* ---------------- mode tuto ---------------- */
+body.mode-tuto #panneau-droit { width: 460px; }
+#tuto { display: flex; flex-direction: column; flex: 1 1 65%; min-height: 0; background: #16202b;
+        border-bottom: 2px solid var(--bleu); }
+#tuto[hidden] { display: none; }
+body.mode-tuto #panneau-equipement { flex: 0 1 auto; max-height: 45%; }
+body.mode-tuto #panneau-alarmes { flex: 0 1 auto; max-height: 22%; }
+#tuto.reduit { flex: 0 0 auto; }
+#tuto.libre { border-bottom-color: var(--orange); }
+#tuto.reduit #tuto-corps, #tuto.reduit #tuto-mesures, #tuto.reduit #tuto-boutons { display: none; }
+.tuto-tete { display: flex; align-items: center; gap: 8px; padding: 8px 10px 6px; font-weight: 600; }
+.tuto-tete #tuto-titre { flex: 1; }
+.tuto-barre { height: 3px; background: var(--fond-3); margin: 0 10px; }
+#tuto-avance { height: 100%; background: var(--bleu); transition: width .3s; }
+#tuto-corps { padding: 6px 14px; overflow-y: auto; flex: 1; min-height: 0; }
+#tuto-corps h3 { margin: 6px 0 8px; font-size: 15px; color: #fff; }
+#tuto-corps h4 { margin: 10px 0 3px; font-size: 12px; color: var(--bleu); text-transform: uppercase; letter-spacing: .04em; }
+#tuto-corps p, .tuto-texte { margin: 0 0 6px; font-size: 13px; line-height: 1.45; }
+.tuto-pause { color: var(--orange); font-weight: 600; font-size: 12px; }
+.tuto-declencheur { color: var(--discret); font-style: italic; font-size: 12px !important; }
+.tuto-attente { color: var(--jaune); }
+.tuto-ok { color: var(--vert); font-weight: 600; }
+.tuto-liste { list-style: none; padding: 0; margin: 2px 0 6px; font-size: 12px; }
+.tuto-liste li { padding: 1px 0; color: var(--discret); }
+.tuto-liste li.vu { color: var(--vert); }
+.tuto-journal { list-style: none; padding: 0; margin: 0; font-size: 11px; }
+.tuto-table { border-collapse: collapse; margin: 4px 0 8px; font-size: 12px; }
+.tuto-table th { text-align: left; vertical-align: top; padding: 3px 8px 3px 0; color: var(--bleu); white-space: nowrap; }
+.tuto-table td { padding: 3px 0; border-bottom: 1px solid var(--trait); }
+#tuto-mesures { margin: 0 14px 6px; font-size: 12px; }
+#tuto-mesures td { padding: 1px 6px 1px 0; }
+#tuto-mesures td.valeur { text-align: right; font-weight: 600; color: #fff3dd; font-variant-numeric: tabular-nums; }
+#tuto-boutons { display: flex; gap: 8px; justify-content: flex-end; padding: 8px 12px 10px; border-top: 1px solid var(--trait); }
+.btn-tutos { background: #1b2c3e; border-color: var(--bleu); font-weight: 600; }
+@keyframes clignote { 0%, 100% { filter: drop-shadow(0 0 2px #ffd166); } 50% { filter: drop-shadow(0 0 9px #ffd166) brightness(1.35); } }
+.surbrillance { animation: clignote 1.1s ease-in-out infinite; }
+.cadre-accueil { background: var(--fond-2); border: 1px solid var(--trait); border-radius: 12px; padding: 22px 28px;
+                 width: min(980px, 94vw); max-height: 92vh; overflow-y: auto; }
+.cadre-accueil h1 { margin: 0 0 8px; font-size: 20px; }
+.cadre-accueil h1 .discret { font-weight: 400; font-size: 15px; }
+.cadre-accueil h2 { margin: 18px 0 4px; font-size: 16px; }
+.accueil-reacteur { background: var(--fond-3); border-left: 3px solid var(--bleu); padding: 8px 12px; border-radius: 4px; }
+#accueil-tutos { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; margin-top: 8px; }
+.carte-tuto { background: var(--fond-3); border: 1px solid var(--trait); border-radius: 8px; padding: 10px 12px;
+              display: flex; flex-direction: column; gap: 6px; }
+.carte-tuto p { margin: 0; flex: 1; }
+.carte-tuto-tete { display: flex; flex-direction: column; gap: 2px; }
+body.mode-tuto #onglets button { padding: 4px 7px; font-size: 12px; }
