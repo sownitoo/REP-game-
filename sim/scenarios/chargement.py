@@ -23,6 +23,7 @@ class Scenario:
     description: str = ""
     duree_s: float | None = None
     pannes: list[dict[str, Any]] = field(default_factory=list)
+    objectifs: list[str] = field(default_factory=list)     # fiche de conduite affichée au joueur
 
 
 def lire_etat(nom: str) -> dict[str, Any]:

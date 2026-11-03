@@ -150,7 +150,8 @@ function construirePrimaire(svg) {
   const x0 = 24, y0 = 360;
   Sym.texte(svg, x0, y0, "CŒUR", "lib-fort", "start");
   [["coeur.rho_pcm", "réactivité", "pcm", 0, false], ["grappes.position_pas", "groupe R", "pas", 0, false],
-   ["grappes.arret_insere_pct", "arrêt insérés", "%", 0, false], ["primaire.tmoy_c", "Tmoy", "°C", 1, false],
+   ["grappes.arret_insere_pct", "arrêt insérés", "%", 0, false], ["primaire.bore_ppm", "bore", "ppm", 0, false],
+   ["primaire.tmoy_c", "Tmoy", "°C", 1, false], ["coeur.marge_arret_chaud_pcm", "marge d'arrêt", "pcm", 0, true],
    ["primaire.tref_c", "Tref", "°C", 1, true], ["cuve.marge_saturation_c", "marge saturation", "°C", 1, true],
    ["otdt.marge_pct", "marge ΔT surtemp.", "%", 1, true], ["opdt.marge_pct", "marge ΔT surpuiss.", "%", 1, true]]
     .forEach(([m, lib, u, d, det], k) => {
@@ -160,18 +161,20 @@ function construirePrimaire(svg) {
       if (det) { D(t); D(v); }
     });
   const rpr = Sym._groupe(svg, "RPR", "regulation", "Protection réacteur : AU, réarmements, blocages");
-  svgEl("rect", { x: x0, y: y0 + 182, width: 210, height: 34, rx: 6, class: "corps" }, rpr);
-  Sym.texte(rpr, x0 + 105, y0 + 204, "RPR — arrêt automatique", "lib-fort");
+  svgEl("rect", { x: x0, y: y0 + 222, width: 210, height: 34, rx: 6, class: "corps" }, rpr);
+  Sym.texte(rpr, x0 + 105, y0 + 244, "RPR — AU · IS", "lib-fort");
 
-  // ------------------------------------------------------------------ RCV simplifié (renvois vers B1 et B3)
-  const xr = 700, yr = 800;
-  Sym.texte(svg, xr, yr - 26, "RCV", "lib-fort");
-  Sym.vanne(svg, xr - 60, yr, "RCV_CHARGE", { reg: true, label: "charge", cote: "bas" });
-  Sym.vanne(svg, xr + 60, yr, "RCV_DECHARGE", { label: "décharge", cote: "bas" });
-  Sym.valeur(svg, xr - 60, yr + 40, "rcv.charge_kg_s", "kg/s", 1, "val");
-  Sym.valeur(svg, xr + 60, yr + 40, "rcv.decharge_kg_s", "kg/s", 1, "val");
-  D(Sym.texte(svg, xr - 60, yr - 14, "→ BF1", "atm"));
-  D(Sym.texte(svg, xr + 60, yr - 14, "← branche en U B3", "atm"));
+  // ------------------------------------------------------------------ renvois RCV et RRA (cliquer : onglet)
+  const lien = (x, y, onglet, titre, lignes) => {
+    const g = svgEl("g", { class: "lien-onglet", "data-lien-onglet": onglet }, svg);
+    svgEl("title", {}, g).textContent = `Ouvrir l'onglet ${titre}`;
+    svgEl("rect", { x: x - 95, y: y - 16, width: 190, height: 22 + lignes.length * 16, rx: 6, class: "corps" }, g);
+    Sym.texte(g, x, y, `${titre} ›`, "lib-fort");
+    lignes.forEach(([m, u, d, p], k) => Sym.valeur(g, x, y + 18 + k * 16, m, u, d, "val", "middle", p));
+    return g;
+  };
+  lien(700, 790, "rcv", "RCV · REA", [["primaire.bore_ppm", "ppm", 0, "bore "], ["rcv.charge_m3h", "m³/h", 1, "charge "]]);
+  lien(130, 800, "rra", "RRA · RRI", [["rra.q_mw", "MW", 1, "RRA "], ["rri.t_c", "°C", 1, "RRI "]]);
 
   D(Sym.texte(svg, 20, 885, "Molette : zoom · glisser : se déplacer · clic : piloter · rouge = chaud, bleu = froid",
               "atm", "start"));

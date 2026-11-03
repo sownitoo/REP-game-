@@ -1,7 +1,6 @@
 """Automatismes : déclenchements (turbine, APP, CEX), isolement eau alimentaire,
-contournement (C-9, P-12, armements C-7/C-8), démarrage ASG, isolement de la décharge
-et coupure des chaufferettes sur niveau PZR bas, runback turbine (C-3/C-4),
-recirculation débit mini des CEX.
+contournement (C-9, P-12, armements C-7/C-8), démarrage ASG, runback turbine (C-3/C-4),
+recirculation débit mini des CEX. (RCV, RRA, RRI, IS : automatismes_v2.py)
 
 Les ordres sont posés sur les vannes (`fixer_ordre`) : ils priment sur l'opérateur
 et la régulation, et la raison est affichée dans l'interface.
@@ -123,15 +122,6 @@ def appliquer_automatismes(c: Centrale, e: EtatLogique, dt: float) -> None:
             c.asg.vanne_vapeur.demander(OUVERTE)
             c.asg.turbopompe.demarrer()
             journal.ajouter(t, "automatisme", f"Démarrage ASG_TP ({cause})", PRIORITE_MOYENNE)
-
-    # --- PZR : niveau bas → isolement de la décharge + chaufferettes coupées (spec : 17 %) ---
-    niveau_bas = c.pzr.capteur_niveau.mediane < c.cfg.pressuriseur.niveau_bas_pct
-    if niveau_bas and not e.decharge_isolee:
-        journal.ajouter(t, "automatisme", "Niveau PZR bas : décharge isolée, chaufferettes coupées", PRIORITE_HAUTE)
-    e.decharge_isolee = niveau_bas
-    c.vannes["RCV_DECHARGE"].fixer_ordre(FERMEE if niveau_bas else None, "niveau PZR bas")
-    for ch in (c.pzr.chauffe_prop, c.pzr.chauffe_tor):
-        ch.etat.coupe = "niveau PZR bas" if niveau_bas else ""
 
     # --- préalarmes ΔT (C-3 / C-4) : runback turbine ---
     m_ot, m_op = c.logique.marges_dt_pct()

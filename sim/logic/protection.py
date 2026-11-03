@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 from sim.components.base import Composant
 from sim.core.events import PRIORITE_HAUTE
 from sim.logic.automatismes import appliquer_automatismes
+from sim.logic.automatismes_v2 import appliquer_automatismes_v2, calculer_is
 from sim.logic.permissives import calculer_permissifs
 from sim.logic.voting import vote
 from sim.units import POURCENT
@@ -61,6 +62,18 @@ class EtatLogique:
     cex_declenchee: bool = False
     app_en_service: bool = True                           # pour détecter la perte des 2 APP
     decharge_isolee: bool = False
+    # V2 : P-11, injection de sécurité (signal), RCV / RRA / RRI
+    p11: bool = False
+    is_actif: bool = False
+    is_causes: list[str] = field(default_factory=list)     # causes mémorisées à l'apparition de l'IS
+    causes_is: list[str] = field(default_factory=list)     # causes présentes
+    is_t_s: float = 0.0
+    is_bloquee: bool = False
+    is_manuel: bool = False
+    rra_isole_auto: bool = False
+    perte_rri: bool = False
+    aspiration_ptr: bool = False
+    deviation_vct: bool = False
     # filtres des protections ΔT et de la variation de flux
     flux_retard_pct: float = 0.0
     otdt_retard_c: list[float] = field(default_factory=list)
@@ -164,6 +177,8 @@ class Logique(Composant):
                 causes.append(f"débit d'eau insuffisant GV{gv.b}")
         if c.turbine.arret_ferme() and not e.p7:
             causes.append("déclenchement turbine au-dessus de P-7")
+        if e.is_actif:
+            causes.append("injection de sécurité")
         return causes
 
     def evaluer(self, dt: float) -> None:
@@ -175,7 +190,9 @@ class Logique(Composant):
         if c.inhiber_protections:          # stabilisation de l'état initial uniquement
             e.causes_au, e.p14, e.p14_gv = [], False, [False] * len(c.gvs)
             appliquer_automatismes(c, e, dt)
+            appliquer_automatismes_v2(c, e, dt)
             return
+        calculer_is(c, e)
         e.causes_au = self.causes_au_presentes()
         if e.au_manuel:
             e.causes_au = ["manuel"] + e.causes_au
@@ -189,10 +206,12 @@ class Logique(Composant):
             c.coeur.chute_grappes()
         e.p4 = e.au
         appliquer_automatismes(c, e, dt)
+        appliquer_automatismes_v2(c, e, dt)
 
     # ------------------------------------------------------------------ commandes
     def commandes(self) -> list[str]:
-        return ["declencher_au", "rearmer_au", "bloquer_flux_bas", "debloquer_flux_bas", "rearmer_isolement_are"]
+        return ["declencher_au", "rearmer_au", "bloquer_flux_bas", "debloquer_flux_bas", "rearmer_isolement_are",
+                "bloquer_is", "declencher_is", "rearmer_is"]
 
     def executer(self, action: str, valeur: float | None) -> None:
         e = self.etat
@@ -209,6 +228,13 @@ class Logique(Composant):
             e.flux_bas_bloque = False
         elif action == "rearmer_isolement_are":
             e.isolement_are_complet = False
+        elif action == "bloquer_is":
+            e.is_bloquee = True
+        elif action == "declencher_is":
+            e.is_manuel = True
+        elif action == "rearmer_is":
+            e.is_actif = False
+            e.is_causes = []
 
     def exporter_etat(self) -> dict[str, Any]:
         return asdict(self.etat)

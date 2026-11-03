@@ -6,67 +6,67 @@ automatismes et thermo simple. Spécification de référence : [`SPEC_simulateur
 > Centrale **générique** à but pédagogique (ordres de grandeur des manuels publics USNRC).
 > Ce ne sont **pas** des valeurs, réglages ou consignes EDF.
 
-## Deux façons de lancer
-
-| Mode | Commande | Simulation | Accélération tenue |
-|---|---|---|---|
-| **Local (serveur)** | `pip install -r requirements.txt && python -m sim.server` puis <http://127.0.0.1:8000> | Python (CPython) côté serveur, WebSocket | ×600 → ≈ ×240 |
-| **Navigateur (statique, Vercel)** | rien à installer : ouvrir le site | Python dans le navigateur (Pyodide, Web Worker) | ×60 tenu, ×600 → ≈ ×110 |
-
-Python ≥ 3.11 pour le mode local. Variables optionnelles : `REP_HOTE`, `REP_PORT`.
-Le code de simulation est **le même** dans les deux modes (`sim/interface.py`, même protocole JSON).
-
-### Déployer sur Vercel (mode navigateur)
-
-Le site est 100 % statique : le dossier `web/` + `web/sim_bundle.zip` (code `sim/` + config). Pas de build.
-
-1. Sur vercel.com : **Add New… → Project** → importer le dépôt GitHub `REP-game-`.
-2. Les réglages sont lus dans `vercel.json` (Framework : *Other*, pas de build, dossier de sortie `web`). Ne rien changer → **Deploy**.
-3. Vercel déploie la branche de production (`main`). Chaque autre branche poussée obtient une URL de *preview*
-   (utile pour tester une version avant de la fusionner dans `main`).
-
-Après toute modification de `sim/` ou `config/`, régénérer le paquet avant de pousser
-(un test échoue s'il n'est pas à jour) :
+## Lancer (une commande)
 
 ```bash
-python -m sim.tools.paquet_web
+pip install -r requirements.txt && python -m sim.server
 ```
 
-Au premier chargement, le navigateur télécharge Pyodide (≈ 10 Mo, depuis cdn.jsdelivr.net, mis en cache ensuite).
-Pour un test hors ligne : `index.html?pyodide=/chemin/vers/pyodide/`.
+Ouvrir ensuite <http://127.0.0.1:8000>. Python ≥ 3.11. Variables optionnelles : `REP_HOTE`, `REP_PORT`.
+(Un mode « navigateur » sans serveur existe aussi — `web/` + `web/sim_bundle.zip`, Pyodide — voir `web/worker.js`.)
 
-## Version actuelle : V1 (primaire + secondaire)
+## Se déplacer dans l'interface
 
-Cœur (boîte noire) → cuve → **4 boucles** (branche chaude → GV → pompe primaire → branche froide) + **pressuriseur**
-→ 4 GV → vapeur → turbine → condenseur → poste d'eau → ARE → GV. **ASG** (2 motopompes + 1 turbopompe) en secours.
-
-| Quoi | Détail |
+| Geste | Effet |
 |---|---|
-| Cœur | cinétique ponctuelle 1 groupe (saut prompt), contre-réactions Doppler + modérateur + bore, grappes (courbe en S), chute en 2 s, puissance résiduelle (Way-Wigner) |
-| Primaire | 3 nœuds cuve + 3 nœuds/boucle, débit par réseau hydraulique (pompes, antidévireur), circulation naturelle (thermosiphon), échange GV ε-NTU |
-| Pressuriseur | équilibre liquide/vapeur, chaufferettes P + TOR, aspersion B2/B3, 2 PORV + isolements, 3 soupapes, expansion/contraction |
-| RCV (simplifié) | charge régulée sur le niveau programmé du PZR, décharge en tout-ou-rien |
-| Régulations | grappes en auto (Tmoy − Tref + écart de puissance), pression PZR, niveau PZR, niveau GV (ARE), ASG, GCT-c Tmoy / pression |
-| Protections | AU : flux haut/bas, ΔT surtempérature et surpuissance, P PZR haute/basse, niveau PZR haut, débit primaire bas, niveau GV très bas, déclenchement turbine (P-7)… ; permissifs P-4, P-7, P-8, P-9, P-10, P-12, P-13, P-14, C-3/C-4, C-7, C-8, C-9, C-11 |
-| Verrous | pompe primaire sans huile ou P < 29 bar, décharge RCV sans charge, grappes avec AU présent, blocage flux bas sans P-10… : refus motivés |
-| Interface | onglets Primaire / Secondaire / ASG / Logique / Courbes / Journal, alarmes temporisées, ×1…×600, sauvegarde/chargement |
+| Molette / pincer | zoom (au curseur) ; **plus on zoome, plus il y a de détails** |
+| Glisser | se déplacer · touches + − 0 et flèches · boutons + − ⤢ en bas à droite |
+| Clic sur un équipement | panneau de commande (conditions ✓/✗ seulement si une action est bloquée) |
+| **Double-clic sur la cuve** | **vue du cœur** (onglet Cœur) |
+| Badge d'état en haut | état standard + check-list pour passer à l'état suivant |
+| ☰ | scénarios (avec fiche de conduite), sauvegarde, chargement |
+| Espace / Échap | pause / fermer le panneau |
 
-## Prise en main (6 manips)
+## Version actuelle : V2
 
-Toutes partent de l'état RP 100 % (menu *S0 — Bac à sable à 100 %* pour revenir au départ).
+| Onglet | Contenu |
+|---|---|
+| **Primaire** | vue de dessus : cuve au centre (carte des 193 assemblages + grappes), 4 boucles en étoile, PZR, renvois RCV / RRA |
+| **Cœur** | carte du cœur (nappe de puissance illustrative), vue axiale des groupes R / G / S, bilan de réactivité, pilotage des grappes et du bore, **vue neutronique** (⚛) |
+| Secondaire · ASG | vapeur, turbine, condenseur, poste d'eau ; alimentation de secours |
+| **RCV · REA** | charge (pompes, FCV-121, joints), décharge (LCV-459/460, orifices, CV-8152), VCT, PTR, appoint eau / bore |
+| **RRA · RRI · SEC** | 2 trains RRA (verrou 30 bar, fermeture auto 41 bar), boucle RRI, eau de mer, accumulateurs |
+| Logique · Courbes · Journal | permissifs (dont P-11), IS (signal), seuils ; 1 à 6 courbes ; chronologie |
 
-1. **AU manuel** : clic sur `RPR` → *AU manuel*. Les grappes tombent en 2 s, la puissance chute à ~8 % (saut prompt)
-   puis décroît, la turbine déclenche, le GCT-c (C-8) évacue la chaleur résiduelle. Tmoy → ~292 °C.
-2. **Échelon −10 %** : clic sur la turbine → *Consigne (MW)* `1020`. Les grappes s'insèrent, Tmoy suit Tref, pas d'AU.
-3. **Déclenchement turbine** : *Déclencher*. AU par P-7, P PZR descend vers ~138 bar, niveau PZR ~30 %, puis tout se stabilise.
-4. **Perte d'une pompe primaire** : `PP1` → *Arrêter*. AU sur débit bas en ~2 s ; la boucle 1 tourne à l'envers (≈ −15 %, antidévireur).
-5. **Perte totale ARE** : passer les 8 vannes `ARE*_GD/PD` en manu à 0 %. AU, puis l'ASG démarre (3 pompes, ~110 kg/s) et remonte les niveaux GV.
-6. **Circulation naturelle** : après un déclenchement, arrêter les 4 `PP`, puis `GCT-c` → *mode pression*. Débit ≈ 5 % par boucle, marge à la saturation > 20 °C.
+| Modèle | Détail |
+|---|---|
+| Cœur | cinétique 1 groupe (saut prompt), Doppler, modérateur (coefficient qui s'affaiblit à froid), **bore dynamique**, grappes R (régulation), **G (compensation)**, S (arrêt), puissance résiduelle, marges d'arrêt |
+| Primaire | 4 boucles + cuve, pompes, circulation naturelle, GV ε-NTU, **branches RRA** dans le même réseau |
+| RCV / REA | débit dispo des pompes de charge, décharge ∝ √ΔP, VCT (niveau, bore), PTR, borication / dilution / auto / urgence |
+| RRA, RRI, SEC | échangeurs à contre-courant, RRI = un nœud thermique, perte RRI → défaut des pompes primaires |
+| Logique | AU, **IS (signal + ordres hors RIS)**, P-4 → P-14 dont **P-11**, C-x, accumulateurs, états standards RP / AN/GV / AN/RRA / arrêt à froid |
+
+## Scénario S2 : de RP à AN/RRA (fiche résumée, détail dans ☰)
+
+1. AU manuel → AN/GV. GCT-c en mode pression ; garder PP2 et PP3 (aspersion).
+2. REA → *Borication* ~12 m³ (bore > bore d'arrêt à froid, affiché dans l'onglet Cœur).
+3. Refroidir ~30 °C/h en baissant la consigne GCT-c ; dépressuriser en gardant ~45 °C de sous-refroidissement.
+4. Sous P-11 : RPR → *Bloquer l'IS*. Vers 100 bar : fermer `ACC1..4_ISOL`.
+5. Sous 30 bar et 177 °C : ouvrir `RRA_ASP*`, démarrer `RRA_P1/P2`, `RRI_P2`, `SEC_P2` → AN/RRA, puis arrêt à froid.
+
+## Prise en main (V1, toujours valable)
+
+1. **AU manuel** (onglet Cœur ou `RPR`) : grappes en 2 s, puissance ~8 % (saut prompt) puis décroissance.
+2. **Échelon −10 %** : turbine → *Consigne (MW)* `1020`. Les grappes s'insèrent, pas d'AU.
+3. **Déclenchement turbine** : AU par P-7, P PZR ~139 bar, niveau PZR ~29 %.
+4. **Perte d'une pompe primaire** : `PP1` → *Arrêter*. AU débit bas en 2 s, boucle 1 à ≈ −15 %.
+5. **Perte totale ARE** : `ARE*_GD/PD` en manu à 0 %. AU, l'ASG démarre.
+6. **Circulation naturelle** : après un déclenchement, arrêter les 4 PP, GCT-c en mode pression.
 
 ## Tests
 
 ```bash
-python -m pytest              # tout (≈ 2 min)
+python -m pytest              # tout (≈ 6 min, dont S2 de bout en bout)
 python -m pytest -m "not lent"  # sans les longs transitoires
 ```
 
@@ -81,13 +81,14 @@ sim/core/                réseau hydraulique (Newton), horloge, journal/alarmes,
 sim/components/          pompe, vannes, clapet, soupape, bâche, volume diphasique, capteur, PI
 sim/thermo/              tables eau/vapeur pré-calculées (CoolProp IF97, config/tables_eau.json)
 sim/core_model/          cœur boîte noire : neutronique, grappes, puissance résiduelle
-sim/systems/             primaire (rcp), pressuriseur, ASG, GV, VVP, turbine, GCT-c, condenseur, poste d'eau
-sim/logic/               permissifs, AU, automatismes, régulations, verrous
+sim/systems/             primaire (rcp), pressuriseur, RCV/REA, RRA, RRI/SEC, accumulateurs, ASG, GV, VVP,
+                         turbine, GCT-c, condenseur, poste d'eau
+sim/logic/               permissifs, AU, IS, automatismes, régulations, verrous, états standards
 sim/plant.py             assemblage + pas de calcul (ordre du §2.3 de la spec)
 sim/interface.py         protocole JSON commun aux deux modes
 sim/server.py            mode local : FastAPI + WebSocket
 sim/navigateur.py        mode navigateur : point d'entrée Pyodide
-web/                     page HTML/SVG/JS vanilla (+ worker.js, transport.js, sim_bundle.zip)
+web/                     page HTML/SVG/JS vanilla : zoom.js, synoptics/, coeur_vue.js, neutrons.js
 tests/                   unitaires + acceptation
 ```
 

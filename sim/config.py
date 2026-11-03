@@ -130,6 +130,7 @@ class RegulationTmoyCfg:
 class GrappesCfg:
     pas_max: float
     regulation_pcm: float
+    compensation_pcm: float
     arret_pcm: float
     position_nom_pas: float
     temps_chute_s: float
@@ -146,6 +147,7 @@ class CoeurCfg:
     rho_max_fraction_beta: float
     source_neutrons: float
     alpha_mod_pcm_c: float
+    t_alpha_mod_nul_c: float
     alpha_doppler_pcm_c: float
     alpha_bore_pcm_ppm: float
     bore_ppm: float
@@ -225,11 +227,97 @@ class PressuriseurCfg:
 
 
 @dataclass
-class RcvV1Cfg:
-    decharge_m3h: float
-    charge_max_m3h: float
+class VctSeuilsCfg:
+    tres_bas: float
+    bas: float
+    haut: float
+
+
+@dataclass
+class PompeChargeCfg:
+    q_nom_m3h: float
+    dp_nom_bar: float
+    dp0_bar: float
+
+
+@dataclass
+class JointsCfg:
+    injection_m3h: float
+    entree_primaire_m3h: float
+
+
+@dataclass
+class PtrCfg:
+    volume_m3: float
+    bore_ppm: float
+    t_c: float
+
+
+@dataclass
+class RcvCfg:
     t_vct_c: float
-    t_charge_c: float
+    vct_volume_m3: float
+    vct_niveau_initial_pct: float
+    vct_seuils_pct: VctSeuilsCfg
+    pompe_charge: PompeChargeCfg
+    charge_max_m3h: float
+    dp_ligne_charge_bar: float
+    joints: JointsCfg
+    orifices_m3h: list[float]
+    p_orifices_ref_bar: float
+    p_aval_orifices_bar: float
+    rra_vers_rcv_m3h: float
+    efficacite_regenerateur: float
+    t_sortie_echangeur_c: float
+    t_sortie_sans_rri_c: float
+    ptr: PtrCfg
+
+
+@dataclass
+class ReaCfg:
+    bore_acide_ppm: float
+    volume_acide_m3: float
+    volume_eau_m3: float
+    debit_auto_m3h: float
+    debit_borication_m3h: float
+    debit_dilution_m3h: float
+    debit_urgence_m3h: float
+
+
+@dataclass
+class RraCfg:
+    trains: list[int]
+    p_ouverture_max_bar: float
+    p_fermeture_auto_bar: float
+    ua_echangeur_mw_c: float
+    debit_rri_m3h: float
+    chaleur_pompe_mw: float
+
+
+@dataclass
+class RriCfg:
+    capacite_mj_c: float
+    t_initiale_c: float
+    ua_echangeur_mw_c: float
+    debit_pompe_m3h: float
+    chaleur_fixe_mw: float
+    chaleur_par_pompe_primaire_mw: float
+    delai_pompes_primaires_s: float
+
+
+@dataclass
+class SecCfg:
+    debit_pompe_m3h: float
+
+
+@dataclass
+class AccumulateursCfg:
+    volume_m3: float
+    volume_eau_m3: float
+    p_azote_bar: float
+    bore_ppm: float
+    t_c: float
+    k_m3h_par_racine_bar: float
 
 
 @dataclass
@@ -572,6 +660,13 @@ class RegNiveauAsgCfg:
 
 
 @dataclass
+class RegRraCfg:
+    vitesse_refroidissement_c_h: float
+    kp_par_c_h: float
+    ti_s: float
+
+
+@dataclass
 class RegulationsCfg:
     niveau_gv: RegNiveauGVCfg
     dp_app: RegDpAppCfg
@@ -581,6 +676,7 @@ class RegulationsCfg:
     pression_pzr: RegPressionPzrCfg
     niveau_pzr: RegNiveauPzrCfg
     niveau_asg: RegNiveauAsgCfg
+    rra: RegRraCfg
 
 
 # ----------------------------------------------------------------- logique
@@ -674,8 +770,29 @@ class OpdtCfg:
 
 
 @dataclass
+class InjectionSecuriteCfg:
+    p_pzr_basse_bar: float
+    p_vapeur_basse_bar: float
+    rearmement_s: float
+
+
+@dataclass
+class EtatsCfg:
+    t_rra_max_c: float
+    p_rra_max_bar: float
+    t_arret_froid_c: float
+    vitesse_refroidissement_max_c_h: float
+    t_froid_c: float
+    marge_arret_pcm: float
+    grappe_coincee_pcm: float
+
+
+@dataclass
 class LogiqueCfg:
     p7: P7Cfg
+    p11_p_pzr_bar: float
+    injection_securite: InjectionSecuriteCfg
+    etats: EtatsCfg
     p8_puissance_pct: float
     p9_puissance_pct: float
     p10_puissance_pct: float
@@ -714,7 +831,12 @@ class CentraleCfg:
     coeur: CoeurCfg
     primaire: PrimaireCfg
     pressuriseur: PressuriseurCfg
-    rcv_v1: RcvV1Cfg
+    rcv: RcvCfg
+    rea: ReaCfg
+    rra: RraCfg
+    rri: RriCfg
+    sec: SecCfg
+    accumulateurs: AccumulateursCfg
     asg: AsgCfg
     generateurs_vapeur: GVCfg
     vapeur: VapeurCfg

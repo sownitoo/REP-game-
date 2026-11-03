@@ -1,0 +1,16 @@
+id: s2_rp_vers_rra
+titre: "S2 — Passage RP → AN/GV → AN/RRA"
+description: >-
+  Arrêter le réacteur puis le refroidir jusqu'à la mise en service du RRA : sans IS, sans injection
+  des accumulateurs, à moins de 56 °C par heure. La check-list de l'état visé est dans le badge d'état.
+etat_initial: rp100
+duree_s: 43200
+pannes: []
+objectifs:
+  - "AU manuel (onglet Cœur ou RPR) : le réacteur passe en AN/GV."
+  - "GCT-c en mode pression. Deux pompes primaires suffisent : garder PP2 et PP3 (aspersion)."
+  - "Borer au-delà du bore d'arrêt à froid (REA : borication d'environ 12 m³)."
+  - "Refroidir d'environ 30 °C/h : baisser pas à pas la consigne du GCT-c (P vapeur = Psat de la T visée)."
+  - "Dépressuriser en gardant ~45 °C de sous-refroidissement (consigne de pression PZR)."
+  - "Sous P-11 (138 bar) : bloquer l'IS. Vers 100 bar : fermer les 4 accumulateurs."
+  - "Sous 30 bar et 177 °C : ouvrir l'aspiration RRA, démarrer les pompes RRA et la 2e voie RRI / SEC."

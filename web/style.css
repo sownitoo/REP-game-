@@ -54,6 +54,12 @@ h2 { font-size: 14px; margin: 0 0 8px; display: flex; justify-content: space-bet
 .menu-contenu[hidden] { display: none; }
 .menu-contenu hr { border: 0; border-top: 1px solid var(--trait); width: 100%; margin: 4px 0; }
 .menu-contenu p { margin: 0; line-height: 1.5; }
+.etats-contenu { left: 0; right: auto; width: 380px; }
+.checklist { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.checklist li { padding: 3px 0; border-bottom: 1px solid var(--trait); }
+.checklist li.ok::before { content: "✓ "; color: var(--vert); font-weight: 700; }
+.checklist li.ko::before { content: "✗ "; color: var(--rouge); font-weight: 700; }
+button.badge-etat { cursor: pointer; }
 .bloc { display: flex; align-items: center; gap: 6px; }
 .etiq { color: var(--discret); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
 .valeur { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -213,6 +219,9 @@ main.sans-panneau #panneau-droit { display: none; }
 .gv .faisceau { fill: none; stroke: #e07a4f; stroke-width: 1; stroke-dasharray: 3 3; opacity: .6; }
 .jauge-fond { fill: #0d1217; stroke: #556372; stroke-width: 1; }
 .jauge .eau { fill: var(--eau); }
+.lien-onglet { cursor: pointer; }
+.lien-onglet .corps { fill: #16202a; stroke: #4ea1ff; stroke-dasharray: 4 3; }
+.lien-onglet:hover .corps { stroke-dasharray: none; }
 .titre-boucle { fill: #556372; font-size: 13px; font-weight: 700; letter-spacing: .12em; }
 .cuve .coeur { fill: #4a2a1a; stroke: #f0a030; stroke-width: 1.5; }
 .cuve .grappe { fill: #9aa6b2; }
@@ -239,4 +248,48 @@ main.sans-panneau #panneau-droit { display: none; }
 @media (max-width: 900px) {
   main { flex-direction: column; }
   #panneau-droit { width: 100%; border-left: 0; border-top: 1px solid var(--trait); }
+}
+
+/* ---------------- vue cœur ---------------- */
+.onglet-coeur.actif { flex-direction: row; }
+.onglet-coeur .zone-svg { flex: 1; min-width: 0; position: relative; display: flex; }
+#pilotage-coeur { width: 300px; flex-shrink: 0; overflow: auto; padding: 10px 12px; border-left: 1px solid var(--trait);
+  background: var(--fond-2); display: flex; flex-direction: column; gap: 8px; }
+#pilotage-coeur h2 { margin: 6px 0 0; }
+.ligne-btn { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.curseur { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.curseur input[type=range] { width: 100%; accent-color: var(--bleu); padding: 0; }
+button.danger { background: #5a1f22; border-color: var(--rouge); color: #ffd0d2; }
+button.gros-btn { padding: 10px; font-size: 15px; font-weight: 600; background: #1b2c3e; border-color: var(--bleu); }
+table.lecture { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.lecture td { padding: 3px 4px; border-bottom: 1px solid var(--trait); }
+table.lecture td:last-child { text-align: right; font-weight: 600; }
+table.lecture td.chaud, .chaud { color: #ffb4a3; }
+table.lecture td.froid, .froid { color: #a9cdf5; }
+#pc-message.ok { color: var(--vert); } #pc-message.ko { color: #f3b4b6; }
+.assemblage { stroke: #0d1217; stroke-width: 1; }
+.enveloppe-coeur { fill: none; stroke: #33414f; stroke-width: 2; }
+.boite-coeur { fill: #1a1410; stroke: #8a6a3a; stroke-width: 2; }
+.crayon { stroke: #5a4325; stroke-width: 3; }
+.profil-axial { stroke: #f0a030; stroke-width: 2.5; }
+.barre-grappe { opacity: .9; }
+
+/* ---------------- vue neutronique ---------------- */
+#vue-neutrons { position: fixed; inset: 0; z-index: 30; background: rgba(5, 9, 14, .92); display: flex;
+  align-items: center; justify-content: center; padding: 16px; }
+#vue-neutrons[hidden] { display: none; }
+.neutrons-cadre { width: min(1500px, 100%); height: min(900px, 100%); background: var(--fond-2); border: 1px solid var(--trait);
+  border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; }
+.neutrons-entete { display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--trait); }
+.neutrons-entete button { margin-left: auto; }
+.neutrons-corps { flex: 1; display: flex; min-height: 0; }
+#canvas-neutrons { flex: 1; min-width: 0; width: 100%; height: 100%; display: block; }
+.neutrons-panneau { width: 280px; padding: 10px 12px; overflow: auto; border-left: 1px solid var(--trait);
+  display: flex; flex-direction: column; gap: 6px; }
+.legende-neutrons { list-style: none; padding: 0; margin: 0; }
+.legende-neutrons i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.neutrons-pied { margin: 0; padding: 6px 12px; border-top: 1px solid var(--trait); color: var(--discret); }
+@media (max-width: 900px) {
+  .onglet-coeur.actif, .neutrons-corps { flex-direction: column; }
+  #pilotage-coeur, .neutrons-panneau { width: 100%; border-left: 0; }
 }

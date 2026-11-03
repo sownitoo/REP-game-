@@ -51,9 +51,10 @@ def test_u12_chute_grappes(cfg) -> None:
     c.chute_grappes()
     for _ in range(round(cfg.coeur.grappes.temps_chute_s / DT) + 1):
         c.bouger_grappes(DT, 0.0, False, False)
-    assert c.etat.z_pas == 0.0 and c.etat.arret_insere == 1.0
+    assert c.etat.z_pas == 0.0 and c.etat.g_pas == 0.0 and c.etat.arret_insere == 1.0
+    g = cfg.coeur.grappes
     rho = c.rho_grappes_pcm()
-    assert rho == pytest.approx(cfg.coeur.grappes.regulation_pcm + cfg.coeur.grappes.arret_pcm - c.rho_grappes_nom)
+    assert rho == pytest.approx(g.regulation_pcm + g.compensation_pcm + g.arret_pcm - c.rho_grappes_nom)
 
 
 def test_u12_retrait_bloque(cfg) -> None:

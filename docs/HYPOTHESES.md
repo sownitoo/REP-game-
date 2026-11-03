@@ -2,7 +2,7 @@
 
 Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 
-142 valeurs marquées `# HYPOTHESE`.
+182 valeurs marquées `# HYPOTHESE`.
 
 | Clé | Valeur | Justification |
 |---|---|---|
@@ -15,11 +15,13 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `point_nominal.niveau_gv_pct` | `50.0` |  |
 | `point_nominal.p_collecteur_bar` | `60.0` | (perte de charge lignes 3 bar) |
 | `coeur.source_neutrons` | `1.0e-9` | source intrinsèque (n ≈ S / abs(ρ) en sous-critique) |
-| `coeur.bore_ppm` | `1000.0` | (constant en V1 : la REA arrive en V2) |
+| `coeur.t_alpha_mod_nul_c` | `20.0` | α_mod ∝ (T − 20 °C) : coefficient modérateur faible à froid |
+| `coeur.bore_ppm` | `1000.0` | concentration au point nominal (ρ = 0) |
 | `coeur.combustible.t_nom_c` | `620.0` | T moyenne du combustible à 100 % |
 | `coeur.combustible.capacite_mj_c` | `45.0` | (constante de temps ≈ 4 s) |
-| `coeur.grappes.regulation_pcm` | `-2000.0` | poids des groupes de régulation (lissés en un groupe) |
-| `coeur.grappes.arret_pcm` | `-3000.0` | régulation + arrêt = −5 000 pcm (spec) |
+| `coeur.grappes.regulation_pcm` | `-2000.0` | groupe R (régulation de température, auto / manuel) |
+| `coeur.grappes.compensation_pcm` | `-1500.0` | groupe G (compensation de puissance, manuel ; extrait à 100 %) |
+| `coeur.grappes.arret_pcm` | `-1500.0` | groupes S d'arrêt : R + G + S = −5 000 pcm (spec) |
 | `coeur.grappes.position_nom_pas` | `180.0` | position à 100 % |
 | `coeur.grappes.vitesse_manu_pas_min` | `48.0` |  |
 | `coeur.grappes.vitesse_arret_pas_min` | `64.0` | extraction des groupes d'arrêt |
@@ -34,7 +36,32 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `pressuriseur.gamme_pression_bar` | `200.0` | gamme des capteurs de pression |
 | `pressuriseur.soupapes` | `{tarages_bar: [172.0, 172.0, 172.0], capacite_kg_s: 53.0, fermeture_pct: 3.0}` | spec ; blowdown |
 | `pressuriseur.retard_mesure_s` | `0.5` |  |
-| `rcv_v1.t_vct_c` | `46.0` | température dans la VCT (masse volumique des débits) |
+| `rcv.t_vct_c` | `46.0` | température de l'eau dans la VCT |
+| `rcv.vct_volume_m3` | `10.0` | volume utile (0 → 100 % de niveau) |
+| `rcv.vct_niveau_initial_pct` | `50.0` |  |
+| `rcv.vct_seuils_pct` | `{tres_bas: 5.0, bas: 20.0, haut: 70.0}` | bascule PTR, appoint auto, déviation |
+| `rcv.dp_ligne_charge_bar` | `5.0` | (ligne de charge + aspiration) |
+| `rcv.rra_vers_rcv_m3h` | `30.0` | HCV-128 (purification pendant le RRA) |
+| `rcv.ptr` | `{volume_m3: 1600.0, bore_ppm: 2500.0, t_c: 20.0}` | bâche PTR |
+| `rea.debit_borication_m3h` | `10.0` | (pompe de transfert d'acide borique) |
+| `rea.debit_dilution_m3h` | `20.0` |  |
+| `rea.debit_urgence_m3h` | `10.0` | (borication d'urgence MO-8104) |
+| `rra.ua_echangeur_mw_c` | `1.2` | (177 → 60 °C en ~16 h sur 2 voies) |
+| `rra.debit_rri_m3h` | `1000.0` | côté RRI, par échangeur |
+| `rra.chaleur_pompe_mw` | `0.3` |  |
+| `rri.capacite_mj_c` | `1250.0` | (~300 m³ d'eau) |
+| `rri.t_initiale_c` | `25.0` |  |
+| `rri.ua_echangeur_mw_c` | `2.0` | échangeur RRI/SEC, un par voie |
+| `rri.debit_pompe_m3h` | `2500.0` |  |
+| `rri.chaleur_fixe_mw` | `6.0` | autres utilisateurs (moteurs, ventilation…) |
+| `rri.chaleur_par_pompe_primaire_mw` | `0.5` | (barrière thermique + paliers) |
+| `rri.delai_pompes_primaires_s` | `300.0` | sans RRI, défaut des pompes primaires (spec : arrêt en ~2 min) |
+| `sec.debit_pompe_m3h` | `3000.0` |  |
+| `accumulateurs.volume_m3` | `38.0` | (par accumulateur, un par boucle) |
+| `accumulateurs.volume_eau_m3` | `29.0` |  |
+| `accumulateurs.bore_ppm` | `2500.0` |  |
+| `accumulateurs.t_c` | `40.0` |  |
+| `accumulateurs.k_m3h_par_racine_bar` | `270.0` | (~600 m³/h sous 5 bar d'écart) |
 | `asg.prises_vapeur_tps` | `[1, 2]` | GV alimentant la turbopompe |
 | `asg.p_vapeur_min_bar` | `7.0` | pression mini pour entraîner la turbopompe |
 | `asg.vapeur_tps_kg_s` | `8.0` | consommation à pleine vitesse |
@@ -105,6 +132,15 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `gabarits.pompe_asg_mp.h0_m` | `1050` |  |
 | `gabarits.pompe_reprise.q_nom_m3h` | `1360` | 60 % des purges nominales |
 | `gabarits.clapet.kv_max` | `8000` | (perte de charge faible) |
+| `gabarits.pompe_charge.temps_demarrage_s` | `5.0` |  |
+| `gabarits.vanne_rcv_isol.temps_course_s` | `5.0` |  |
+| `gabarits.pompe_rra.q_nom_m3h` | `700` | (~3 000 gpm) |
+| `gabarits.pompe_rra.h_nom_m` | `90` |  |
+| `gabarits.pompe_rra.h0_m` | `110` |  |
+| `gabarits.vanne_rra_asp.temps_course_s` | `60.0` |  |
+| `gabarits.vanne_rra_reglage.kv_max` | `230` | (≈ 700 m³/h sous ~9 bar) |
+| `gabarits.pompe_rri.q_nom_m3h` | `2500` |  |
+| `gabarits.pompe_sec.q_nom_m3h` | `3000` |  |
 | `gabarits.vanne_are_gd.kv_max` | `1080` | (≈ 2 010 m³/h à 56 % sous 6 bar) |
 | `gabarits.vanne_are_gd.temps_course_s` | `5.0` |  |
 | `gabarits.vanne_are_pd.kv_max` | `160` | (~15 % du débit) |
@@ -125,6 +161,7 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `composants.R_CUVE` | `{type: Resistance, systeme: RCP, dp_nom_bar: 2.40, q_nom_m3h: 80400, rho_nom_kg_m3: 712}` | 40 % (cœur + plénums) |
 | `composants.PZR_ASP2` | `{type: ControlValve, systeme: RCP, actionneur: AOV, air: SAR, temps_course_s: 5.0,` | course |
 | `composants.PZR_ISOL1` | `{type: Valve, systeme: RCP, actionneur: MOV, alim: LHA, temps_course_s: 10.0}` | vanne d'isolement amont PORV ; course |
+| `composants.ACC{b}_ISOL` | `{type: Valve, systeme: RIS, actionneur: MOV, alim: LHA, temps_course_s: 60.0}` | course |
 | `composants.ASG_TP` | `{type: Pump, systeme: ASG, entrainement: turbine_vapeur, q_nom_m3h: 200, h_nom_m: 850, h0_m: 1050,` |  |
 | `regulations.niveau_gv` | `` | 3 éléments : niveau + débit vapeur + débit eau ; réglages |
 | `regulations.dp_app` | `` | vitesse APP régulée sur ΔP (refoulement ARE − collecteur vapeur) ; |
@@ -137,7 +174,10 @@ Générée par `python -m sim.tools.hypotheses` depuis `config/plant.yaml`.
 | `regulations.pression_pzr.aspersion_pleine_bar` | `5.2` |  |
 | `regulations.pression_pzr.porv_fermeture_bar` | `160.5` | (hystérésis) |
 | `regulations.niveau_pzr` | `{kp_kg_s_par_pct: 0.4, ti_s: 300.0}` | (débit de charge) |
+| `regulations.rra` | `{vitesse_refroidissement_c_h: 30.0, kp_par_c_h: 0.01, ti_s: 600.0}` | vannes d'échangeur en auto |
 | `regulations.niveau_asg` | `{consigne_pct: 40.0, kp_par_pct: 0.05, ti_s: 300.0}` | sous la consigne ARE pour ne pas la contrer |
+| `logique.etats.marge_arret_pcm` | `1000.0` | marge d'antiréactivité visée |
+| `logique.etats.grappe_coincee_pcm` | `800.0` | grappe la plus efficace supposée coincée |
 | `logique.au.ecart_vapeur_eau_pct` | `40.0` | (débit eau insuffisant) |
 | `logique.otdt.k2_par_c` | `0.04` |  |
 | `logique.otdt.k3_par_bar` | `0.013` |  |

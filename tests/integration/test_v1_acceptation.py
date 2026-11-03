@@ -143,10 +143,9 @@ def test_b8_verrous_v1(rp100: Centrale) -> None:
     c.commande("RPR", "debloquer_flux_bas")
     rep = c.commande("RPR", "bloquer_flux_bas")
     assert not rep.ok and any("P-10" in t for t in rep.raisons)
-    # décharge RCV sans charge
-    c.commande("RCV_CHARGE", "manu")
-    c.commande("RCV_CHARGE", "position", 0.0)
-    c.commande("RCV_DECHARGE", "fermer")
+    # RCV : pas d'orifice de décharge sans pompe de charge (ordre de mise en service, §4.2)
+    c.commande("RCV_PC1", "arreter")
     c.avancer(20.0)
-    rep = c.commande("RCV_DECHARGE", "ouvrir")
-    assert not rep.ok and any("Charge en service" in t for t in rep.raisons)
+    assert c.rcv.orifices[0].etat.position == 0.0, "orifices refermés à la perte de la charge"
+    rep = c.commande("RCV_ORIF2", "ouvrir")
+    assert not rep.ok and any("Pompe de charge en marche" in t for t in rep.raisons)

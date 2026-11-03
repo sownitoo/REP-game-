@@ -53,6 +53,14 @@ def conditions_pompe(c: Centrale, p: Pompe, action: str, valeur: float | None) -
         if p is c.asg.turbopompe:
             conds.append(Condition(f"Pression vapeur des GV d'alimentation ≥ {c.cfg.asg.p_vapeur_min_bar:g} bar",
                                    c.asg.vapeur_disponible(c.gvs)))
+        if p in c.primaire.pompes:
+            conds.append(Condition("RRI en service (paliers et barrière thermique)", c.rri.disponible()))
+        if p in c.rcv.pompes:
+            conds.append(Condition("Aspiration ouverte (VCT ou PTR)",
+                                   c.rcv.asp_vct.etat.position > 0.0 or c.rcv.asp_ptr.etat.position > 0.0))
+        if p in c.rra.pompes:
+            i = c.rra.pompes.index(p)
+            conds.append(Condition("Aspiration du train ouverte (2 vannes en série)", c.rra.aspiration_ouverte(i)))
         return conds
     if action == "arreter":
         return [Condition("Pompe en marche", p.etat.en_marche)]
@@ -83,17 +91,41 @@ def conditions_vanne(c: Centrale, v: Vanne, action: str, valeur: float | None) -
             seuil = c.cfg.logique.ouverture_viv.dp_max_bar
             conds.append(Condition(f"ΔP GV{b} − collecteur < {seuil:g} bar (équilibrer par le by-pass)",
                                    abs(dp) < seuil))
-        if v.id == "RCV_DECHARGE":
-            conds.append(Condition("Charge en service (RCV_CHARGE ouverte)", c.qm_charge_kg_s() > 0.0))
+        conds += conditions_ouverture_v2(c, v)
     elif action == "fermer":
         conds.append(Condition("Pas d'ordre automatique d'ouverture"
                                + (f" ({v.etat.ordre_raison})" if ordre == 1.0 else ""), ordre != 1.0))
+        if v in c.accus.isolement:
+            seuil = c.cfg.logique.p11_p_pzr_bar
+            conds.append(Condition(f"P-11 présent (P PZR < {seuil:g} bar)", c.logique.etat.p11))
     elif action in ("auto", "position"):
         conds.append(Condition("Pas d'ordre automatique en cours"
                                + (f" ({v.etat.ordre_raison})" if ordre is not None else ""), ordre is None))
         if action == "position":
             conds += [Condition("Vanne en manuel", not v.etat.auto), _plage(valeur, 0.0, POURCENT, "%")]
     return conds
+
+
+def conditions_ouverture_v2(c: Centrale, v: Vanne) -> list[Condition]:
+    """Ordre imposé de mise en service du RCV (§4.2), verrou RRA, borication d'urgence."""
+    rcv, lg = c.rcv, c.logique.etat
+    seuil_niveau = c.cfg.pressuriseur.niveau_bas_pct
+    niveau_ok = Condition(f"Niveau PZR > {seuil_niveau:g} %", c.pzr.capteur_niveau.mediane > seuil_niveau)
+    if v in rcv.lcv:
+        ouverts = [o.id for o in rcv.orifices if o.etat.position > 0.0]
+        return [Condition("Aucune vanne d'orifice ouverte" + (f" ({', '.join(ouverts)})" if ouverts else ""),
+                          not ouverts), niveau_ok]
+    if v in rcv.orifices:
+        return [Condition("Pompe de charge en marche", rcv.nb_pompes() > 0),
+                Condition("LCV-459 et LCV-460 ouvertes", all(x.etat.position >= 1.0 for x in rcv.lcv)), niveau_ok]
+    if v is rcv.isol_enc or v is rcv.isol_charge:
+        return [Condition("Pas d'IS", not lg.is_actif)]
+    if v is rcv.urgence:
+        return [Condition("Pompe de charge en marche", rcv.nb_pompes() > 0)]
+    if v in c.rra.vannes_aspiration():
+        seuil = c.cfg.rra.p_ouverture_max_bar
+        return [Condition(f"Pression primaire < {seuil:g} bar ({c.pzr.p_bar:.1f} bar)", c.pzr.p_bar < seuil)]
+    return []
 
 
 def conditions_turbine(c: Centrale, action: str, valeur: float | None) -> list[Condition]:
@@ -147,6 +179,11 @@ def conditions_grappes(c: Centrale, coeur: Coeur, action: str, valeur: float | N
         return conds
     if action == "extraire_arret":
         return [pas_au, Condition("Groupes d'arrêt insérés", coeur.etat.arret_insere > 0.0)] + blocages
+    if action == "position_g":
+        conds = [pas_au, _plage(valeur, 0.0, coeur.cfg.grappes.pas_max, "pas")]
+        if valeur is not None and valeur > coeur.etat.g_pas:
+            conds += blocages
+        return conds
     return []
 
 
@@ -166,7 +203,29 @@ def conditions_rpr(c: Centrale, action: str) -> list[Condition]:
         return [Condition("AU flux seuil bas bloqué", e.flux_bas_bloque)]
     if action == "rearmer_isolement_are":
         return [Condition("Isolement ARE complet présent", e.isolement_are_complet),
-                Condition("P-14 disparu (niveaux GV < seuil très haut)", not e.p14)]
+                Condition("P-14 disparu (niveaux GV < seuil très haut)", not e.p14),
+                Condition("Pas d'IS", not e.is_actif)]
+    if action == "bloquer_is":
+        return [Condition("IS non bloquée", not e.is_bloquee),
+                Condition(f"P-11 présent (P PZR < {c.cfg.logique.p11_p_pzr_bar:g} bar)", e.p11)]
+    if action == "declencher_is":
+        return [Condition("IS non déjà présente", not e.is_actif)]
+    if action == "rearmer_is":
+        duree = c.t_s - e.is_t_s
+        delai = c.cfg.logique.injection_securite.rearmement_s
+        return [Condition("IS présente", e.is_actif),
+                Condition(f"IS présente depuis ≥ {delai:g} s ({duree:.0f} s)", e.is_actif and duree >= delai),
+                Condition("Aucune cause d'IS présente" + (f" ({', '.join(e.causes_is)})" if e.causes_is else ""),
+                          not e.causes_is)]
+    return []
+
+
+def conditions_rea(c: Centrale, action: str) -> list[Condition]:
+    rea = c.rea.etat
+    if action == "borication":
+        return [Condition("Bâches d'acide borique non vides", rea.acide_m3 > 0.0)]
+    if action == "dilution":
+        return [Condition("Bâche d'eau d'appoint non vide", rea.eau_m3 > 0.0)]
     return []
 
 
@@ -209,4 +268,6 @@ def conditions(c: Centrale, obj: Composant, action: str, valeur: float | None) -
         return conditions_chaufferettes(c, obj, action, valeur)
     if isinstance(obj, ConsigneReglable):
         return [_plage(valeur, obj.mini, obj.maxi, obj.unite)]
+    if obj is c.rea:
+        return conditions_rea(c, action)
     return []

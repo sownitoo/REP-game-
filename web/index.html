@@ -29,7 +29,10 @@
       </div>
       <span id="accel-reelle" class="discret petit" title="Accélération réellement tenue par le calcul"></span>
     </div>
-    <div class="bloc"><span id="etat-standard" class="badge-etat"></span></div>
+    <div class="bloc menu">
+      <button id="etat-standard" class="badge-etat" title="État standard : cliquer pour la check-list"></button>
+      <div id="etat-contenu" class="menu-contenu etats-contenu" hidden></div>
+    </div>
     <div class="bloc mesures-barre" id="mesures-barre"></div>
     <div class="bloc voyants" id="voyants"></div>
     <div class="bloc actions">
@@ -38,6 +41,7 @@
         <div id="menu-contenu" class="menu-contenu" hidden>
           <label class="discret">Scénario</label>
           <select id="choix-scenario"></select>
+          <div id="scenario-info" class="petit"></div>
           <button id="btn-scenario">▶ Charger le scénario</button>
           <hr>
           <button id="btn-sauver">💾 Sauver l'état (JSON)</button>
@@ -55,8 +59,11 @@
     <section id="zone-principale">
       <nav id="onglets">
         <button data-onglet="primaire" class="actif">Primaire</button>
+        <button data-onglet="coeur">Cœur</button>
         <button data-onglet="secondaire">Secondaire</button>
         <button data-onglet="asg">ASG</button>
+        <button data-onglet="rcv">RCV · REA</button>
+        <button data-onglet="rra">RRA · RRI · SEC</button>
         <button data-onglet="logique">Logique</button>
         <button data-onglet="courbes">Courbes</button>
         <button data-onglet="journal">Journal</button>
@@ -65,11 +72,21 @@
       <div id="onglet-primaire" class="onglet actif">
         <svg id="synoptique-primaire" class="synoptique" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
+      <div id="onglet-coeur" class="onglet onglet-coeur">
+        <div class="zone-svg"><svg id="synoptique-coeur" class="synoptique" viewBox="0 0 1150 860" preserveAspectRatio="xMidYMid meet"></svg></div>
+        <aside id="pilotage-coeur"></aside>
+      </div>
       <div id="onglet-secondaire" class="onglet">
         <svg id="synoptique-secondaire" class="synoptique" viewBox="0 0 1500 880" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
       <div id="onglet-asg" class="onglet">
         <svg id="synoptique-asg" class="synoptique" viewBox="0 0 1500 700" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div id="onglet-rcv" class="onglet">
+        <svg id="synoptique-rcv" class="synoptique" viewBox="0 0 1400 800" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div id="onglet-rra" class="onglet">
+        <svg id="synoptique-rra" class="synoptique" viewBox="0 0 1400 800" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
       <div id="onglet-logique" class="onglet defile"><div id="logique"></div></div>
       <div id="onglet-courbes" class="onglet defile">
@@ -105,12 +122,54 @@
     </aside>
   </main>
 
+  <!-- ======================= vue neutronique (plein écran) ======================= -->
+  <div id="vue-neutrons" hidden>
+    <div class="neutrons-cadre">
+      <div class="neutrons-entete">
+        <b>⚛ Réaction en chaîne — illustration</b>
+        <span class="discret petit">²³⁵U + n → produits de fission + 2 ou 3 n + ~200 MeV · réactivité amplifiée ×60 pour être visible</span>
+        <button id="btn-fermer-neutrons" class="discret-btn">✕ Fermer (Échap)</button>
+      </div>
+      <div class="neutrons-corps">
+        <canvas id="canvas-neutrons"></canvas>
+        <aside class="neutrons-panneau">
+          <h2>Simulateur (réel)</h2>
+          <table class="lecture">
+            <tr><td>Puissance</td><td id="nv-p"></td></tr>
+            <tr><td>Réactivité ρ</td><td id="nv-rho"></td></tr>
+            <tr><td>k effectif</td><td id="nv-k"></td></tr>
+            <tr><td>Période</td><td id="nv-periode"></td></tr>
+            <tr><td>Fissions / s</td><td id="nv-fissions"></td></tr>
+            <tr><td>Bore</td><td id="nv-bore"></td></tr>
+          </table>
+          <h2>Grappes R</h2>
+          <p id="nv-mode" class="discret petit"></p>
+          <label class="curseur">Position <b id="nv-r-val">—</b><input type="range" id="nv-r" min="0" max="228" step="1"></label>
+          <div class="ligne-btn"><button id="nv-manu">Passer en manuel</button><button id="nv-au" class="danger">AU</button></div>
+          <h2>Légende</h2>
+          <ul class="legende-neutrons petit">
+            <li><i style="background:#ff6a4d"></i>neutron rapide (né d'une fission)</li>
+            <li><i style="background:#7fc4ff"></i>neutron thermique (ralenti par l'eau)</li>
+            <li><i style="background:#ffd84a"></i>neutron retardé (produits de fission)</li>
+            <li><i style="background:#e8c860"></i>noyaux d'U-235 dans les crayons</li>
+            <li><i style="background:#c58af9"></i>absorbé par une grappe · <i style="background:#78c8ff"></i>par le bore</li>
+          </ul>
+        </aside>
+      </div>
+      <p id="nv-anim" class="petit neutrons-pied"></p>
+    </div>
+  </div>
+
   <script src="svg.js"></script>
   <script src="zoom.js"></script>
   <script src="coeur_geo.js"></script>
+  <script src="coeur_vue.js"></script>
+  <script src="neutrons.js"></script>
   <script src="synoptics/primaire.js"></script>
   <script src="synoptics/secondaire.js"></script>
   <script src="synoptics/asg.js"></script>
+  <script src="synoptics/rcv.js"></script>
+  <script src="synoptics/rra.js"></script>
   <script src="transport.js"></script>
   <script src="curves.js"></script>
   <script src="app.js"></script>

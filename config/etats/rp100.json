@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "t_s": 0.0,
  "objets": {
   "CRF1": {
@@ -55,9 +55,9 @@
    "air_restant_s": 0.0
   },
   "PUITS_REJET": {
-   "position": 0.0004620861548043586,
+   "position": 0.0004630752427304558,
    "auto": true,
-   "demande_auto": 0.0004620861548043586,
+   "demande_auto": 0.0004630752427304558,
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
@@ -82,17 +82,17 @@
   },
   "APP1": {
    "en_marche": true,
-   "vitesse": 0.9470496797455984,
+   "vitesse": 0.9470078089494994,
    "auto": true,
-   "consigne_auto": 0.9470496751083313,
+   "consigne_auto": 0.9470078089494994,
    "consigne_manu": 1.1,
    "defaut": ""
   },
   "APP2": {
    "en_marche": true,
-   "vitesse": 0.9470496797455984,
+   "vitesse": 0.9470078089494994,
    "auto": true,
-   "consigne_auto": 0.9470496751083313,
+   "consigne_auto": 0.9470078089494994,
    "consigne_manu": 1.1,
    "defaut": ""
   },
@@ -145,36 +145,36 @@
    "air_restant_s": 0.0
   },
   "ARE1_GD": {
-   "position": 0.5784779462662077,
+   "position": 0.5786256907223873,
    "auto": true,
-   "demande_auto": 0.5784779462662077,
+   "demande_auto": 0.5786256907223873,
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
    "air_restant_s": 0.0
   },
   "ARE2_GD": {
-   "position": 0.5783916820277759,
+   "position": 0.5783802471681088,
    "auto": true,
-   "demande_auto": 0.5783916820277759,
+   "demande_auto": 0.5783802471681088,
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
    "air_restant_s": 0.0
   },
   "ARE3_GD": {
-   "position": 0.5783841098387589,
+   "position": 0.5783727411009976,
    "auto": true,
-   "demande_auto": 0.5783841098387589,
+   "demande_auto": 0.5783727411009976,
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
    "air_restant_s": 0.0
   },
   "ARE4_GD": {
-   "position": 0.5783841098387589,
+   "position": 0.5783727411009976,
    "auto": true,
-   "demande_auto": 0.5783841098387589,
+   "demande_auto": 0.5783727411009976,
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
@@ -487,22 +487,304 @@
    "ordre_raison": "",
    "air_restant_s": 0.0
   },
+  "RCV_PC1": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "RCV_PC2": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
   "RCV_CHARGE": {
-   "position": 0.49869400535662767,
+   "position": 0.36634838098347794,
    "auto": true,
-   "demande_auto": 0.49869400535662767,
+   "demande_auto": 0.36634838098347794,
    "demande_manu": 0.0,
    "ordre": null,
    "ordre_raison": "",
    "air_restant_s": 0.0
   },
-  "RCV_DECHARGE": {
+  "RCV_ISOL_CHARGE": {
    "position": 1.0,
    "auto": false,
    "demande_auto": 0.0,
    "demande_manu": 1.0,
    "ordre": null,
    "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_JOINTS": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_LCV459": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_LCV460": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_ORIF1": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_ORIF2": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_ORIF3": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_ISOL_ENC": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_HCV128": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_DEVIATION": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": 0.0,
+   "ordre_raison": "niveau VCT",
+   "air_restant_s": 0.0
+  },
+  "RCV_ASP_VCT": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_ASP_PTR": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RCV_BORI_URG": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RRA_P1": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "RRA_P2": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "RRA_ASP1A": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": 0.0,
+   "ordre_raison": "P primaire > 41 bar",
+   "air_restant_s": 0.0
+  },
+  "RRA_ASP1B": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": 0.0,
+   "ordre_raison": "P primaire > 41 bar",
+   "air_restant_s": 0.0
+  },
+  "RRA_ASP2A": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": 0.0,
+   "ordre_raison": "P primaire > 41 bar",
+   "air_restant_s": 0.0
+  },
+  "RRA_ASP2B": {
+   "position": 0.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": 0.0,
+   "ordre_raison": "P primaire > 41 bar",
+   "air_restant_s": 0.0
+  },
+  "RRA_CLAPET1": {},
+  "RRA_CLAPET2": {},
+  "RRA_HX1": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RRA_HX2": {
+   "position": 0.0,
+   "auto": true,
+   "demande_auto": 0.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RRA_BP1": {
+   "position": 1.0,
+   "auto": true,
+   "demande_auto": 1.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RRA_BP2": {
+   "position": 1.0,
+   "auto": true,
+   "demande_auto": 1.0,
+   "demande_manu": 0.0,
+   "ordre": null,
+   "ordre_raison": "",
+   "air_restant_s": 0.0
+  },
+  "RRI_P1": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "RRI_P2": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "SEC_P1": {
+   "en_marche": true,
+   "vitesse": 1.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "SEC_P2": {
+   "en_marche": false,
+   "vitesse": 0.0,
+   "auto": false,
+   "consigne_auto": 1.0,
+   "consigne_manu": 1.0,
+   "defaut": ""
+  },
+  "ACC1_ISOL": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": 1.0,
+   "ordre_raison": "P > P-11",
+   "air_restant_s": 0.0
+  },
+  "ACC2_ISOL": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": 1.0,
+   "ordre_raison": "P > P-11",
+   "air_restant_s": 0.0
+  },
+  "ACC3_ISOL": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": 1.0,
+   "ordre_raison": "P > P-11",
+   "air_restant_s": 0.0
+  },
+  "ACC4_ISOL": {
+   "position": 1.0,
+   "auto": false,
+   "demande_auto": 0.0,
+   "demande_manu": 1.0,
+   "ordre": 1.0,
+   "ordre_raison": "P > P-11",
    "air_restant_s": 0.0
   },
   "ASG_MP1": {
@@ -582,70 +864,70 @@
   "ASG3_CLAPET": {},
   "ASG4_CLAPET": {},
   "GV1": {
-   "v_bulles_m3": 21.59862168148436,
-   "dpdt_bar_s": -9.804918612051266e-08,
-   "q_kw": 854972.0862682955,
-   "qm_alim_kg_s": 469.8857083214085,
-   "h_alim_kj_kg": 961.3887596129127,
-   "qm_ligne_kg_s": 469.8857181380672,
+   "v_bulles_m3": 21.602783904066833,
+   "dpdt_bar_s": -2.6475316956139343e-08,
+   "q_kw": 855074.2208508551,
+   "qm_alim_kg_s": 469.9415343579129,
+   "h_alim_kj_kg": 961.3925508005718,
+   "qm_ligne_kg_s": 469.9415465073443,
    "qm_decharge_kg_s": 0.0,
-   "qm_vaporise_kg_s": 469.8857121327533
+   "qm_vaporise_kg_s": 469.9415468845295
   },
   "GV2": {
-   "v_bulles_m3": 21.597154534050766,
-   "dpdt_bar_s": -1.0971573767446879e-07,
-   "q_kw": 854907.5714493452,
-   "qm_alim_kg_s": 469.85013550507375,
-   "h_alim_kj_kg": 961.3887596129127,
-   "qm_ligne_kg_s": 469.85012695621714,
+   "v_bulles_m3": 21.598610805698343,
+   "dpdt_bar_s": -3.7970292402713664e-08,
+   "q_kw": 854890.7264859343,
+   "qm_alim_kg_s": 469.8403227093173,
+   "h_alim_kj_kg": 961.3925508005718,
+   "qm_ligne_kg_s": 469.84031730311165,
    "qm_decharge_kg_s": 0.0,
-   "qm_vaporise_kg_s": 469.8501194228638
+   "qm_vaporise_kg_s": 469.84031633675335
   },
   "GV3": {
-   "v_bulles_m3": 21.597026223244654,
-   "dpdt_bar_s": -9.452282947722259e-08,
-   "q_kw": 854901.9285334487,
-   "qm_alim_kg_s": 469.8470067184295,
-   "h_alim_kj_kg": 961.3887596129127,
-   "qm_ligne_kg_s": 469.84701398918,
+   "v_bulles_m3": 21.598483606578547,
+   "dpdt_bar_s": -2.8174359535150314e-08,
+   "q_kw": 854885.1324354352,
+   "qm_alim_kg_s": 469.8372216940761,
+   "h_alim_kj_kg": 961.3925508005717,
+   "qm_ligne_kg_s": 469.83723127091713,
    "qm_decharge_kg_s": 0.0,
-   "qm_vaporise_kg_s": 469.8470069554861
+   "qm_vaporise_kg_s": 469.8372314541967
   },
   "GV4": {
-   "v_bulles_m3": 21.597026223244654,
-   "dpdt_bar_s": -9.452282947722259e-08,
-   "q_kw": 854901.9285334487,
-   "qm_alim_kg_s": 469.8470067184295,
-   "h_alim_kj_kg": 961.3887596129127,
-   "qm_ligne_kg_s": 469.84701398918,
+   "v_bulles_m3": 21.598483606578547,
+   "dpdt_bar_s": -2.8174359535150314e-08,
+   "q_kw": 854885.1324354352,
+   "qm_alim_kg_s": 469.8372216940761,
+   "h_alim_kj_kg": 961.3925508005717,
+   "qm_ligne_kg_s": 469.83723127091713,
    "qm_decharge_kg_s": 0.0,
-   "qm_vaporise_kg_s": 469.8470069554861
+   "qm_vaporise_kg_s": 469.8372314541967
   },
   "GV1.volume": {
-   "m_kg": 44043.39814968362,
-   "u_kj": 58825658.49492948,
-   "p_bar": 63.2298958369019
+   "m_kg": 44041.75307569332,
+   "u_kj": 58822496.5259181,
+   "p_bar": 63.225646997817826
   },
   "GV2.volume": {
-   "m_kg": 44044.04686369373,
-   "u_kj": 58826279.36340485,
-   "p_bar": 63.22944603909468
+   "m_kg": 44043.599355721344,
+   "u_kj": 58824263.7100023,
+   "p_bar": 63.22436752235905
   },
   "GV3.volume": {
-   "m_kg": 44044.104122979064,
-   "u_kj": 58826334.27096542,
-   "p_bar": 63.22940670212965
+   "m_kg": 44043.65610681592,
+   "u_kj": 58824318.125410646,
+   "p_bar": 63.22432851948217
   },
   "GV4.volume": {
-   "m_kg": 44044.104122979064,
-   "u_kj": 58826334.27096542,
-   "p_bar": 63.22940670212965
+   "m_kg": 44043.65610681592,
+   "u_kj": 58824318.125410646,
+   "p_bar": 63.22432851948217
   },
   "GV1_NIV": {
    "valeurs": [
-    50.000001752715896,
-    50.000001752715896,
-    50.000001752715896
+    50.00000187358988,
+    50.00000187358988,
+    50.00000187358988
    ],
    "pannes": [
     false,
@@ -655,9 +937,9 @@
   },
   "GV2_NIV": {
    "valeurs": [
-    49.999999807938515,
-    49.999999807938515,
-    49.999999807938515
+    50.000000015489846,
+    50.000000015489846,
+    50.000000015489846
    ],
    "pannes": [
     false,
@@ -667,9 +949,9 @@
   },
   "GV3_NIV": {
    "valeurs": [
-    50.00000147422324,
-    50.00000147422324,
-    50.00000147422324
+    50.00000160948709,
+    50.00000160948709,
+    50.00000160948709
    ],
    "pannes": [
     false,
@@ -679,9 +961,9 @@
   },
   "GV4_NIV": {
    "valeurs": [
-    50.00000147422324,
-    50.00000147422324,
-    50.00000147422324
+    50.00000160948709,
+    50.00000160948709,
+    50.00000160948709
    ],
    "pannes": [
     false,
@@ -782,62 +1064,64 @@
    "sollicitations": 0
   },
   "GRAPPES": {
-   "g": 0.9974387594985127,
-   "n": 0.9974387963596592,
-   "t_comb_c": 619.294608091291,
+   "g": 0.9977941762097454,
+   "n": 0.9977942091616874,
+   "t_comb_c": 619.392485104505,
    "p_res_kw": [
-    105163.97173624262,
-    66820.45775185226,
-    43140.693738235765,
-    25069.601276751866,
-    19454.89067602554,
-    6337.063221958549,
-    14111.17693766183
+    105201.44436197428,
+    66844.26778785503,
+    43156.06705852259,
+    25078.29498287911,
+    19456.98258737789,
+    6337.142842721647,
+    14111.194953965258
    ],
    "z_pas": 180.0,
+   "g_pas": 228.0,
+   "consigne_g_pas": 228.0,
    "arret_insere": 0.0,
    "chute": false,
    "auto": true,
    "consigne_manu_pas": 180.0,
    "extraction_arret": false,
    "bore_ppm": 1000.0,
-   "rho_pcm": -7.604178961173602e-05,
-   "q_caloporteur_kw": 3402351.8645546935,
+   "rho_pcm": -7.858184090880904e-05,
+   "q_caloporteur_kw": 3403551.9432850485,
    "vitesse_pas_min": 0.0,
-   "desequilibre_retard_pct": 0.03936061934484306
+   "desequilibre_retard_pct": 0.07349744309562514
   },
   "PRIMAIRE": {
    "t_c": {
-    "DESCENTE": 289.0493375771248,
-    "COEUR": 325.1270180034277,
-    "PLENUM": 325.12701806931904,
-    "BC1": 325.1270180954354,
-    "GVP1": 288.84917018091693,
-    "BF1": 289.0263165463798,
-    "BC2": 325.12734565624714,
-    "GVP2": 288.84856762683404,
-    "BF2": 289.05709717889937,
-    "BC3": 325.127018095438,
-    "GVP3": 288.84843938593485,
-    "BF3": 289.05696890300777,
-    "BC4": 325.127018095438,
-    "GVP4": 288.84843938593485,
-    "BF4": 289.05696890300777
+    "DESCENTE": 289.0304276869133,
+    "COEUR": 325.1214388040974,
+    "PLENUM": 325.1214388677791,
+    "BC1": 325.12143889305725,
+    "GVP1": 288.8444907345607,
+    "BF1": 288.9684348852665,
+    "BC2": 325.1217636238027,
+    "GVP2": 288.8426480439766,
+    "BF2": 289.0511819735709,
+    "BC3": 325.1214388930641,
+    "GVP3": 288.8425209216008,
+    "BF3": 289.0510548203278,
+    "BC4": 325.1214388930641,
+    "GVP4": 288.8425209216008,
+    "BF4": 289.0510548203278
    },
    "w_boucles_kg_s": [
-    4131.871789484325,
-    4131.455182357093,
-    4131.4565541784,
-    4131.4565541784
+    4132.592693588007,
+    4131.472116684205,
+    4131.473476457134,
+    4131.473476457134
    ],
-   "w_cuve_kg_s": 16526.240080192198,
-   "masse_liquide_kg": 204684.81008945437,
-   "qm_expansion_kg_s": -0.06002583261925892,
+   "w_cuve_kg_s": 16527.011762661834,
+   "masse_liquide_kg": 204690.156565817,
+   "qm_expansion_kg_s": -0.05949119808603862,
    "q_gv_kw": [
-    854972.0862682955,
-    854907.5714493452,
-    854901.9285334487,
-    854901.9285334487
+    855074.2208508551,
+    854890.7264859343,
+    854885.1324354352,
+    854885.1324354352
    ],
    "q_pompes_kw": 18000.0,
    "huile_s": [
@@ -846,28 +1130,32 @@
     3719.999999997715,
     3719.999999997715
    ],
+   "w_rra_kg_s": [
+    -2.594878745124959e-07,
+    -2.594878745124959e-07
+   ],
    "reseau_p_bar": {
-    "PLENUM": 154.97290906157178,
-    "DESCENTE": 157.56764476965483
+    "PLENUM": 154.9739753417049,
+    "DESCENTE": 157.56885408682984
    }
   },
   "PZR": {
-   "qm_aspersion_kg_s": 0.04778689895336946,
+   "qm_aspersion_kg_s": 0.04778760474876884,
    "qm_porv_kg_s": 0.0,
    "qm_soupapes_kg_s": 0.0,
-   "q_chauffe_kw": 83.01145919311543
+   "q_chauffe_kw": 82.80168345091077
   },
   "PZR.volume": {
-   "m_kg": 20267.553612088563,
-   "u_kj": 34249717.46365693,
-   "p_bar": 154.97291417129063
+   "m_kg": 20267.52406797054,
+   "u_kj": 34249754.80155048,
+   "p_bar": 154.97398031122
   },
   "PZR_P": {
    "valeurs": [
-    154.972893736307,
-    154.972893736307,
-    154.972893736307,
-    154.972893736307
+    154.97396043707087,
+    154.97396043707087,
+    154.97396043707087,
+    154.97396043707087
    ],
    "pannes": [
     false,
@@ -878,9 +1166,9 @@
   },
   "PZR_NIV": {
    "valeurs": [
-    60.000310521551846,
-    60.000310521551846,
-    60.000310521551846
+    60.00034067506207,
+    60.00034067506207,
+    60.00034067506207
    ],
    "pannes": [
     false,
@@ -890,10 +1178,10 @@
   },
   "PZR_CHAUF_P": {
    "auto": true,
-   "demande_auto": 0.20051077099786335,
+   "demande_auto": 0.20000406630654777,
    "demande_manu": 0.0,
    "coupe": "",
-   "puissance_kw": 83.01145919311543
+   "puissance_kw": 82.80168345091077
   },
   "PZR_CHAUF_T": {
    "auto": true,
@@ -904,18 +1192,18 @@
   },
   "ASG": {
    "qm_gv_kg_s": [
-    -6.100270259717154e-06,
-    -6.100225280060328e-06,
-    -6.100221346422414e-06,
-    -6.100221346422414e-06
+    -6.099845374942861e-06,
+    -6.0997174275118154e-06,
+    -6.099713527126081e-06,
+    -6.099713527126081e-06
    ],
    "qm_vapeur_tps_kg_s": 0.0,
    "p_bar": {
-    "CST": 2.2204938707373136,
-    "GV1": 63.22989584763397,
-    "GV2": 63.22944605106571,
-    "GV3": 63.229406714686576,
-    "GV4": 63.229406714686576,
+    "CST": 2.2204964004988716,
+    "GV1": 63.22564699989104,
+    "GV2": 63.22436752558058,
+    "GV3": 63.22432852172324,
+    "GV4": 63.22432852172324,
     "N_ASG": 2.227193250462425
    }
   },
@@ -928,23 +1216,23 @@
     1.0,
     1.0
    ],
-   "y_reglage": 0.8475206847327661,
-   "demande_reglage": 0.8475206847327661,
+   "y_reglage": 0.8476061987948809,
+   "demande_reglage": 0.8476061987948809,
    "vitesse_tr_min": 1500.0,
    "couplee": true,
    "consigne_mw": 1135.0,
    "consigne_eff_mw": 1135.0,
    "consigne_vitesse_tr_min": 1500.0,
    "consigne_vitesse_eff_tr_min": 1500.0,
-   "qm_kg_s": 1879.4299079696907,
-   "dh_is_kj_kg": 880.9300356369899,
-   "p_meca_mw": 1152.2842637682206,
-   "p_elec_mw": 1134.9999998116973,
+   "qm_kg_s": 1879.4564139299334,
+   "dh_is_kj_kg": 880.9176120745731,
+   "p_meca_mw": 1152.2842640135045,
+   "p_elec_mw": 1135.0000000533018,
    "_pi_charge": {
-    "integrale": 1.0098357463979474e-10,
+    "integrale": 7.81226320124844e-11,
     "auto": true,
-    "sortie_manu": -1.5061691616883578e-10,
-    "sortie": -1.5061691616883578e-10
+    "sortie_manu": 5.442789108054603e-11,
+    "sortie": 5.442789108054603e-11
    },
    "_pi_vitesse": {
     "integrale": 0.0,
@@ -954,20 +1242,148 @@
    }
   },
   "CONDENSEUR": {
-   "t_c": 52.83947459235802,
-   "p_bar": 0.1470053185343318,
-   "q_entree_kw": 2267399.486576273,
-   "q_mer_kw": 2267399.504311234,
-   "_puits_m_kg": 148068.5145044304,
-   "_cst_m_kg": 1395474.5565528919
+   "t_c": 52.84040562600894,
+   "p_bar": 0.14701174466509112,
+   "q_entree_kw": 2267451.22551334,
+   "q_mer_kw": 2267451.1948455693,
+   "_puits_m_kg": 148068.57136091543,
+   "_cst_m_kg": 1395477.480149061
   },
   "REG_GCTC": {
    "mode": "tmoy",
    "consigne_bar": 76.0,
-   "charge_retard_pct": 99.70450309044278,
+   "charge_retard_pct": 99.70590932416421,
    "c7": false,
    "c8": false,
    "demande": 0.0
+  },
+  "RCV": {
+   "vct_m3": 5.055919189599914,
+   "vct_bore_ppm": 1000.0000000000016,
+   "ptr_m3": 1600.0,
+   "bore_primaire_ppm": 1000.0,
+   "effluents_m3": 0.0,
+   "q_dispo_m3h": 47.174051296961935,
+   "q_charge_m3h": 12.45584495343825,
+   "q_joints_m3h": 7.3,
+   "q_decharge_m3h": 16.998304822795706,
+   "q_rra_m3h": 0.0,
+   "q_deviation_m3h": 0.0,
+   "q_urgence_m3h": 0.0,
+   "bore_charge_ppm": 1000.0000000000017,
+   "t_charge_c": 259.88492824580453,
+   "q_echangeur_kw": 1613.7330473657487
+  },
+  "REA": {
+   "mode": "auto",
+   "volume_restant_m3": 0.0,
+   "appoint_auto": false,
+   "acide_m3": 184.0,
+   "eau_m3": 770.0,
+   "q_acide_m3h": 0.0,
+   "q_eau_m3h": 0.0
+  },
+  "RRA": {
+   "w_kg_s": [
+    0.0,
+    0.0
+   ],
+   "q_kw": [
+    0.0,
+    0.0
+   ],
+   "t_sortie_c": [
+    325.1214388702581,
+    325.1214388702581
+   ]
+  },
+  "RRI": {
+   "t_c": 19.873584643269368,
+   "q_utilisateurs_kw": 9613.73304736575,
+   "q_sec_kw": 9605.899737204596,
+   "sans_rri_s": 0.0
+  },
+  "ACCUS": {
+   "v_eau_m3": [
+    29.0,
+    29.0,
+    29.0,
+    29.0
+   ],
+   "qm_kg_s": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "SUIVI": {
+   "tmoy_prec_c": 307.07597585031016,
+   "vitesse_instantanee_c_h": -4.728328083694736e-05,
+   "vitesse_refroidissement_c_h": 0.025872403769540142,
+   "echantillons_c": [
+    307.0805638854739,
+    307.1018482540797,
+    307.08936578493274,
+    307.08051276365825,
+    307.07766407741,
+    307.0770289429182,
+    307.0768109129385,
+    307.07663356920557,
+    307.07648759187964,
+    307.07638106898753,
+    307.0763022058683,
+    307.07623821575294,
+    307.0761818554143,
+    307.07612923193915,
+    307.0760792553135,
+    307.0760312962538,
+    307.0759856208895,
+    307.0759426932097,
+    307.0759028396464,
+    307.07586633918754,
+    307.0758336327091,
+    307.07580498060315,
+    307.0757805739315,
+    307.0757603316538,
+    307.07574453657503,
+    307.07573294308344,
+    307.07572889027153,
+    307.0757282250457,
+    307.0757285191891,
+    307.0757297865166,
+    307.0757319329455,
+    307.07573663051085,
+    307.07574688813173,
+    307.0757598150057,
+    307.0757741388861,
+    307.0757894872019,
+    307.0758055644591,
+    307.07582210626435,
+    307.0758387844335,
+    307.075855269989,
+    307.07587135514086,
+    307.07588686060285,
+    307.0759015193851,
+    307.0759152011666,
+    307.07592777100876,
+    307.0759391397045,
+    307.0759492331273,
+    307.0759580033443,
+    307.07596543095804,
+    307.0759715206968,
+    307.075976297709,
+    307.0759797913283,
+    307.07598206342846,
+    307.0759832059886,
+    307.075983261613,
+    307.07598274094073,
+    307.075981757396,
+    307.075980367697,
+    307.07597862836843,
+    307.07597585031016
+   ],
+   "temps_echantillon_s": 0.0
   },
   "REG_VDA": {
    "valeur": 79.0
@@ -980,13 +1396,13 @@
   }
  },
  "vapeur": {
-  "p_collecteur_bar": 59.9977064404472,
-  "h_collecteur_kj_kg": 2780.9212137424706,
+  "p_collecteur_bar": 59.99249941126822,
+  "h_collecteur_kj_kg": 2780.926848158615,
   "qm_lignes_kg_s": [
-   469.8857181380672,
-   469.85012695621714,
-   469.84701398918,
-   469.84701398918
+   469.9415465073443,
+   469.84031730311165,
+   469.83723127091713,
+   469.83723127091713
   ],
   "qm_vda_kg_s": [
    0.0,
@@ -1003,91 +1419,91 @@
  },
  "poste_eau": {
   "poste": {
-   "t_abp_c": 181.8699813602755,
-   "t_ahp_c": 223.82861179309052,
-   "qm_purges_kg_s": 625.8501593539071,
-   "qm_reprise_kg_s": 625.8501593539071,
+   "t_abp_c": 181.870600103083,
+   "t_ahp_c": 223.82942740860938,
+   "qm_purges_kg_s": 625.8589858386679,
+   "qm_reprise_kg_s": 625.8589858386679,
    "qm_branches_kg_s": {
-    "L_CEX1": 626.8025832706626,
-    "L_CEX2": 626.8025832706626,
-    "L_RECIRC": 3.463698017389376e-06,
-    "L_REJET": 0.02546516819160134,
-    "L_APPOINT": 2.0734885521907408e-07,
-    "L_ABP": 1253.5796979094355,
-    "L_APP1": 939.7360551445203,
-    "L_APP2": 939.7360551445203,
-    "L_APD": -0.042253025698105205,
-    "L_AHP": 1879.4298572633422,
-    "L_ARE1": 469.8857083214085,
-    "L_ARE2": 469.85013550507375,
-    "L_ARE3": 469.8470067184295,
-    "L_ARE4": 469.8470067184295
+    "L_CEX1": 626.8114188449863,
+    "L_CEX2": 626.8114188449863,
+    "L_RECIRC": 3.4636821277257324e-06,
+    "L_REJET": 0.02551960957746907,
+    "L_APPOINT": 2.0734846558549477e-07,
+    "L_ABP": 1253.597314616714,
+    "L_APP1": 939.7492743640581,
+    "L_APP2": 939.7492743640581,
+    "L_APD": -0.04224827273502712,
+    "L_AHP": 1879.4563004553786,
+    "L_ARE1": 469.9415343579129,
+    "L_ARE2": 469.8403227093173,
+    "L_ARE3": 469.8372216940761,
+    "L_ARE4": 469.8372216940761
    }
   },
   "reseau": {
    "p_bar": {
-    "PUITS": 1.0179067917744737,
-    "CONDENSEUR": 0.14700531854657273,
-    "CST": 2.2204938707373136,
-    "GV1": 63.22989584763397,
-    "GV2": 63.22944605106571,
-    "GV3": 63.229406714686576,
-    "GV4": 63.229406714686576,
-    "N_CEX": 34.78398549244034,
-    "N_ABP": 29.75538729284041,
-    "N_APP": 72.00841299094562,
-    "N_ARE": 68.98292590581403
+    "PUITS": 1.0179129118001147,
+    "CONDENSEUR": 0.14701174464392375,
+    "CST": 2.2204964004988716,
+    "GV1": 63.22564699989104,
+    "GV2": 63.22436752558058,
+    "GV3": 63.22432852172324,
+    "GV4": 63.22432852172324,
+    "N_CEX": 34.78383302190125,
+    "N_ABP": 29.755091256515545,
+    "N_APP": 72.00336399154266,
+    "N_ARE": 68.9777894920707
    }
   }
  },
  "regulations": {
   "PI_NIV_GV1": {
-   "integrale": 1.0797069287009284e-06,
+   "integrale": 1.075296535270137e-06,
    "auto": true,
-   "sortie_manu": -2.376455417836966e-06,
-   "sortie": -2.376455417836966e-06
+   "sortie_manu": -2.69870456569446e-06,
+   "sortie": -2.69870456569446e-06
   },
   "PI_NIV_GV2": {
-   "integrale": 9.963271579056023e-07,
+   "integrale": 9.941300688628351e-07,
    "auto": true,
-   "sortie_manu": 1.4297594772744784e-06,
-   "sortie": 1.4297594772744784e-06
+   "sortie_manu": 9.367550787705503e-07,
+   "sortie": 9.367550787705503e-07
   },
   "PI_NIV_GV3": {
-   "integrale": 1.0702949652699903e-06,
+   "integrale": 1.0797010646878704e-06,
    "auto": true,
-   "sortie_manu": -1.834287394249746e-06,
-   "sortie": -1.834287394249746e-06
+   "sortie_manu": -2.166181616170033e-06,
+   "sortie": -2.166181616170033e-06
   },
   "PI_NIV_GV4": {
-   "integrale": 1.0702949652699903e-06,
+   "integrale": 1.0797010646878704e-06,
    "auto": true,
-   "sortie_manu": -1.834287394249746e-06,
-   "sortie": -1.834287394249746e-06
+   "sortie_manu": -2.166181616170033e-06,
+   "sortie": -2.166181616170033e-06
   },
   "PI_DEB_GV1": {
-   "integrale": 0.010556185222109965,
+   "integrale": 0.010562520914898146,
    "auto": true,
-   "sortie_manu": 0.6328678886834712,
-   "sortie": 0.6328678886834712
+   "sortie_manu": 0.6329965693388535,
+   "sortie": 0.6329965693388535
   },
   "PI_DEB_GV2": {
-   "integrale": 0.010552489301467727,
+   "integrale": 0.01055200139227956,
    "auto": true,
-   "sortie_manu": 0.6327927553145145,
-   "sortie": 0.6327927553145145
+   "sortie_manu": 0.6327827959206108,
+   "sortie": 0.6327827959206108
   },
   "PI_DEB_GV3": {
-   "integrale": 0.01055216399942165,
+   "integrale": 0.010551678994550501,
    "auto": true,
-   "sortie_manu": 0.6327861601821448,
-   "sortie": 0.6327861601821448
+   "sortie_manu": 0.6327762583782882,
+   "sortie": 0.6327762583782882
   },
   "PI_DEB_GV4": {
-   "integrale": 0.01055216399942165,
+   "integrale": 0.010551678994550501,
    "auto": true,
-   "sortie_manu": 0.6327861601821448,
-   "sortie": 0.6327861601821448
+   "sortie_manu": 0.6327762583782882,
+   "sortie": 0.6327762583782882
   },
   "PI_ASG1": {
    "integrale": 0.0,
@@ -1114,28 +1530,34 @@
    "sortie": 0.0
   },
   "PI_DP_APP": {
-   "integrale": 0.9470495583835261,
+   "integrale": 0.9470076999729794,
    "auto": true,
-   "sortie_manu": 0.9470496751083313,
-   "sortie": 0.9470496751083313
+   "sortie_manu": 0.9470078089494994,
+   "sortie": 0.9470078089494994
   },
   "PI_PUITS": {
-   "integrale": 0.0016836402253024353,
+   "integrale": 0.0016867898743781625,
    "auto": true,
-   "sortie_manu": -0.0004620861548043586,
-   "sortie": -0.0004620861548043586
+   "sortie_manu": -0.0004630752427304558,
+   "sortie": -0.0004630752427304558
   },
   "PI_P_PZR": {
-   "integrale": 0.6260898304431971,
+   "integrale": 0.6260363988533297,
    "auto": true,
-   "sortie_manu": 0.5989784580042733,
-   "sortie": 0.5989784580042733
+   "sortie_manu": 0.5999918673869045,
+   "sortie": 0.5999918673869045
   },
   "PI_NIV_PZR": {
-   "integrale": -0.012082240279079006,
+   "integrale": -0.011535709951463934,
    "auto": true,
-   "sortie_manu": 4.661667933712428,
-   "sortie": 4.661667933712428
+   "sortie_manu": 3.4245338461144312,
+   "sortie": 3.4245338461144312
+  },
+  "PI_RRA": {
+   "integrale": 0.0,
+   "auto": true,
+   "sortie_manu": 0.0,
+   "sortie": 0.0
   },
   "_etat": {
    "chaufferettes_tor": false,
@@ -1189,30 +1611,41 @@
   "cex_declenchee": false,
   "app_en_service": true,
   "decharge_isolee": false,
-  "flux_retard_pct": 99.74387901902088,
+  "p11": false,
+  "is_actif": false,
+  "is_causes": [],
+  "causes_is": [],
+  "is_t_s": 0.0,
+  "is_bloquee": false,
+  "is_manuel": false,
+  "rra_isole_auto": false,
+  "perte_rri": false,
+  "aspiration_ptr": false,
+  "deviation_vct": false,
+  "flux_retard_pct": 99.77942035994829,
   "otdt_retard_c": [
-   307.07666767210446,
-   307.0922217984052,
-   307.09199363951785,
-   307.09199363951785
+   307.0449372338337,
+   307.0864731561855,
+   307.086246989066,
+   307.086246989066
   ],
   "opdt_retard_c": [
-   307.0766681754204,
-   307.092222341341,
-   307.0919938324738,
-   307.0919938324738
+   307.04493772229625,
+   307.086473662843,
+   307.0862471649708,
+   307.0862471649708
   ],
   "otdt_seuil_c": [
-   42.23023031711703,
-   42.207708257175234,
-   42.20803608357977,
-   42.20803608357977
+   42.27667797640738,
+   42.216534095844914,
+   42.21685920326903,
+   42.21685920326903
   ],
   "opdt_seuil_c": [
-   39.45189421386036,
-   39.45065548555134,
-   39.450673637442264,
-   39.450673637442264
+   39.45442122544587,
+   39.4511133055798,
+   39.45113130005704,
+   39.45113130005704
   ]
  },
  "journal": [

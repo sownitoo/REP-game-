@@ -10,7 +10,7 @@
 # =============================================================================
 
 meta:
-  version: V1
+  version: V2
   nom: "Mini-Centrale REP 4 boucles (générique)"
 
 simulation:
@@ -65,10 +65,11 @@ coeur:
   lambda_s: 0.08                    # spec (1 groupe de neutrons retardés)
   rho_max_fraction_beta: 0.9        # borne numérique : pas de surcriticité prompte (approximation du saut prompt)
   source_neutrons: 1.0e-9           # HYPOTHESE source intrinsèque (n ≈ S / abs(ρ) en sous-critique)
-  alpha_mod_pcm_c: -20.0            # spec
+  alpha_mod_pcm_c: -20.0            # spec (au point nominal)
+  t_alpha_mod_nul_c: 20.0           # HYPOTHESE α_mod ∝ (T − 20 °C) : coefficient modérateur faible à froid
   alpha_doppler_pcm_c: -2.5         # spec
   alpha_bore_pcm_ppm: -10.0         # spec
-  bore_ppm: 1000.0                  # HYPOTHESE (constant en V1 : la REA arrive en V2)
+  bore_ppm: 1000.0                  # HYPOTHESE concentration au point nominal (ρ = 0)
   t_mod_ref_c: 307.0                # température modérateur de référence (ρ = 0 au nominal)
   combustible:
     t_nom_c: 620.0                  # HYPOTHESE T moyenne du combustible à 100 %
@@ -78,8 +79,9 @@ coeur:
     constantes_s: [1.0, 10.0, 100.0, 1000.0, 1.0e+4, 1.0e+5, 1.0e+6]
   grappes:
     pas_max: 228                    # spec (C-11 à 223 pas)
-    regulation_pcm: -2000.0         # HYPOTHESE poids des groupes de régulation (lissés en un groupe)
-    arret_pcm: -3000.0              # HYPOTHESE : régulation + arrêt = −5 000 pcm (spec)
+    regulation_pcm: -2000.0         # HYPOTHESE groupe R (régulation de température, auto / manuel)
+    compensation_pcm: -1500.0       # HYPOTHESE groupe G (compensation de puissance, manuel ; extrait à 100 %)
+    arret_pcm: -1500.0              # HYPOTHESE groupes S d'arrêt : R + G + S = −5 000 pcm (spec)
     position_nom_pas: 180.0         # HYPOTHESE position à 100 %
     temps_chute_s: 2.0              # spec
     vitesse_manu_pas_min: 48.0      # HYPOTHESE
@@ -126,11 +128,63 @@ pressuriseur:
   retard_mesure_s: 0.5              # HYPOTHESE
 
 # --- Charge / décharge simplifiées (V1 ; RCV complet en V2) ---------------------
-rcv_v1:
-  decharge_m3h: 17.0                # spec (débit de décharge nominal)
-  charge_max_m3h: 34.0              # spec (pompe de charge)
-  t_vct_c: 46.0                     # HYPOTHESE température dans la VCT (masse volumique des débits)
-  t_charge_c: 260.0                 # spec (sortie de l'échangeur régénérateur)
+rcv:
+  t_vct_c: 46.0                     # HYPOTHESE température de l'eau dans la VCT
+  vct_volume_m3: 10.0               # HYPOTHESE volume utile (0 → 100 % de niveau)
+  vct_niveau_initial_pct: 50.0      # HYPOTHESE
+  vct_seuils_pct: {tres_bas: 5.0, bas: 20.0, haut: 70.0}   # HYPOTHESE : bascule PTR, appoint auto, déviation
+  pompe_charge: {q_nom_m3h: 34.0, dp_nom_bar: 172.0, dp0_bar: 185.0}   # spec (hauteur à débit nul ~185 bar)
+  charge_max_m3h: 34.0              # FCV-121 grande ouverture
+  dp_ligne_charge_bar: 5.0          # HYPOTHESE (ligne de charge + aspiration)
+  joints: {injection_m3h: 7.3, entree_primaire_m3h: 4.5}   # spec : 7,3 m³/h vers les joints, 4,5 entrent au primaire
+  orifices_m3h: [17.0, 17.0, 10.0]  # spec (à 155 bar)
+  p_orifices_ref_bar: 155.0         # spec
+  p_aval_orifices_bar: 24.5         # spec (PCV-131)
+  rra_vers_rcv_m3h: 30.0            # HYPOTHESE HCV-128 (purification pendant le RRA)
+  efficacite_regenerateur: 0.88     # spec : charge 54 → 260 °C avec une décharge à 288 °C
+  t_sortie_echangeur_c: 49.0        # spec (échangeur de décharge refroidi par le RRI)
+  t_sortie_sans_rri_c: 143.0        # spec (sortie du régénérateur)
+  ptr: {volume_m3: 1600.0, bore_ppm: 2500.0, t_c: 20.0}   # HYPOTHESE bâche PTR
+
+# --- Appoint eau et bore (REA) ---------------------------------------------------
+rea:
+  bore_acide_ppm: 7000.0            # spec
+  volume_acide_m3: 184.0            # spec (2 × 92 m³)
+  volume_eau_m3: 770.0              # spec
+  debit_auto_m3h: 18.0              # spec
+  debit_borication_m3h: 10.0        # HYPOTHESE (pompe de transfert d'acide borique)
+  debit_dilution_m3h: 20.0          # HYPOTHESE
+  debit_urgence_m3h: 10.0           # HYPOTHESE (borication d'urgence MO-8104)
+
+# --- Refroidissement à l'arrêt (RRA) ---------------------------------------------
+rra:
+  trains: [1, 2]                    # spec : 2 pompes + 2 échangeurs
+  p_ouverture_max_bar: 30.0         # spec : verrou d'ouverture de l'aspiration
+  p_fermeture_auto_bar: 41.0        # spec
+  ua_echangeur_mw_c: 1.2            # HYPOTHESE (177 → 60 °C en ~16 h sur 2 voies)
+  debit_rri_m3h: 1000.0             # HYPOTHESE côté RRI, par échangeur
+  chaleur_pompe_mw: 0.3             # HYPOTHESE
+
+# --- Réfrigération intermédiaire (RRI) et eau brute secourue (SEC) -----------------
+rri:
+  capacite_mj_c: 1250.0             # HYPOTHESE (~300 m³ d'eau)
+  t_initiale_c: 25.0                # HYPOTHESE
+  ua_echangeur_mw_c: 2.0            # HYPOTHESE échangeur RRI/SEC, un par voie
+  debit_pompe_m3h: 2500.0           # HYPOTHESE
+  chaleur_fixe_mw: 6.0              # HYPOTHESE autres utilisateurs (moteurs, ventilation…)
+  chaleur_par_pompe_primaire_mw: 0.5   # HYPOTHESE (barrière thermique + paliers)
+  delai_pompes_primaires_s: 300.0   # HYPOTHESE : sans RRI, défaut des pompes primaires (spec : arrêt en ~2 min)
+sec:
+  debit_pompe_m3h: 3000.0           # HYPOTHESE
+
+# --- Accumulateurs (RIS, partie passive) ---------------------------------------------
+accumulateurs:
+  volume_m3: 38.0                   # HYPOTHESE (par accumulateur, un par boucle)
+  volume_eau_m3: 29.0               # HYPOTHESE
+  p_azote_bar: 42.0                 # spec
+  bore_ppm: 2500.0                  # HYPOTHESE
+  t_c: 40.0                         # HYPOTHESE
+  k_m3h_par_racine_bar: 270.0       # HYPOTHESE (~600 m³/h sous 5 bar d'écart)
 
 # --- Alimentation de secours des GV (ASG) ---------------------------------------
 asg:
@@ -307,6 +361,55 @@ gabarits:
   clapet:
     type: CheckValve
     kv_max: 8000                    # HYPOTHESE (perte de charge faible)
+  pompe_charge:
+    type: Pump
+    systeme: RCV
+    q_nom_m3h: 34.0                 # spec
+    temps_demarrage_s: 5.0          # HYPOTHESE
+    temps_ralentissement_s: 5.0
+  vanne_rcv_isol:
+    type: Valve
+    systeme: RCV
+    actionneur: AOV
+    air: SAR
+    temps_course_s: 5.0             # HYPOTHESE
+    position_repli: fermee
+    reserve_air_min: 0.0
+  pompe_rra:
+    type: Pump
+    systeme: RRA
+    q_nom_m3h: 700                  # HYPOTHESE (~3 000 gpm)
+    h_nom_m: 90                     # HYPOTHESE
+    h0_m: 110                       # HYPOTHESE
+    temps_demarrage_s: 5.0
+    temps_ralentissement_s: 10.0
+  vanne_rra_asp:
+    type: Valve
+    systeme: RRA
+    actionneur: MOV
+    kv_max: 6000
+    temps_course_s: 60.0            # HYPOTHESE
+  vanne_rra_reglage:
+    type: ControlValve
+    systeme: RRA
+    actionneur: AOV
+    air: SAR
+    kv_max: 230                     # HYPOTHESE (≈ 700 m³/h sous ~9 bar)
+    temps_course_s: 20.0
+    position_repli: ouverte
+    reserve_air_min: 0.0
+  pompe_rri:
+    type: Pump
+    systeme: RRI
+    q_nom_m3h: 2500                 # HYPOTHESE
+    temps_demarrage_s: 5.0
+    temps_ralentissement_s: 10.0
+  pompe_sec:
+    type: Pump
+    systeme: SEC
+    q_nom_m3h: 3000                 # HYPOTHESE
+    temps_demarrage_s: 10.0
+    temps_ralentissement_s: 10.0
   vanne_are_gd:
     type: ControlValve
     systeme: ARE
@@ -430,10 +533,46 @@ composants:
               temps_course_s: 1.0, position_repli: fermee, reserve_air_min: 10.0}
   PZR_ISOL1: {type: Valve, systeme: RCP, actionneur: MOV, alim: LHA, temps_course_s: 10.0}   # vanne d'isolement amont PORV ; course HYPOTHESE
   PZR_ISOL2: {type: Valve, systeme: RCP, actionneur: MOV, alim: LHB, temps_course_s: 10.0}
-  RCV_CHARGE: {type: ControlValve, systeme: RCV, actionneur: AOV, air: SAR, temps_course_s: 10.0,   # FCV-121 (V1 simplifiée)
+  # RCV (repères de la spec entre parenthèses)
+  RCV_PC1: {gabarit: pompe_charge, alim: LHA}
+  RCV_PC2: {gabarit: pompe_charge, alim: LHB}
+  RCV_CHARGE: {type: ControlValve, systeme: RCV, actionneur: AOV, air: SAR, temps_course_s: 10.0,   # FCV-121
                position_repli: ouverte, reserve_air_min: 0.0}
-  RCV_DECHARGE: {type: Valve, systeme: RCV, actionneur: AOV, air: SAR, temps_course_s: 5.0,       # LCV-459/460 (V1 simplifiée)
-                 position_repli: fermee, reserve_air_min: 0.0}
+  RCV_ISOL_CHARGE: {type: Valve, systeme: RCV, actionneur: MOV, alim: LHA, temps_course_s: 10.0}   # MO-8105/8106
+  RCV_JOINTS: {type: ControlValve, systeme: RCV, actionneur: AOV, air: SAR, temps_course_s: 10.0,   # HCV-182
+               position_repli: ouverte, reserve_air_min: 0.0}
+  RCV_LCV459: {gabarit: vanne_rcv_isol}
+  RCV_LCV460: {gabarit: vanne_rcv_isol}
+  RCV_ORIF1: {gabarit: vanne_rcv_isol}
+  RCV_ORIF2: {gabarit: vanne_rcv_isol}
+  RCV_ORIF3: {gabarit: vanne_rcv_isol}
+  RCV_ISOL_ENC: {gabarit: vanne_rcv_isol}                         # CV-8152 (phase A)
+  RCV_HCV128: {type: ControlValve, systeme: RCV, actionneur: AOV, air: SAR, temps_course_s: 10.0,   # RRA → RCV
+               position_repli: fermee, reserve_air_min: 0.0}
+  RCV_DEVIATION: {gabarit: vanne_rcv_isol}                        # LCV-112A vers les effluents
+  RCV_ASP_VCT: {type: Valve, systeme: RCV, actionneur: MOV, alim: LHA, temps_course_s: 10.0}   # LCV-112B/C
+  RCV_ASP_PTR: {type: Valve, systeme: RCV, actionneur: MOV, alim: LHB, temps_course_s: 10.0}   # LCV-112D/E
+  RCV_BORI_URG: {type: Valve, systeme: REA, actionneur: MOV, alim: LHA, temps_course_s: 10.0}   # MO-8104
+  # RRA
+  RRA_P1: {gabarit: pompe_rra, alim: LHA}
+  RRA_P2: {gabarit: pompe_rra, alim: LHB}
+  RRA_ASP1A: {gabarit: vanne_rra_asp, alim: LHA}
+  RRA_ASP1B: {gabarit: vanne_rra_asp, alim: LHA}
+  RRA_ASP2A: {gabarit: vanne_rra_asp, alim: LHB}
+  RRA_ASP2B: {gabarit: vanne_rra_asp, alim: LHB}
+  RRA_CLAPET1: {gabarit: clapet, systeme: RRA, kv_max: 3000}
+  RRA_CLAPET2: {gabarit: clapet, systeme: RRA, kv_max: 3000}
+  RRA_HX1: {gabarit: vanne_rra_reglage}                          # HCV-606 : sortie échangeur
+  RRA_HX2: {gabarit: vanne_rra_reglage}                          # HCV-607
+  RRA_BP1: {gabarit: vanne_rra_reglage}                          # HCV-618 : by-pass (débit total constant)
+  RRA_BP2: {gabarit: vanne_rra_reglage}
+  # RRI / SEC
+  RRI_P1: {gabarit: pompe_rri, alim: LHA}
+  RRI_P2: {gabarit: pompe_rri, alim: LHB}
+  SEC_P1: {gabarit: pompe_sec, alim: LHA}
+  SEC_P2: {gabarit: pompe_sec, alim: LHB}
+  # accumulateurs
+  ACC{b}_ISOL: {type: Valve, systeme: RIS, actionneur: MOV, alim: LHA, temps_course_s: 60.0}   # HYPOTHESE course
   # ASG
   ASG_MP1: {gabarit: pompe_asg_mp, alim: LHA}
   ASG_MP2: {gabarit: pompe_asg_mp, alim: LHB}
@@ -475,6 +614,9 @@ reseaux:
     branches:
       - {id: "L_BOUCLE{b}", de: PLENUM, vers: DESCENTE, elements: ["PP{b}", "R_BOUCLE{b}"]}
       - {id: L_CUVE, de: DESCENTE, vers: PLENUM, elements: [R_CUVE]}
+      # RRA : aspiration branche chaude B4 (ramenée au plénum) → pompe → échangeur / by-pass → branches froides
+      - {id: L_RRA1, de: PLENUM, vers: DESCENTE, elements: [RRA_ASP1A, RRA_ASP1B, RRA_P1, RRA_CLAPET1, [RRA_HX1, RRA_BP1]]}
+      - {id: L_RRA2, de: PLENUM, vers: DESCENTE, elements: [RRA_ASP2A, RRA_ASP2B, RRA_P2, RRA_CLAPET2, [RRA_HX2, RRA_BP2]]}
   asg:
     frontieres: [CST, GV1, GV2, GV3, GV4]
     noeuds: [N_ASG]
@@ -514,11 +656,22 @@ regulations:
     porv_ouverture_bar: 162.0
     porv_fermeture_bar: 160.5       # HYPOTHESE (hystérésis)
   niveau_pzr: {kp_kg_s_par_pct: 0.4, ti_s: 300.0}   # HYPOTHESE (débit de charge)
+  rra: {vitesse_refroidissement_c_h: 30.0, kp_par_c_h: 0.01, ti_s: 600.0}   # HYPOTHESE : vannes d'échangeur en auto
   niveau_asg: {consigne_pct: 40.0, kp_par_pct: 0.05, ti_s: 300.0}   # HYPOTHESE : sous la consigne ARE pour ne pas la contrer
 
 # --- Logique de protection et automatismes ----------------------------------------
 logique:
   p7: {puissance_max_pct: 10.0, charge_turbine_max_pct: 10.0}   # P-7 = non P-10 ET P-13
+  p11_p_pzr_bar: 138.0              # spec : P-11, autorise le blocage de l'IS basse pression
+  injection_securite: {p_pzr_basse_bar: 122.0, p_vapeur_basse_bar: 41.0, rearmement_s: 60.0}   # ordres de grandeur NRC
+  etats:
+    t_rra_max_c: 177.0              # spec
+    p_rra_max_bar: 30.0             # spec
+    t_arret_froid_c: 93.0           # spec
+    vitesse_refroidissement_max_c_h: 56.0   # NRC (100 °F/h)
+    t_froid_c: 60.0                 # température de calcul du bore d'arrêt à froid
+    marge_arret_pcm: 1000.0         # HYPOTHESE marge d'antiréactivité visée
+    grappe_coincee_pcm: 800.0       # HYPOTHESE grappe la plus efficace supposée coincée
   p8_puissance_pct: 39.0            # spec
   p9_puissance_pct: 50.0            # spec
   p10_puissance_pct: 10.0           # spec (2/4)
@@ -591,6 +744,16 @@ alarmes:
   - {id: SOUPAPES_PZR, mesure: pzr.soupapes_ouvertes, haut: 0.5, priorite: 1, libelle: "Soupape pressuriseur ouverte", temporisation_s: 0.0}
   - {id: DEBIT_PRIMAIRE_BAS, mesure: primaire.debit_min_pct, bas: 92.0, priorite: 2, libelle: "Débit primaire bas sur une boucle"}
   - {id: MARGE_SAT, mesure: cuve.marge_saturation_c, bas: 15.0, priorite: 1, libelle: "Marge à la saturation sortie cœur faible"}
+  - {id: IS, mesure: logique.is, haut: 0.5, priorite: 1, libelle: "Injection de sécurité (signal)", temporisation_s: 0.0}
+  - {id: VCT_BAS, mesure: rcv.vct_niveau_pct, bas: 20.0, priorite: 2, libelle: "Niveau VCT bas"}
+  - {id: VCT_TRES_BAS, mesure: rcv.vct_niveau_pct, bas: 5.0, priorite: 1, libelle: "Niveau VCT très bas : aspiration sur PTR"}
+  - {id: CHARGE_PERDUE, mesure: rcv.pompes_charge, bas: 0.5, priorite: 1, libelle: "Aucune pompe de charge en service"}
+  - {id: RRI_T_HAUTE, mesure: rri.t_c, haut: 45.0, priorite: 2, libelle: "Température RRI haute"}
+  - {id: PERTE_RRI, mesure: rri.perte_pp, haut: 0.5, priorite: 1, libelle: "RRI perdu : pompes primaires à arrêter", temporisation_s: 0.0}
+  - {id: REFROID_RAPIDE, mesure: primaire.vitesse_refroidissement_c_h, haut: 56.0, priorite: 2, libelle: "Refroidissement > 56 °C sur une heure glissante"}
+  - {id: ACCU_INJECTION, mesure: accu.qm_kg_s, haut: 0.5, priorite: 1, libelle: "Les accumulateurs injectent", temporisation_s: 0.0}
+  - {id: RRA_FERMETURE, mesure: logique.rra_isole_auto, haut: 0.5, priorite: 1, libelle: "Aspiration RRA fermée (P > 41 bar)", temporisation_s: 0.0}
+  - {id: SOUS_CRITICITE, mesure: coeur.marge_arret_chaud_pcm, bas: 1000.0, priorite: 1, libelle: "Marge d'arrêt insuffisante à l'arrêt"}
   - {id: C3_C4, mesure: logique.c3_c4, haut: 0.5, priorite: 1, libelle: "Préalarme ΔT (C-3/C-4) : runback", temporisation_s: 0.0}
   - {id: ASG_EN_SERVICE, mesure: asg.qm_kg_s, haut: 1.0, priorite: 2, libelle: "ASG en service"}
   - {id: P12, mesure: logique.p12, haut: 0.5, priorite: 3, libelle: "P-12 : Tmoy très basse", temporisation_s: 0.0}

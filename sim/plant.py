@@ -2,18 +2,19 @@
 
 Ordre d'un pas :
   1. commandes joueur (appliquées dès réception, entre deux pas)
-  2. électricité (V1 : stub, tout est sous tension — V3)
+  2. électricité (stub, tout est sous tension — V3)
   3. logique : capteurs → permissifs → AU → automatismes
   4. régulations → demandes des actionneurs, puis mouvement des actionneurs et des grappes
-  5. hydraulique : primaire, collecteur vapeur, eau alimentaire, ASG
-  6. thermique : cœur, primaire, pressuriseur, GV, turbine, condenseur, bâches, réchauffeurs
+  5. hydraulique : primaire (+ RRA), collecteur vapeur, eau alimentaire, ASG
+  6. thermique : cœur, RRA, accumulateurs, RCV/REA (bore), primaire, pressuriseur, GV, turbine,
+     condenseur, bâches, réchauffeurs, RRI/SEC
   7. mesures, alarmes, historique
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from sim.components.base import Composant, Condition, Sources
@@ -22,23 +23,66 @@ from sim.components.valve import Clapet, Resistance, Vanne
 from sim.config import (CentraleCfg, ClapetCfg, PompeCfg, ResistanceCfg, VanneCfg, charger_config)
 from sim.core.events import PRIORITE_HAUTE, PRIORITE_INFO, GestionAlarmes, Journal
 from sim.core.history import Historique
-from sim.core_model.coeur import Coeur
+from sim.core_model.coeur import PCM, Coeur
 from sim.logic import interlocks
 from sim.logic.protection import Logique
 from sim.logic.regulations import Regulations
+from sim.systems.accumulateurs import Accumulateurs
 from sim.systems.asg import ASG
 from sim.systems.condenseur import Condenseur
 from sim.systems.gct import Contournement
 from sim.systems.gv import GenerateurVapeur
 from sim.systems.poste_eau import PosteEau
 from sim.systems.pzr import Pressuriseur
-from sim.systems.rcp import COEUR, DESCENTE, CircuitPrimaire, bc, bf, gvp
+from sim.systems.rcp import COEUR, DESCENTE, PLENUM, CircuitPrimaire, bc, bf, gvp
+from sim.systems.rcv import RCV, Rea
+from sim.systems.rra import RRA
+from sim.systems.rri import RRI
 from sim.systems.turbine import Turbine
 from sim.systems.vvp import Vapeur
 from sim.thermo.tables import obtenir_table
 from sim.units import KG_PAR_T, KW_PAR_MW, POURCENT, S_PAR_H, interp_table
 
-VERSION_SAUVEGARDE = 2
+VERSION_SAUVEGARDE = 3
+ENERGIE_FISSION_J = 3.2e-11       # ~200 MeV récupérés par fission
+W_PAR_KW = 1.0e3
+PERIODE_INFINIE_S = 1.0e9         # réacteur critique : période infinie (affichée « ∞ »)
+CONSTANTE_VITESSE_S = 300.0       # filtrage de la vitesse de refroidissement instantanée
+PAS_ECHANTILLON_S = 60.0          # fenêtre glissante d'une heure : 60 échantillons d'une minute
+NB_ECHANTILLONS = 60
+
+
+@dataclass
+class EtatSuivi:
+    """Vitesse de refroidissement : « instantanée » (dérivée filtrée, pour la régulation RRA) et sur
+    une heure glissante (baisse de Tmoy sur la dernière heure, pour la limite d'exploitation)."""
+
+    tmoy_prec_c: float = 0.0
+    vitesse_instantanee_c_h: float = 0.0
+    vitesse_refroidissement_c_h: float = 0.0
+    echantillons_c: list[float] = field(default_factory=list)   # Tmoy toutes les PAS_ECHANTILLON_S
+    temps_echantillon_s: float = 0.0
+
+
+class Suivi:
+    def __init__(self, tmoy_c: float) -> None:
+        self.etat = EtatSuivi(tmoy_prec_c=tmoy_c, echantillons_c=[tmoy_c] * NB_ECHANTILLONS)
+
+    def avancer(self, dt: float, tmoy_c: float) -> None:
+        e = self.etat
+        brute = (e.tmoy_prec_c - tmoy_c) / dt * S_PAR_H if dt > 0.0 else 0.0
+        e.vitesse_instantanee_c_h += (brute - e.vitesse_instantanee_c_h) * min(1.0, dt / CONSTANTE_VITESSE_S)
+        e.tmoy_prec_c = tmoy_c
+        e.temps_echantillon_s += dt
+        if e.temps_echantillon_s >= PAS_ECHANTILLON_S:
+            e.temps_echantillon_s = 0.0
+            e.echantillons_c = e.echantillons_c[1:] + [tmoy_c]
+        if not e.echantillons_c:                     # sauvegarde sans historique
+            e.echantillons_c = [tmoy_c] * NB_ECHANTILLONS
+        e.vitesse_refroidissement_c_h = max(0.0, max(e.echantillons_c) - tmoy_c)
+
+    def initialiser(self, tmoy_c: float) -> None:
+        self.etat = EtatSuivi(tmoy_prec_c=tmoy_c, echantillons_c=[tmoy_c] * NB_ECHANTILLONS)
 
 
 @dataclass
@@ -50,7 +94,7 @@ class Reponse:
 
 
 class Centrale:
-    """Centrale V1 : primaire 4 boucles + pressuriseur + cœur boîte noire, secondaire complet, ASG."""
+    """Centrale V2 : primaire 4 boucles + PZR + cœur, RCV/REA, RRA, RRI/SEC, accumulateurs, secondaire, ASG."""
 
     def __init__(self, cfg: CentraleCfg | None = None) -> None:
         self.cfg = cfg = cfg or charger_config()
@@ -102,6 +146,13 @@ class Centrale:
         self.poste_eau = PosteEau(cfg.poste_eau, cfg.reseaux["eau_alimentaire"], self.composants, n,
                                   self.table, debit_purges_nom, cfg.condenseur.t_mer_c, p_atm)
         self.asg = ASG(cfg.asg, cfg.reseaux["asg"], self.composants, n, self.table, self.boucles, cfg.cst.t_c, p_atm)
+        self.rea = Rea(cfg.rea)
+        self.rcv = RCV(cfg.rcv, self.rea, self.composants, cfg.coeur.bore_ppm, self.table.rho_liq_kg_m3(cfg.rcv.t_vct_c))
+        self.rra = RRA(cfg.rra, self.composants)
+        self.rri = RRI(cfg.rri, cfg.sec, self.composants)
+        self.accus = Accumulateurs(cfg.accumulateurs, self.composants, self.boucles,
+                                   self.table.rho_liq_kg_m3(cfg.accumulateurs.t_c))
+        self.suivi = Suivi(nom.tmoy_c)
         self.logique = Logique(self)
         self.regulations = Regulations(cfg.regulations, self)
 
@@ -112,7 +163,7 @@ class Centrale:
             self.turbine.id: self.turbine, self.coeur.id: self.coeur, self.logique.id: self.logique,
             self.gct.id: self.gct, r.reg_vda.id: r.reg_vda, r.reg_puits.id: r.reg_puits,
             r.reg_p_pzr.id: r.reg_p_pzr, self.pzr.chauffe_prop.id: self.pzr.chauffe_prop,
-            self.pzr.chauffe_tor.id: self.pzr.chauffe_tor,
+            self.pzr.chauffe_tor.id: self.pzr.chauffe_tor, self.rea.id: self.rea,
         }
         self.initialiser_100pct()
 
@@ -124,15 +175,13 @@ class Centrale:
         """Électricité et air disponibles pour ce composant (V1 : toujours disponibles, cf. V3)."""
         return Sources()
 
-    def debit_rcv_kg_s(self, q_m3h: float) -> float:
-        """Débit RCV (m³/h mesurés à la température de la VCT) → kg/s."""
-        return q_m3h * self.table.rho_liq_kg_m3(self.cfg.rcv_v1.t_vct_c) / S_PAR_H
-
     def qm_charge_kg_s(self) -> float:
-        return self.vannes["RCV_CHARGE"].etat.position * self.debit_rcv_kg_s(self.cfg.rcv_v1.charge_max_m3h)
+        """Charge RCV + part des joints qui entre au primaire."""
+        return self.rcv.qm_entree_primaire_kg_s()
 
     def qm_decharge_kg_s(self) -> float:
-        return self.vannes["RCV_DECHARGE"].etat.position * self.debit_rcv_kg_s(self.cfg.rcv_v1.decharge_m3h)
+        """Décharge normale + décharge RRA → RCV."""
+        return self.rcv.qm_sortie_primaire_kg_s()
 
     def tref_c(self) -> float:
         """Température de référence (programme Tmoy en fonction de la charge turbine)."""
@@ -181,13 +230,30 @@ class Centrale:
                 t.update({bc(b): t_bc, gvp(b): t_gv, bf(b): t_bf})
         self.primaire.etat.masse_liquide_kg = self.primaire.masse_liquide_kg()
         self.pzr.initialiser(nom.p_primaire_bar, nom.niveau_pzr_pct)
-        self.vannes["PZR_ISOL1"].etat.position = self.vannes["PZR_ISOL1"].etat.demande_manu = 1.0
-        self.vannes["PZR_ISOL2"].etat.position = self.vannes["PZR_ISOL2"].etat.demande_manu = 1.0
-        dech = self.vannes["RCV_DECHARGE"]
-        dech.etat.position = dech.etat.demande_manu = 1.0
-        charge = self.vannes["RCV_CHARGE"]
-        charge.etat.position = charge.etat.demande_auto = cfg.rcv_v1.decharge_m3h / cfg.rcv_v1.charge_max_m3h
-        self.regulations.pi_niveau_pzr.initialiser(self.qm_decharge_kg_s(), self.qm_decharge_kg_s())
+        # vannes ouvertes en exploitation normale : isolements PORV, RCV (aspiration VCT, charge, joints,
+        # décharge par l'orifice n°1), accumulateurs
+        ouvertes = ["PZR_ISOL1", "PZR_ISOL2", "RCV_ASP_VCT", "RCV_ISOL_CHARGE", "RCV_JOINTS", "RCV_LCV459",
+                    "RCV_LCV460", "RCV_ORIF1", "RCV_ISOL_ENC"] + [v.id for v in self.accus.isolement]
+        for rep in ouvertes:
+            v = self.vannes[rep]
+            v.etat.position = v.etat.demande_manu = 1.0
+        for p in (self.rcv.pompes[0], self.rri.pompes[0], self.rri.pompes_sec[0]):
+            p.demarrer()
+            p.etat.vitesse = 1.0
+        rc = cfg.rcv
+        q_charge = rc.orifices_m3h[0] - rc.joints.entree_primaire_m3h       # charge = décharge − joints
+        charge = self.rcv.fcv121
+        charge.etat.position = charge.etat.demande_auto = q_charge / rc.charge_max_m3h
+        self.rcv.calculer(0.0, nom.p_primaire_bar, self.primaire.t(bf(cfg.primaire.boucle_decharge)), False, True,
+                          self.masse_primaire_kg(), 0.0, cfg.accumulateurs.bore_ppm, self.table.cp_primaire_kj_kgk(rc.t_vct_c))
+        for rep in ("RCV_JOINTS", "RCV_HCV128"):          # vannes manuelles (HCV)
+            self.vannes[rep].etat.auto = False
+        q_ch = self.rcv.kg_s(q_charge)
+        self.regulations.pi_niveau_pzr.initialiser(q_ch, q_ch)
+        ri, cp_froid = cfg.rri, self.table.cp_primaire_kj_kgk(rc.t_vct_c)
+        nb_pp = len(self.primaire.pompes)
+        q_rri = self.rcv.etat.q_echangeur_kw + (ri.chaleur_fixe_mw + nb_pp * ri.chaleur_par_pompe_primaire_mw) * KW_PAR_MW
+        self.rri.equilibrer(q_rri, cfg.condenseur.t_mer_c, cp_froid, self.table.rho_liq_kg_m3(ri.t_initiale_c))
         for pi in self.regulations.pi_asg:
             pi.initialiser(0.0)
         # GV
@@ -236,6 +302,7 @@ class Centrale:
         self._resoudre_hydraulique()
         self.logique.etat.c9 = True
         self.logique.initialiser_filtres()
+        self.suivi.initialiser(self.primaire.tmoy_c)
         self.coeur.etat.desequilibre_retard_pct = self.coeur.puissance_pct - self.turbine.charge_pct
         self._mesurer()
 
@@ -289,16 +356,42 @@ class Centrale:
         self.asg.resoudre(p_cst, self.gvs)
 
     def _bilans_thermiques(self, dt: float) -> None:
-        pe, cd, tab, pc = self.poste_eau, self.condenseur, self.table, self.cfg.primaire
-        # cœur puis primaire
-        self.coeur.avancer(dt, self.primaire.t_moderateur_c)
+        pe, cd, tab, pc, cfg = self.poste_eau, self.condenseur, self.table, self.cfg.primaire, self.cfg
+        pr = self.primaire
+        # cœur (bore venant du RCV)
+        self.coeur.etat.bore_ppm = self.rcv.etat.bore_primaire_ppm
+        self.coeur.avancer(dt, pr.t_moderateur_c)
+        # RRA, accumulateurs, RCV/REA
+        rri_ok = self.rri.disponible()
+        cp_froid = tab.cp_primaire_kj_kgk(cfg.rcv.t_vct_c)
+        rho_froid = tab.rho_liq_kg_m3(self.rri.etat.t_c)
+        self.rra.calculer(pr.etat.w_rra_kg_s, pr.t(PLENUM), self.rri.etat.t_c, rri_ok, cp_froid, rho_froid)
+        p_prim = self.pzr.p_bar
+        self.accus.avancer(dt, p_prim)
+        qm_acc = self.accus.qm_total_kg_s
+        self.rcv.calculer(dt, p_prim, pr.t(bf(pc.boucle_decharge)), self.rra.en_service(), rri_ok,
+                          self.masse_primaire_kg(), qm_acc, cfg.accumulateurs.bore_ppm, cp_froid)
+        # apports au primaire : charge (sortie régénérateur) + joints (froids) en B1, accumulateurs à la descente
+        rc, e_rcv = cfg.rcv, self.rcv.etat
+        qm_charge = self.rcv.kg_s(e_rcv.q_charge_m3h)
+        qm_joints = self.qm_charge_kg_s() - qm_charge
+        apports = [(bf(pc.boucle_charge), qm_charge, tab.h_primaire_kj_kg(e_rcv.t_charge_c)),
+                   (bf(pc.boucle_charge), qm_joints, tab.h_primaire_kj_kg(rc.t_vct_c)),
+                   (DESCENTE, qm_acc, tab.h_primaire_kj_kg(cfg.accumulateurs.t_c))]
         boucles_asp = pc.boucles_aspersion
-        t_asp = sum(self.primaire.t(bf(b)) for b in boucles_asp) / len(boucles_asp)
-        vitesses = [self.primaire.pompes[self.boucles.index(b)].etat.vitesse for b in boucles_asp]
+        t_asp = sum(pr.t(bf(b)) for b in boucles_asp) / len(boucles_asp)
+        vitesses = [pr.pompes[self.boucles.index(b)].etat.vitesse for b in boucles_asp]
         qm_asp = self.pzr.debit_aspersion_kg_s(vitesses, tab.rho_primaire_kg_m3(t_asp))
-        h_charge = tab.h_primaire_kj_kg(self.cfg.rcv_v1.t_charge_c)
-        self.primaire.avancer(dt, self.coeur.puissance_thermique_kw, self.gvs, self.qm_charge_kg_s(), h_charge,
-                              self.qm_decharge_kg_s(), qm_asp, self.pzr.vol.sat.hf_kj_kg)
+        q_rra_net = self.rra.q_total_kw - self.rra.chaleur_pompes_kw()
+        pr.avancer(dt, self.coeur.puissance_thermique_kw, self.gvs, apports, self.qm_decharge_kg_s(), qm_asp,
+                   self.pzr.vol.sat.hf_kj_kg, q_rra_net)
+        # RRI / SEC : échangeurs RRA, décharge RCV, pompes primaires, autres utilisateurs
+        ri = cfg.rri
+        nb_pp = sum(p.etat.en_marche for p in pr.pompes)
+        q_rri = (self.rra.q_total_kw + e_rcv.q_echangeur_kw
+                 + (ri.chaleur_fixe_mw + nb_pp * ri.chaleur_par_pompe_primaire_mw) * KW_PAR_MW)
+        self.rri.avancer(dt, q_rri, cfg.condenseur.t_mer_c, cp_froid, rho_froid)
+        self.suivi.avancer(dt, pr.tmoy_c)
         h_bc_exp = tab.h_primaire_kj_kg(self.primaire.t(bc(pc.boucle_expansion)))
         for s in self.pzr.avancer(dt, self.primaire.etat.qm_expansion_kg_s, h_bc_exp, qm_asp,
                                   tab.h_primaire_kj_kg(t_asp), self.sources(self.pzr)):
@@ -352,6 +445,14 @@ class Centrale:
         m["coeur.t_comb_c"] = co.etat.t_comb_c
         m["grappes.position_pas"] = co.etat.z_pas
         m["grappes.arret_insere_pct"] = POURCENT * co.etat.arret_insere
+        m["grappes.g_pas"] = co.etat.g_pas
+        rho = co.etat.rho_pcm * PCM
+        cc = self.cfg.coeur
+        m["coeur.k_eff"] = 1.0 / (1.0 - rho)
+        m["coeur.periode_s"] = ((cc.beta_pcm * PCM - rho) / (cc.lambda_s * rho)
+                                if abs(rho) > PCM else PERIODE_INFINIE_S)
+        m["coeur.fissions_par_s"] = co.puissance_fission_kw * W_PAR_KW / ENERGIE_FISSION_J
+        m["coeur.n_relatif"] = co.etat.n
         tmoy, tref = pr.tmoy_c, self.tref_c()
         m["primaire.tmoy_c"] = tmoy
         m["primaire.tref_c"] = tref
@@ -377,6 +478,57 @@ class Centrale:
         m["pzr.expansion_kg_s"] = pr.etat.qm_expansion_kg_s
         m["rcv.charge_kg_s"] = self.qm_charge_kg_s()
         m["rcv.decharge_kg_s"] = self.qm_decharge_kg_s()
+        rv, rea = self.rcv.etat, self.rea.etat
+        m["rcv.charge_m3h"] = rv.q_charge_m3h
+        m["rcv.joints_m3h"] = rv.q_joints_m3h
+        m["rcv.decharge_m3h"] = rv.q_decharge_m3h + rv.q_rra_m3h
+        m["rcv.dispo_m3h"] = rv.q_dispo_m3h
+        m["rcv.deviation_m3h"] = rv.q_deviation_m3h
+        m["rcv.t_charge_c"] = rv.t_charge_c
+        m["rcv.vct_niveau_pct"] = self.rcv.niveau_vct_pct
+        m["rcv.vct_bore_ppm"] = rv.vct_bore_ppm
+        m["rcv.ptr_m3"] = rv.ptr_m3
+        m["rcv.pompes_charge"] = float(self.rcv.nb_pompes())
+        m["rcv.bore_charge_ppm"] = rv.bore_charge_ppm
+        m["rcv.echangeur_mw"] = rv.q_echangeur_kw / KW_PAR_MW
+        m["rea.acide_m3"] = rea.acide_m3
+        m["rea.eau_m3"] = rea.eau_m3
+        m["rea.q_acide_m3h"] = rea.q_acide_m3h + rv.q_urgence_m3h
+        m["rea.q_eau_m3h"] = rea.q_eau_m3h
+        m["rea.volume_restant_m3"] = rea.volume_restant_m3
+        m["rea.q_total_m3h"] = rea.q_acide_m3h + rea.q_eau_m3h
+        m["rea.q_urgence_m3h"] = rv.q_urgence_m3h
+        m["rea.acide_pct"] = POURCENT * rea.acide_m3 / self.cfg.rea.volume_acide_m3
+        m["rea.eau_pct"] = POURCENT * rea.eau_m3 / self.cfg.rea.volume_eau_m3
+        m["rcv.ptr_pct"] = POURCENT * rv.ptr_m3 / self.cfg.rcv.ptr.volume_m3
+        m["primaire.bore_ppm"] = rv.bore_primaire_ppm
+        et = self.cfg.logique.etats
+        m["coeur.marge_arret_chaud_pcm"] = co.marge_arret_pcm(pr.t_moderateur_c, rv.bore_primaire_ppm, et.grappe_coincee_pcm)
+        m["coeur.marge_arret_froid_pcm"] = co.marge_arret_pcm(et.t_froid_c, rv.bore_primaire_ppm, et.grappe_coincee_pcm)
+        m["coeur.bore_arret_froid_ppm"] = co.bore_requis_ppm(et.t_froid_c, et.marge_arret_pcm, et.grappe_coincee_pcm)
+        m["coeur.rho_grappes_pcm"] = co.rho_grappes_pcm()
+        m["coeur.rho_moderateur_pcm"] = co.rho_moderateur_pcm(pr.t_moderateur_c)
+        m["coeur.rho_doppler_pcm"] = co.rho_doppler_pcm(co.etat.t_comb_c)
+        m["coeur.rho_bore_pcm"] = co.rho_bore_pcm(rv.bore_primaire_ppm)
+        m["primaire.vitesse_refroidissement_c_h"] = self.suivi.etat.vitesse_refroidissement_c_h
+        m["primaire.vitesse_instantanee_c_h"] = self.suivi.etat.vitesse_instantanee_c_h
+        m["primaire.t_max_c"] = max(pr.etat.t_c.values())
+        # RRA, RRI/SEC, accumulateurs
+        rho_plenum = self.table.rho_primaire_kg_m3(pr.t(PLENUM))
+        for i, k in enumerate(self.cfg.rra.trains):
+            m[f"RRA{k}.debit_m3h"] = self.rra.etat.w_kg_s[i] * S_PAR_H / rho_plenum
+            m[f"RRA{k}.q_mw"] = self.rra.etat.q_kw[i] / KW_PAR_MW
+            m[f"RRA{k}.t_sortie_c"] = self.rra.etat.t_sortie_c[i]
+        m["rra.q_mw"] = self.rra.q_total_kw / KW_PAR_MW
+        m["rri.t_c"] = self.rri.etat.t_c
+        m["rri.q_mw"] = self.rri.etat.q_utilisateurs_kw / KW_PAR_MW
+        m["sec.q_mw"] = self.rri.etat.q_sec_kw / KW_PAR_MW
+        m["rri.perte_pp"] = float(lg.perte_rri)
+        for i, b in enumerate(self.boucles):
+            m[f"ACC{b}.p_bar"] = self.accus.p_bar(i)
+            m[f"ACC{b}.volume_m3"] = self.accus.etat.v_eau_m3[i]
+            m[f"ACC{b}.niveau_pct"] = POURCENT * self.accus.etat.v_eau_m3[i] / self.cfg.accumulateurs.volume_m3
+        m["accu.qm_kg_s"] = self.accus.qm_total_kg_s
         m_ot, m_op = self.logique.marges_dt_pct()
         m["otdt.marge_pct"] = m_ot
         m["opdt.marge_pct"] = m_op
@@ -440,6 +592,9 @@ class Centrale:
         m["logique.isolement_are"] = float(lg.isolement_are_au or lg.isolement_are_complet)
         m["logique.app_declenchee"] = float(lg.app_declenchee)
         m["logique.cex_declenchee"] = float(lg.cex_declenchee)
+        m["logique.is"] = float(lg.is_actif)
+        m["logique.p11"] = float(lg.p11)
+        m["logique.rra_isole_auto"] = float(lg.rra_isole_auto)
         self.mesures = m
 
     # ================================================================== commandes joueur
@@ -509,6 +664,8 @@ class Centrale:
             pz.capteur_p.id: pz.capteur_p, pz.capteur_niveau.id: pz.capteur_niveau,
             pz.chauffe_prop.id: pz.chauffe_prop, pz.chauffe_tor.id: pz.chauffe_tor, "ASG": self.asg,
             "TURBINE": self.turbine, "CONDENSEUR": self.condenseur, "REG_GCTC": self.gct,
+            "RCV": self.rcv, "REA": self.rea, "RRA": self.rra, "RRI": self.rri, "ACCUS": self.accus,
+            "SUIVI": self.suivi,
             r.reg_vda.id: r.reg_vda, r.reg_puits.id: r.reg_puits, r.reg_p_pzr.id: r.reg_p_pzr,
         })
         return objets

@@ -77,16 +77,17 @@ class Regulations:
         self.reg_p_pzr = ConsigneReglable("REG_P_PZR", "RCP", pp.consigne_bar, 0.0,
                                           c.cfg.logique.au.p_pzr_haute_bar, "bar")
         self.pi_p_pzr = RegulateurPI("PI_P_PZR", 1.0, pp.ti_s, -pp.aspersion_pleine_bar, pp.aspersion_pleine_bar, 0.0)
-        self.qm_charge_max_kg_s = c.debit_rcv_kg_s(c.cfg.rcv_v1.charge_max_m3h)
+        self.qm_charge_max_kg_s = c.rcv.kg_s(c.cfg.rcv.charge_max_m3h)
         self.pi_niveau_pzr = RegulateurPI("PI_NIV_PZR", cfg.niveau_pzr.kp_kg_s_par_pct, cfg.niveau_pzr.ti_s,
                                           0.0, self.qm_charge_max_kg_s, 0.0)
         na = cfg.niveau_asg
         self.pi_asg = [RegulateurPI(f"PI_ASG{b}", na.kp_par_pct, na.ti_s, 0.0, 1.0, 1.0) for b in c.boucles]
+        self.pi_rra = RegulateurPI("PI_RRA", cfg.rra.kp_par_c_h, cfg.rra.ti_s, 0.0, 1.0, 0.0)
         self.etat = EtatRegulations(chaufferettes_tor=False, porv_auto=False)
 
     def tous_les_pi(self) -> list[RegulateurPI]:
         return (self.pi_niveau + self.pi_debit + self.pi_asg
-                + [self.pi_dp_app, self.pi_puits, self.pi_p_pzr, self.pi_niveau_pzr])
+                + [self.pi_dp_app, self.pi_puits, self.pi_p_pzr, self.pi_niveau_pzr, self.pi_rra])
 
     # ------------------------------------------------------------------ calcul
     def calculer(self, dt: float) -> None:
@@ -104,6 +105,7 @@ class Regulations:
         self._pression_pzr(dt)
         self._niveau_pzr(dt)
         self._asg(dt)
+        self._rra(dt)
 
     def _pression_pzr(self, dt: float) -> None:
         """Régulateur maître PI (sortie en bar équivalents) → chaufferettes, aspersion, PORV."""
@@ -131,9 +133,22 @@ class Regulations:
         """Débit de charge = débit de décharge (anticipation) + PI sur l'écart au programme de niveau."""
         c = self.c
         consigne = c.pzr.niveau_programme_pct(c.primaire.tmoy_c)
+        joints = c.qm_charge_kg_s() - c.rcv.kg_s(c.rcv.etat.q_charge_m3h)     # part des joints entrant au primaire
         qm = self.pi_niveau_pzr.calculer(consigne - c.pzr.capteur_niveau.mediane, dt,
-                                         anticipation=c.qm_decharge_kg_s())
-        c.vannes["RCV_CHARGE"].etat.demande_auto = qm / self.qm_charge_max_kg_s
+                                         anticipation=c.qm_decharge_kg_s() - joints)
+        c.rcv.fcv121.etat.demande_auto = qm / self.qm_charge_max_kg_s
+
+    def _rra(self, dt: float) -> None:
+        """Vannes d'échangeur RRA en auto : PI sur la vitesse de refroidissement (consigne réglable dans
+        plant.yaml) ; vannes de by-pass en auto : complément (débit total à peu près constant)."""
+        c = self.c
+        if c.rra.en_service():
+            v = c.suivi.etat.vitesse_instantanee_c_h
+            u = self.pi_rra.calculer(self.cfg.rra.vitesse_refroidissement_c_h - v, dt)
+            for hx in c.rra.echangeur:
+                hx.etat.demande_auto = u
+        for hx, bp in zip(c.rra.echangeur, c.rra.bypass):
+            bp.etat.demande_auto = 1.0 - hx.etat.position
 
     def _asg(self, dt: float) -> None:
         """Vannes ASG : PI sur le niveau GV (consigne sous celle de l'ARE)."""

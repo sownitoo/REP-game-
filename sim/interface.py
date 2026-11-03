@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from sim.core.engine import Simulateur
+from sim.logic import etats
 from sim.plant import Centrale
 from sim.scenarios.chargement import centrale_scenario, lister_scenarios
 
@@ -27,12 +28,8 @@ def creer_simulateur(scenario: str = SCENARIO_DEFAUT) -> Simulateur:
 
 
 def etat_standard(c: Centrale) -> str:
-    """État standard du réacteur (§5) ; V1 : RP ou AN/GV (AN/RRA en V2)."""
-    if c.logique.etat.au or c.coeur.etat.arret_insere > 0.0:
-        return "AN/GV — arrêt à chaud sur GV"
-    if c.turbine.etat.couplee:
-        return "RP — en production"
-    return "RP — réacteur critique, turbine découplée"
+    """État standard du réacteur (§5)."""
+    return etats.LIBELLES[etats.code_etat(c)]
 
 
 def etat_ui(c: Centrale, sim: Simulateur) -> dict[str, Any]:
@@ -47,7 +44,8 @@ def etat_ui(c: Centrale, sim: Simulateur) -> dict[str, Any]:
     noms = ("au", "au_causes", "causes_au", "p4", "p7", "p8", "p9", "p10", "p12", "p13", "p14", "p14_gv",
             "niveau_tres_bas_gv", "c2", "c3", "c4", "c5", "c7", "c8", "c9", "c11", "flux_bas_bloque",
             "causes_turbine", "isolement_are_au", "isolement_are_complet", "recirc_cex", "decharge_isolee",
-            "otdt_seuil_c", "opdt_seuil_c")
+            "otdt_seuil_c", "opdt_seuil_c", "p11", "is_actif", "is_causes", "causes_is", "is_bloquee",
+            "rra_isole_auto", "perte_rri", "aspiration_ptr")
     return {
         "type": "etat",
         "t_s": c.t_s,
@@ -56,6 +54,7 @@ def etat_ui(c: Centrale, sim: Simulateur) -> dict[str, Any]:
         "pause": sim.pause,
         "scenario": sim.scenario,
         "etat_standard": etat_standard(c),
+        "etats": etats.etat_ui(c),
         "mesures": c.mesures,
         "composants": composants,
         "logique": {k: getattr(lg, k) for k in noms},
@@ -75,6 +74,7 @@ def seuils(c: Centrale) -> dict[str, str]:
         "P-9": f"puissance < {lg.p9_puissance_pct:g} %",
         "P-10": f"puissance > {lg.p10_puissance_pct:g} % ({v.flux}) : autorise le blocage de l'AU flux seuil bas",
         "P-12": f"Tmoy < {lg.p12_tmoy_c:g} °C ({v.dt}) : contournement limité au groupe 1",
+        "P-11": f"P PZR < {lg.p11_p_pzr_bar:g} bar ({v.p_pzr}) : blocage de l'IS autorisé, accumulateurs isolables",
         "P-14": f"niveau GV > {gv.tres_haut_pct:g} % ({gv.vote} sur 1 GV) : turbine + APP + isolement ARE",
         "C-2": f"flux > {lg.c2_puissance_pct:g} % : retrait des grappes interdit",
         "C-3": f"préalarme ΔT surtempérature ({lg.otdt.prealarme_pct:g} %) : retrait interdit + runback turbine",
@@ -113,7 +113,8 @@ def message_init(c: Centrale, sim: Simulateur) -> dict[str, Any]:
         "meta": {"version": cfg.meta.version, "nom": cfg.meta.nom},
         "accelerations": cfg.simulation.accelerations,
         "variables": sorted(c.mesures),
-        "scenarios": [{"id": s.id, "titre": s.titre, "description": s.description} for s in lister_scenarios()],
+        "scenarios": [{"id": s.id, "titre": s.titre, "description": s.description, "objectifs": s.objectifs}
+                      for s in lister_scenarios()],
         "seuils": seuils(c),
         "etat": etat_ui(c, sim),
     }

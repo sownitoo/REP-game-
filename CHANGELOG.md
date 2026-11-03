@@ -1,5 +1,62 @@
 # Changelog
 
+## V2 — 2026-11-03 — Interface zoomable, RCV + REA + RRA + RRI + SEC, états standards, vue cœur et neutrons
+
+### Interface
+- **Zoom et déplacement** sur tous les synoptiques (molette, glisser, pincer, double-clic, + − ⤢, clavier) avec
+  **niveaux de détail** : vue d'ensemble épurée, les valeurs secondaires apparaissent en zoomant.
+- **Primaire en étoile** (vue de dessus) : cuve au centre avec la carte des 193 assemblages et des grappes, 4 boucles en araignée.
+- Écran épuré : barre du haut réduite (6 mesures, voyants seulement s'ils sont actifs), menu ☰, panneau équipement
+  refermable, conditions affichées seulement si une commande est bloquée.
+- **Vue cœur** (double-clic sur la cuve) : nappe de puissance (illustrative), vue axiale des groupes R / G / S,
+  bilan de réactivité, curseurs de pilotage des grappes, bore, AU, k effectif, période, fissions par seconde.
+- **Vue neutronique** (⚛) : animation de la réaction en chaîne (rapides, thermiques, retardés, fissions, captures,
+  absorption par les grappes et le bore), liée à la réactivité et à la puissance du simulateur.
+- Badge d'état cliquable : **état standard + check-list** pour l'état suivant. Fiches de conduite des scénarios dans ☰.
+
+### Modèle
+- **RCV** : 2 pompes de charge (caractéristique), FCV-121 sur la régulation de niveau PZR, injection aux joints,
+  décharge LCV-459/460 → 3 orifices (∝ √ΔP) → CV-8152 → échangeur (RRI), régénérateur, VCT, PTR, HCV-128 (RRA → RCV).
+  Verrous de mise en service dans l'ordre de la spec, isolement sur niveau PZR bas, orifices fermés sans pompe de charge,
+  bascule sur la PTR au niveau VCT très bas (retour manuel), déviation vers les effluents au niveau haut.
+- **REA** : auto (appoint VCT sur niveau bas, à la concentration du primaire), borication (acide à l'aspiration des
+  pompes de charge), dilution (eau à la VCT), arrêt, borication d'urgence MO-8104. **Bore du primaire dynamique**.
+- **Cœur** : coefficient modérateur qui s'affaiblit à froid ; **groupe G** (compensation, manuel) en plus de R et S
+  (R + G + S = −5 000 pcm) ; marges d'arrêt (grappe la plus efficace coincée) et bore d'arrêt à froid calculés.
+- **RRA** : 2 trains dans le réseau primaire (aspiration au plénum, retour à la descente), échangeurs à contre-courant,
+  vannes d'échangeur en auto (vitesse de refroidissement ~30 °C/h), by-pass complémentaire, verrou 30 bar, fermeture 41 bar.
+- **RRI / SEC** : un nœud thermique, 2 voies ; sans RRI, défaut des pompes primaires après 5 min.
+- **Accumulateurs** : 4 × 29 m³ sous 42 bar, injection ∝ √ΔP ; rouverts automatiquement au-dessus de P-11 ou sur IS.
+- **IS (signal)** : P PZR < 122 bar ou P vapeur < 41 bar, blocable sous **P-11** (138 bar), manuelle ; ordres : AU,
+  isolement ARE, ASG, phase A (décharge), aspiration PTR. L'injection elle-même arrive en V4.
+- **États standards** RP / AN/GV / AN/RRA / arrêt à froid + check-lists ; vitesse de refroidissement sur une heure glissante.
+- Scénario **S2** (RP → AN/GV → AN/RRA) avec sa fiche de conduite.
+
+### Résultats des tests d'acceptation (mesurés)
+
+RESULTATS_V2
+
+### Écarts par rapport à la spec / à la V1
+- **Groupe G ajouté** (spec : « groupes de régulation » lissés) : il donne un 2e levier manuel dans la vue cœur.
+  Les groupes d'arrêt passent de −3 000 à −1 500 pcm pour garder −5 000 pcm au total.
+- **Bore d'arrêt à froid modéré** (~1 113 ppm pour 1 000 ppm en puissance) : le coefficient modérateur s'annule
+  vers 20 °C (hypothèse) et il n'y a pas de xénon. Un vrai cœur demande en général plus de bore.
+- **RRA ramené au plénum / à la descente** (spec : branche chaude B4 / branches froides) : même effet thermique.
+- Test **B8** : le verrou « décharge sans charge » devient l'ordre de mise en service du RCV (orifice sans pompe de charge).
+
+### Ce qui reste approximatif (V2)
+1. **Vues cœur et neutrons** : la nappe radiale/axiale et l'animation sont **illustratives** ; les chiffres
+   (ρ, k, période, fissions/s, bore) viennent du modèle point.
+2. **Pas de xénon** ni de samarium : après un arrêt, rien ne « s'empoisonne ».
+3. **RCV** : PCV-131 supposée parfaite (24,5 bar), pas de TCV-129, VCT sans pression ni hydrogène, pas de joints détaillés.
+4. **IS** : signal et ordres seulement, pas d'injection (V4). Pas de phase B, pas d'enceinte.
+5. **RRI** : un seul nœud (pas de voies séparées, pas de bâche d'expansion), SEC sans encrassement.
+6. **GV à l'arrêt** : les niveaux montent pendant la phase RRA si l'on ne coupe pas l'alimentation (régulation de
+   niveau peu adaptée aux très faibles débits).
+7. Reste de la V1 : pressuriseur 1 zone, électricité toujours disponible (V3), condenseur trop rapide en perte d'ARE.
+
+182 valeurs marquées `# HYPOTHESE`, listées dans [`docs/HYPOTHESES.md`](docs/HYPOTHESES.md).
+
 ## V1 — 2026-11-03 — Primaire 4 boucles, pressuriseur, cœur, ASG + mode navigateur
 
 ### Ajouté

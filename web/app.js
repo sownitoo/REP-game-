@@ -9,10 +9,13 @@ const LIBELLES_ACTIONS = {
   coupler: "Coupler au réseau", decoupler: "Découpler", consigne_mw: "Consigne (MW)", consigne: "Consigne",
   declencher_au: "AU manuel", rearmer_au: "Réarmer l'AU", rearmer_isolement_are: "Réarmer l'isolement ARE",
   bloquer_flux_bas: "Bloquer l'AU flux seuil bas", debloquer_flux_bas: "Débloquer l'AU flux seuil bas",
-  extraire_arret: "Extraire les groupes d'arrêt", puissance: "Puissance (%)",
+  extraire_arret: "Extraire les groupes d'arrêt", puissance: "Puissance (%)", position_g: "Groupe G (pas)",
   mode_tmoy: "Mode Tmoy (C-7 / C-8)", mode_pression: "Mode pression", rearmer_c7: "Réarmer C-7",
+  borication: "Borication (m³ d'acide)", dilution: "Dilution (m³ d'eau)", arret: "Arrêt",
+  bloquer_is: "Bloquer l'IS (sous P-11)", declencher_is: "IS manuelle", rearmer_is: "Réarmer l'IS",
 };
-const ACTIONS_AVEC_VALEUR = new Set(["position", "vitesse", "consigne_vitesse", "consigne_mw", "consigne", "puissance"]);
+const ACTIONS_AVEC_VALEUR = new Set(["position", "position_g", "vitesse", "consigne_vitesse", "consigne_mw", "consigne", "puissance",
+                                     "borication", "dilution"]);
 const MESURES_BARRE = [
   ["coeur.puissance_pct", "Puissance", "%", 1], ["primaire.tmoy_c", "Tmoy", "°C", 1],
   ["pzr.p_bar", "P PZR", "bar", 1], ["pzr.niveau_pct", "Niv. PZR", "%", 0],
@@ -24,7 +27,9 @@ const RESUME_CLES = ["en_marche", "defaut", "position_pct", "auto", "vitesse_pct
                      "declenchee", "couplee", "p_elec_mw", "au"];
 const RESUME_MAX = 5;
 const SYNOPTIQUES = [["synoptique-primaire", "construirePrimaire"], ["synoptique-secondaire", "construireSecondaire"],
-                     ["synoptique-asg", "construireASG"]];
+                     ["synoptique-asg", "construireASG"], ["synoptique-rcv", "construireRCV"],
+                     ["synoptique-rra", "construireRRA"], ["synoptique-coeur", "construireVueCoeur"]];
+function construireVueCoeur(svg) { VueCoeur.construire(svg); }
 
 const etat = { transport: null, dernier: null, selection: null, minuterieConditions: null, seuils: {} };
 
@@ -83,6 +88,14 @@ function initialiser(msg) {
   const sel = document.getElementById("choix-scenario");
   sel.innerHTML = "";
   msg.scenarios.forEach(s => sel.appendChild(el("option", { value: s.id, title: s.description }, s.titre)));
+  etat.scenarios = msg.scenarios;
+  const info = () => {
+    const sc = etat.scenarios.find(x => x.id === sel.value);
+    document.getElementById("scenario-info").innerHTML = sc ? `<p>${sc.description}</p>`
+      + (sc.objectifs.length ? `<ol>${sc.objectifs.map(o => `<li>${o}</li>`).join("")}</ol>` : "") : "";
+  };
+  sel.onchange = info;
+  info();
   etat.seuils = msg.seuils;
   SYNOPTIQUES.forEach(([id, fonction]) => {
     const svg = document.getElementById(id);
@@ -90,6 +103,8 @@ function initialiser(msg) {
     window[fonction](svg);
     Zoom.activer(svg);
     svg.addEventListener("click", ev => {
+      const lien = ev.target.closest("[data-lien-onglet]");
+      if (lien) { ouvrirOnglet(lien.dataset.lienOnglet); return; }
       const g = ev.target.closest("[data-id]");
       if (g) selectionner(g.dataset.id);
     });
@@ -105,6 +120,7 @@ function initialiser(msg) {
     d.append(el("span", {}, lib), el("span", { class: "valeur", "data-barre": k }, "—"));
     barre.appendChild(d);
   });
+  if (!document.getElementById("pc-r")) PilotageCoeur.init();
   Courbes.init(msg.variables);
   majEtat(msg.etat);
 }
@@ -119,24 +135,41 @@ function majEtat(e) {
   document.querySelectorAll("#accelerations button[data-acc]").forEach(b =>
     b.classList.toggle("actif", !e.pause && Number(b.dataset.acc) === e.acceleration));
   document.querySelector("#accelerations [data-pause]").classList.toggle("actif", e.pause);
-  document.getElementById("etat-standard").textContent = e.etat_standard;
+  majEtats(e.etats);
   MESURES_BARRE.forEach(([k, , unite, dec]) => {
     const s = document.querySelector(`[data-barre="${k}"]`);
     if (s) s.textContent = `${fmt(m[k], dec)} ${unite}`;
   });
   majVoyants(e);
   majSynoptiques(e);
+  if (document.getElementById("onglet-coeur").classList.contains("actif")) { VueCoeur.maj(m); PilotageCoeur.maj(e); }
+  VueNeutrons.maj(e);
   majAlarmes(e.alarmes);
   majLogique(e);
   majJournal(e.journal);
   if (etat.selection) majPanneauEtat();
 }
 
+// état standard + check-list des conditions pour l'état suivant (§5)
+function majEtats(et) {
+  const b = document.getElementById("etat-standard");
+  const pret = et.checklist.length && et.checklist.every(p => p.ok);
+  b.textContent = et.libelle + (et.vise ? (pret ? "  ✓" : `  → ${et.vise}`) : "");
+  const zone = document.getElementById("etat-contenu");
+  if (zone.hidden) return;
+  zone.innerHTML = `<b>${et.libelle}</b>`
+    + (et.vise ? `<p class="discret petit">Pour passer en <b>${et.libelle_vise}</b> :</p>` : "")
+    + `<ul class="checklist">${et.checklist.map(p => `<li class="${p.ok ? "ok" : "ko"}">${p.texte}</li>`).join("")}</ul>`;
+}
+
 // seuls les signaux importants et présents sont affichés (le détail est dans l'onglet Logique)
 function majVoyants(e) {
   const lg = e.logique, t = e.composants.TURBINE;
   const v = [
-    ["AU", lg.au, "on-rouge", lg.au_causes.join(", ")], ["Turbine déclenchée", t.declenchee, "on-rouge", t.cause],
+    ["AU", lg.au, "on-rouge", lg.au_causes.join(", ")], ["IS", lg.is_actif, "on-rouge", lg.is_causes.join(", ")],
+    ["IS bloquée", lg.is_bloquee && !lg.is_actif, "on-orange", "blocage sous P-11"],
+    ["Turbine déclenchée", t.declenchee, "on-rouge", t.cause],
+    ["Perte RRI", lg.perte_rri, "on-rouge", "pompes primaires à arrêter"],
     ["P-14", lg.p14, "on-rouge", "niveau GV très haut"], ["Runback", lg.c3 || lg.c4, "on-rouge", "C-3 / C-4"],
     ["Isolement ARE", lg.isolement_are_au || lg.isolement_are_complet, "on-orange", ""],
     ["ASG", e.mesures["asg.qm_kg_s"] > 1, "on-orange", "alimentation de secours des GV en service"],
@@ -180,7 +213,8 @@ function majSynoptiques(e) {
   });
   document.querySelectorAll(".synoptique [data-chaleur]").forEach(g =>
     g.style.fillOpacity = (0.12 + 0.75 * Math.max(0, Math.min(1, (m[g.dataset.chaleur] ?? 0) / 100))).toFixed(2));
-  const inseree = { R: 1 - (m["grappes.position_pas"] ?? 0) / 228, S: (m["grappes.arret_insere_pct"] ?? 0) / 100, G: 0 };
+  const inseree = { R: 1 - (m["grappes.position_pas"] ?? 0) / 228, S: (m["grappes.arret_insere_pct"] ?? 0) / 100,
+                   G: 1 - (m["grappes.g_pas"] ?? 228) / 228 };
   document.querySelectorAll(".synoptique [data-grappe-groupe]").forEach(c =>
     c.style.fillOpacity = (0.15 + 0.85 * Math.max(0, Math.min(1, inseree[c.dataset.grappeGroupe]))).toFixed(2));
   document.querySelectorAll(".synoptique .equip[data-id]").forEach(g => {
@@ -210,6 +244,8 @@ function majSynoptiques(e) {
     grp.querySelectorAll(".vanne").forEach(g => classerVanne(g, comp.TURBINE[grp.dataset.vanneTurbine])));
   const couplage = document.querySelector(".synoptique [data-couplage]");
   if (couplage) couplage.setAttribute("stroke", comp.TURBINE.couplee ? "#3fbf6a" : "#4b5560");
+  const rea = document.querySelector(".synoptique [data-rea-mode]");
+  if (rea && comp.REA) rea.textContent = `mode ${comp.REA.mode}` + (comp.REA.appoint_auto ? " · appoint" : "");
   const mode = document.querySelector(".synoptique [data-gct-mode]");
   if (mode) mode.textContent = `mode ${e.gct.mode}${e.gct.c8 ? " · C-8" : e.gct.c7 ? " · C-7" : ""}`;
 }
@@ -276,6 +312,15 @@ function majLogique(e) {
       ${ligne("C-9", lg.c9, s["C-9"])}
       ${ligne("C-11", lg.c11, s["C-11"])}
       <tr><td>Contournement</td><td colspan="2">mode ${e.gct.mode}</td></tr>
+    </table></div>
+    <div class="carte"><h2>Injection de sécurité (signal) et P-11</h2><table>
+      ${ligne("IS", lg.is_actif, lg.is_actif ? "causes : " + lg.is_causes.join(", ") : "", true)}
+      <tr><td>Causes présentes</td><td colspan="2">${lg.causes_is.join(", ") || "aucune"}</td></tr>
+      ${ligne("P-11", lg.p11, s["P-11"])}
+      ${ligne("IS bloquée", lg.is_bloquee, "blocage manuel autorisé sous P-11, levé au-dessus", false, "BLOQUÉE")}
+      ${ligne("Aspiration RRA fermée auto", lg.rra_isole_auto, "P > 41 bar", true)}
+      ${ligne("Aspiration charge sur PTR", lg.aspiration_ptr, "niveau VCT très bas ou IS", true)}
+      ${ligne("Perte RRI", lg.perte_rri, "pompes primaires en défaut après le délai", true)}
     </table></div>
     <div class="carte"><h2>Turbine et eau alimentaire</h2><table>
       ${ligne("Turbine déclenchée", t.declenchee, t.cause, true)}
@@ -401,6 +446,7 @@ function afficherCommandes(msg) {
 }
 
 function afficherReponse(msg) {
+  PilotageCoeur.reponse(msg);
   const d = document.getElementById("eq-message");
   d.className = msg.ok ? "ok" : "ko";
   d.textContent = msg.ok ? `✓ ${msg.cible} : ${LIBELLES_ACTIONS[msg.action] || msg.action}`
@@ -409,12 +455,13 @@ function afficherReponse(msg) {
 }
 
 // ============================================================================ onglets, sauvegarde
-document.querySelectorAll("#onglets [data-onglet]").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll("#onglets [data-onglet]").forEach(x => x.classList.toggle("actif", x === b));
-  document.querySelectorAll(".onglet").forEach(o => o.classList.toggle("actif", o.id === `onglet-${b.dataset.onglet}`));
+function ouvrirOnglet(nom) {
+  document.querySelectorAll("#onglets [data-onglet]").forEach(x => x.classList.toggle("actif", x.dataset.onglet === nom));
+  document.querySelectorAll(".onglet").forEach(o => o.classList.toggle("actif", o.id === `onglet-${nom}`));
   if (etat.dernier) majEtat(etat.dernier);
-  if (b.dataset.onglet === "courbes") Courbes.demander();
-}));
+  if (nom === "courbes") Courbes.demander();
+}
+document.querySelectorAll("#onglets [data-onglet]").forEach(b => b.addEventListener("click", () => ouvrirOnglet(b.dataset.onglet)));
 setInterval(() => {
   if (document.getElementById("onglet-courbes").classList.contains("actif")) Courbes.demander();
 }, 1000);
@@ -422,13 +469,22 @@ setInterval(() => {
 document.getElementById("btn-acquitter-tout").onclick = () => envoyer({ type: "acquitter", id: null });
 document.getElementById("btn-fermer-eq").onclick = deselectionner;
 document.getElementById("btn-panneau").onclick = () => document.querySelector("main").classList.toggle("sans-panneau");
+document.getElementById("etat-standard").onclick = ev => {
+  ev.stopPropagation();
+  const z = document.getElementById("etat-contenu");
+  z.hidden = !z.hidden;
+  if (etat.dernier) majEtats(etat.dernier.etats);
+};
 document.getElementById("btn-menu").onclick = ev => {
   ev.stopPropagation();
   const m = document.getElementById("menu-contenu");
   m.hidden = !m.hidden;
 };
 document.addEventListener("click", ev => {
-  if (!ev.target.closest(".menu")) document.getElementById("menu-contenu").hidden = true;
+  if (!ev.target.closest(".menu")) {
+    document.getElementById("menu-contenu").hidden = true;
+    document.getElementById("etat-contenu").hidden = true;
+  }
 });
 document.addEventListener("keydown", ev => {
   if (ev.target.closest("input, select, textarea")) return;
@@ -436,8 +492,9 @@ document.addEventListener("keydown", ev => {
   if (ev.key === "Escape") deselectionner();
 });
 
-// double-clic sur un équipement : zoom dessus (la cuve ouvrira la vue du cœur)
+// double-clic sur un équipement : la cuve ouvre la vue du cœur, les autres équipements sont zoomés
 function ouvrirDetail(svg, g) {
+  if (g.dataset.id === "GRAPPES") { deselectionner(); ouvrirOnglet("coeur"); return; }
   const b = g.getBBox();
   Zoom.centrer(svg, b.x + b.width / 2, b.y + b.height / 2, 2.5);
 }

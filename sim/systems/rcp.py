@@ -9,7 +9,9 @@ naturelle (ρ_froid − ρ_chaud)·g·Δz). Une boucle à l'arrêt peut être tr
 l'envers (antidévireur = rotor bloqué).
 Échange GV (§9.3) : ε-NTU avec côté secondaire saturé, UA ∝ débit^0,8.
 Dilatation : la masse expulsée des nœuds (volumes fixes) va au pressuriseur par
-la ligne d'expansion (branche chaude B2), ce qui conserve exactement la masse.
+la ligne d'expansion, ce qui conserve exactement la masse.
+RRA (V2) : branches du même réseau, du plénum à la descente ; l'échangeur retire sa chaleur
+à l'arrivée dans la descente. Apports externes (charge, joints, accumulateurs) : (nœud, débit, h).
 """
 
 from __future__ import annotations
@@ -64,6 +66,7 @@ class EtatPrimaire:
     q_gv_kw: list[float] = field(default_factory=list)
     q_pompes_kw: float = 0.0
     huile_s: list[float] = field(default_factory=list)   # durée de marche des pompes de soulèvement d'huile
+    w_rra_kg_s: list[float] = field(default_factory=list)   # débit de chaque train RRA
 
 
 class CircuitPrimaire:
@@ -92,8 +95,10 @@ class CircuitPrimaire:
                 self.volumes[nom] = vol
                 self.metal_kj_c[nom] = met * KJ_PAR_MJ
         n = len(boucles)
+        self.branches_rra = sorted(k for k in self.reseau.branche if k.startswith("L_RRA"))
         self.etat = EtatPrimaire(t_c={k: t_initiale_c for k in self.volumes}, w_boucles_kg_s=[0.0] * n,
-                                 q_gv_kw=[0.0] * n, huile_s=[0.0] * n)
+                                 q_gv_kw=[0.0] * n, huile_s=[0.0] * n,
+                                 w_rra_kg_s=[0.0] * len(self.branches_rra))
         self.etat.masse_liquide_kg = self.masse_liquide_kg()
 
     # ------------------------------------------------------------------ grandeurs
@@ -133,9 +138,12 @@ class CircuitPrimaire:
             branche.rho_kg_m3 = rho_f
             ts.dp_bar = (rho_f - tab.rho_primaire_kg_m3(self.t(bc(b)))) * g_dz
         self.reseau.branche["L_CUVE"].rho_kg_m3 = tab.rho_primaire_kg_m3(self.t_moderateur_c)
+        for k in self.branches_rra:
+            self.reseau.branche[k].rho_kg_m3 = tab.rho_primaire_kg_m3(self.t(PLENUM))
         self.reseau.resoudre()
         self.etat.w_boucles_kg_s = [self.reseau.branche[f"L_BOUCLE{b}"].qm_kg_s for b in self.boucles]
         self.etat.w_cuve_kg_s = self.reseau.branche["L_CUVE"].qm_kg_s
+        self.etat.w_rra_kg_s = [self.reseau.branche[k].qm_kg_s for k in self.branches_rra]
 
     # ------------------------------------------------------------------ échange GV
     def chaleur_gv_kw(self, i: int, gv: GenerateurVapeur) -> float:
@@ -157,10 +165,11 @@ class CircuitPrimaire:
         return efficacite * w * dh
 
     # ------------------------------------------------------------------ thermique
-    def avancer(self, dt: float, q_coeur_kw: float, gvs: list[GenerateurVapeur], qm_charge_kg_s: float,
-                h_charge_kj_kg: float, qm_decharge_kg_s: float, qm_aspersion_kg_s: float,
-                hf_pzr_kj_kg: float) -> None:
-        """Bilans d'énergie des nœuds puis débit d'expansion vers le pressuriseur."""
+    def avancer(self, dt: float, q_coeur_kw: float, gvs: list[GenerateurVapeur],
+                apports_externes: list[tuple[str, float, float]], qm_sorties_kg_s: float, qm_aspersion_kg_s: float,
+                hf_pzr_kj_kg: float, q_rra_kw: float) -> None:
+        """Bilans d'énergie des nœuds puis débit d'expansion vers le pressuriseur.
+        apports_externes : (nœud, débit entrant kg/s, enthalpie kJ/kg) ; qm_sorties : décharge (à la température du nœud)."""
         e, tab, cfg = self.etat, self.table, self.cfg
         t = e.t_c
         h = {k: tab.h_primaire_kj_kg(v) for k, v in t.items()}
@@ -188,8 +197,15 @@ class CircuitPrimaire:
             q_pompe = cfg.chaleur_pompe_mw * KW_PAR_MW * self.pompes[i].etat.vitesse ** EXPOSANT_PUISSANCE_POMPE
             q[bf(b)] += q_pompe
             e.q_pompes_kw += q_pompe
+        for w in e.w_rra_kg_s:                       # RRA : plénum → (échangeur) → descente
+            if w > 0.0:
+                ecoulement(PLENUM, DESCENTE, w)
+        q[DESCENTE] -= q_rra_kw
         q[COEUR] += q_coeur_kw
-        q[bf(cfg.boucle_charge)] += qm_charge_kg_s * (h_charge_kj_kg - h[bf(cfg.boucle_charge)])
+        qm_apports = 0.0
+        for noeud, debit, h_entree in apports_externes:
+            q[noeud] += debit * (h_entree - h[noeud])
+            qm_apports += debit
         if e.qm_expansion_kg_s < 0.0:      # le PZR se vide dans la branche chaude B2
             q[bc(cfg.boucle_expansion)] += -e.qm_expansion_kg_s * (hf_pzr_kj_kg - h[bc(cfg.boucle_expansion)])
 
@@ -202,7 +218,7 @@ class CircuitPrimaire:
         e.t_c = nouveau
         # dilatation → ligne d'expansion (conservation exacte de la masse)
         masse = self.masse_liquide_kg()
-        e.qm_expansion_kg_s = ((e.masse_liquide_kg - masse) / dt + qm_charge_kg_s - qm_decharge_kg_s
+        e.qm_expansion_kg_s = ((e.masse_liquide_kg - masse) / dt + qm_apports - qm_sorties_kg_s
                                - qm_aspersion_kg_s)
         e.masse_liquide_kg = masse
 
@@ -217,6 +233,7 @@ class CircuitPrimaire:
         return {"t_c": dict(e.t_c), "w_boucles_kg_s": list(e.w_boucles_kg_s), "w_cuve_kg_s": e.w_cuve_kg_s,
                 "masse_liquide_kg": e.masse_liquide_kg, "qm_expansion_kg_s": e.qm_expansion_kg_s,
                 "q_gv_kw": list(e.q_gv_kw), "q_pompes_kw": e.q_pompes_kw, "huile_s": list(e.huile_s),
+                "w_rra_kg_s": list(e.w_rra_kg_s),
                 "reseau_p_bar": dict(self.reseau.etat.p_bar)}
 
     def importer_etat(self, d: dict[str, Any]) -> None:
